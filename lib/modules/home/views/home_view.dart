@@ -5,6 +5,17 @@ class HomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text("Home Screen")));
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Ana Sayfa ⚽"),
+        centerTitle: true,
+      ),
+      body: const Center(
+        child: Text(
+          "Home UI Başladı",
+          style: TextStyle(fontSize: 22),
+        ),
+      ),
+    );
   }
 }

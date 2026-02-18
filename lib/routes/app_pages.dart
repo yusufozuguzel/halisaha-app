@@ -3,6 +3,7 @@ import '../modules/auth/views/auth_view.dart';
 import '../modules/home/views/home_view.dart';
 import 'app_routes.dart';
 
+
 class AppPages {
   static const initial = AppRoutes.AUTH;
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "2273283642",
+    "project_id": "halisaha-app-d9ea1",
+    "storage_bucket": "halisaha-app-d9ea1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2273283642:android:f98b47c2b3ed52dbb72f03",
+        "android_client_info": {
+          "package_name": "com.example.halisaha_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3foQkszRJEWjnUNahyvliOl3beaGlmg0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

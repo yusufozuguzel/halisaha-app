@@ -1,8 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'my_matches_view.dart';
+import 'notifications_view.dart';
+import 'discover_view.dart';
+import 'profile_view.dart';
 
-class HomeView extends StatelessWidget {
+class HomeView extends StatefulWidget {
   final String userName;
   const HomeView({super.key, required this.userName});
+
+  @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,11 +103,40 @@ class HomeView extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildNavBarItem(Icons.home_filled, 'Ana Sayfa', true),
-              _buildNavBarItem(Icons.sports_soccer, 'Maçlarım', false),
+              _buildNavBarItem(
+                Icons.home_filled,
+                'Ana Sayfa',
+                true,
+                onTap: () {},
+              ),
+              _buildNavBarItem(
+                Icons.sports_soccer,
+                'Maçlarım',
+                false,
+                onTap: () => Get.offAll(
+                  () => const MyMatchesView(),
+                  transition: Transition.noTransition,
+                ),
+              ),
               const SizedBox(width: 48), // Orta boşluk (Floating Button için)
-              _buildNavBarItem(Icons.explore_outlined, 'Keşfet', false),
-              _buildNavBarItem(Icons.person_outline, 'Profil', false),
+              _buildNavBarItem(
+                Icons.explore_outlined,
+                'Keşfet',
+                false,
+                onTap: () => Get.offAll(
+                  () => const DiscoverView(),
+                  transition: Transition.noTransition,
+                ),
+              ),
+              _buildNavBarItem(
+                Icons.person_outline,
+                'Profil',
+                false,
+                onTap: () => Get.offAll(
+                  () => const ProfileView(),
+                  transition: Transition.noTransition,
+                ),
+              ),
             ],
           ),
         ),
@@ -97,35 +144,48 @@ class HomeView extends StatelessWidget {
     );
   }
 
-  Widget _buildNavBarItem(IconData icon, String label, bool isActive) {
+  Widget _buildNavBarItem(
+    IconData icon,
+    String label,
+    bool isActive, {
+    required VoidCallback onTap,
+  }) {
     // Aktif renk: Neon Yeşil (#2EED7B), Pasif: Gri
     final color = isActive
         ? const Color(0xFF2EED7B)
-        : Colors.white.withOpacity(0.4);
+        : Colors.white.withValues(alpha: 0.4);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color, size: 26),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 10,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      splashColor: const Color(0xFF2EED7B).withValues(alpha: 0.15),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 26),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            // Aktif sekme göstergesi (küçük nokta)
+            if (isActive)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+          ],
         ),
-        // Aktif sekme göstergesi (küçük nokta)
-        if (isActive)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            width: 4,
-            height: 4,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-      ],
+      ),
     );
   }
 
@@ -148,7 +208,7 @@ class HomeView extends StatelessWidget {
                   color: Colors.grey[800],
                   image: const DecorationImage(
                     image: NetworkImage(
-                      'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=1974&auto=format&fit=crop',
+                      'https://picsum.photos/seed/avatar1/200/200',
                     ), // Placeholder Avatar
                     fit: BoxFit.cover,
                   ),
@@ -194,7 +254,7 @@ class HomeView extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    '$userName 👋', // Dinamik İsim
+                    '${widget.userName} 👋', // Dinamik İsim
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -208,34 +268,41 @@ class HomeView extends StatelessWidget {
           ),
           const Spacer(),
           // Bildirim İkonu
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              shape: BoxShape.circle,
+          GestureDetector(
+            onTap: () => Get.to(
+              () => const NotificationsView(),
+              transition: Transition.fadeIn,
+              duration: const Duration(milliseconds: 300),
             ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                const Icon(
-                  Icons.notifications_outlined,
-                  color: Colors.white,
-                  size: 22,
-                ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.redAccent,
-                      shape: BoxShape.circle,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.notifications_outlined,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -253,120 +320,128 @@ class HomeView extends StatelessWidget {
         children: [
           // Sol Kart: Yeni Maç Başlat (Yeşil)
           Expanded(
-            child: Container(
-              height: 120, // Görseldeki gibi karemsi oran
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2EED7B), // Neon Yeşil
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF2EED7B).withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                height: 120,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2EED7B), // Neon Yeşil
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2EED7B).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
                     ),
-                    child: const Icon(
-                      Icons.add,
-                      color: Color(0xFF0F1712),
-                      size: 24,
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Color(0xFF0F1712),
+                        size: 22,
+                      ),
                     ),
-                  ),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Organizasyon',
-                        style: TextStyle(
-                          color: Color(0xFF0F1712),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Organizasyon',
+                          style: TextStyle(
+                            color: Color(0xFF0F1712),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Yeni Maç\nBaşlat',
-                        style: TextStyle(
-                          color: Color(0xFF0F1712),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          height: 1.1,
-                          decoration: TextDecoration.none,
+                        SizedBox(height: 2),
+                        Text(
+                          'Yeni Maç\nBaşlat',
+                          style: TextStyle(
+                            color: Color(0xFF0F1712),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            height: 1.1,
+                            decoration: TextDecoration.none,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
           const SizedBox(width: 16),
           // Sağ Kart: Bir Maça Katıl (Koyu)
           Expanded(
-            child: Container(
-              height: 120,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.qr_code_scanner_rounded,
-                      color: Color(0xFF2EED7B),
-                      size: 20,
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Kod veya Link',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          decoration: TextDecoration.none,
-                        ),
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                height: 120,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Bir Maça\nKatıl',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          height: 1.1,
-                          decoration: TextDecoration.none,
-                        ),
+                      child: const Icon(
+                        Icons.qr_code_scanner_rounded,
+                        color: Color(0xFF2EED7B),
+                        size: 20,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Kod veya Link',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Bir Maça\nKatıl',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            height: 1.1,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -418,7 +493,7 @@ class HomeView extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             image: const DecorationImage(
               image: NetworkImage(
-                'https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=2070&auto=format&fit=crop',
+                'https://picsum.photos/seed/field1/800/400',
               ), // Halı Saha Görseli
               fit: BoxFit.cover,
             ),
@@ -550,15 +625,15 @@ class HomeView extends StatelessWidget {
                                 children: [
                                   _buildAvatarPlaceholder(
                                     0,
-                                    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1000&auto=format&fit=crop',
+                                    'https://picsum.photos/seed/av2/100/100',
                                   ),
                                   _buildAvatarPlaceholder(
                                     24,
-                                    'https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=1000&auto=format&fit=crop',
+                                    'https://picsum.photos/seed/av3/100/100',
                                   ),
                                   _buildAvatarPlaceholder(
                                     48,
-                                    'https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=1000&auto=format&fit=crop',
+                                    'https://picsum.photos/seed/av4/100/100',
                                   ),
                                   Positioned(
                                     left: 72,
@@ -659,9 +734,27 @@ class HomeView extends StatelessWidget {
               ),
               Row(
                 children: [
-                  _buildArrowButton(Icons.arrow_back),
+                  GestureDetector(
+                    onTap: () {
+                      _scrollController.animateTo(
+                        _scrollController.offset - 250,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: _buildArrowButton(Icons.arrow_back),
+                  ),
                   const SizedBox(width: 8),
-                  _buildArrowButton(Icons.arrow_forward),
+                  GestureDetector(
+                    onTap: () {
+                      _scrollController.animateTo(
+                        _scrollController.offset + 250,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: _buildArrowButton(Icons.arrow_forward),
+                  ),
                 ],
               ),
             ],
@@ -671,6 +764,7 @@ class HomeView extends StatelessWidget {
         SizedBox(
           height: 180,
           child: ListView(
+            controller: _scrollController,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
             children: [
@@ -678,14 +772,14 @@ class HomeView extends StatelessWidget {
                 'Vadi İstanbul Arena',
                 'Sarıyer, İstanbul',
                 '4.8',
-                'https://images.unsplash.com/photo-1522778119026-d647f0565c6a?q=80&w=2070&auto=format&fit=crop',
+                'https://picsum.photos/seed/field2/800/400',
               ),
               const SizedBox(width: 16),
               _buildFieldCard(
                 'Kadıköy Spor Kompleksi',
                 'Kadıköy, İstanbul',
                 '4.5',
-                'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?q=80&w=1949&auto=format&fit=crop',
+                'https://picsum.photos/seed/field3/800/400',
               ),
             ],
           ),
@@ -820,8 +914,7 @@ class HomeView extends StatelessWidget {
             name: 'Mehmet',
             action: 'bir maç oluşturdu.',
             time: '2 saat önce • Ataşehir Arena',
-            avatarUrl:
-                'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop',
+            avatarUrl: 'https://picsum.photos/seed/friend1/100/100',
             showJoinButton: true,
             icon: Icons.sports_soccer,
             iconColor: Colors.blue,
@@ -832,8 +925,7 @@ class HomeView extends StatelessWidget {
             name: 'Ayşe',
             action: '"Salı Futbolu" maçına katıldı.',
             time: '4 saat önce',
-            avatarUrl:
-                'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=1000&auto=format&fit=crop',
+            avatarUrl: 'https://picsum.photos/seed/friend2/100/100',
             showJoinButton: false,
             icon: Icons.check,
             iconColor: const Color(0xFF2EED7B),

@@ -1,25 +1,37 @@
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   var isLogin = true.obs;
 
   Future<void> submit(String email, String password) async {
     try {
+      UserCredential userCredential;
+
       if (isLogin.value) {
-        await _auth.signInWithEmailAndPassword(
+        userCredential = await _auth.signInWithEmailAndPassword(
           email: email.trim(),
           password: password.trim(),
         );
       } else {
-        await _auth.createUserWithEmailAndPassword(
+        userCredential = await _auth.createUserWithEmailAndPassword(
           email: email.trim(),
           password: password.trim(),
         );
+
+        await _firestore.collection("users").doc(userCredential.user!.uid).set({
+          "email": email.trim(),
+          "createdAt": Timestamp.now(),
+        });
       }
+
       Get.snackbar("Başarılı", "İşlem tamamlandı");
+
+      Get.offAllNamed('/home');
     } on FirebaseAuthException catch (e) {
       Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
     }

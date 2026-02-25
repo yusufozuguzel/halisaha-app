@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:halisaha_app/routes/app_routes.dart';
 
 class AuthController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -20,6 +21,8 @@ class AuthController extends GetxController {
         );
       }
       Get.snackbar("Başarılı", "İşlem tamamlandı");
+
+      Get.offAllNamed(Routes.HOME);
     } on FirebaseAuthException catch (e) {
       Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
     }

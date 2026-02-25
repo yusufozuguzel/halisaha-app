@@ -11,10 +11,11 @@ class AuthView extends GetView<AuthController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Login / Register")),
+      appBar: AppBar(title: const Text("Auth")),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextField(
               controller: emailController,
@@ -26,24 +27,26 @@ class AuthView extends GetView<AuthController> {
               obscureText: true,
             ),
             const SizedBox(height: 20),
-
             Obx(
               () => ElevatedButton(
-                onPressed: () {
-                  controller.submit(
-                    emailController.text,
-                    passwordController.text,
-                  );
-                },
+                onPressed: () => controller.submit(
+                  emailController.text,
+                  passwordController.text,
+                ),
                 child: Text(controller.isLogin.value ? "Login" : "Register"),
               ),
             ),
-
             TextButton(
               onPressed: () {
                 controller.isLogin.toggle();
               },
-              child: const Text("Switch Mode"),
+              child: Obx(
+                () => Text(
+                  controller.isLogin.value
+                      ? "Hesabın yok mu? Register"
+                      : "Zaten hesabın var mı? Login",
+                ),
+              ),
             ),
           ],
         ),

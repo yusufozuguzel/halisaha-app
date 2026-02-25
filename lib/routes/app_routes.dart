@@ -1,4 +1,5 @@
-abstract class Routes {
+abstract class AppRoutes {
+  static const ROOT = '/';
   static const AUTH = '/auth';
-  static const HOME = '/home'; // Ana sayfa rotamızı ekledik
+  static const HOME = '/home';
 }

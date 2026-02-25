@@ -36,4 +36,8 @@ class AuthController extends GetxController {
       Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
     }
   }
+
+  Future<void> logout() async {
+    await _auth.signOut();
+  }
 }

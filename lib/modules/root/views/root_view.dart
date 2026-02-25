@@ -20,7 +20,7 @@ class RootView extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          return HomeView();
+          return HomeView(userName: '',);
         } else {
           return AuthView();
         }

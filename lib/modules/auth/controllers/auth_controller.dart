@@ -10,25 +10,28 @@ class AuthController extends GetxController {
 
   Future<void> submit(String email, String password) async {
     try {
+      UserCredential userCredential;
+
       if (isLogin.value) {
-        await _auth.signInWithEmailAndPassword(
+        userCredential = await _auth.signInWithEmailAndPassword(
           email: email.trim(),
           password: password.trim(),
         );
       } else {
-        UserCredential userCredential = await _auth
-            .createUserWithEmailAndPassword(
-              email: email.trim(),
-              password: password.trim(),
-            );
+        userCredential = await _auth.createUserWithEmailAndPassword(
+          email: email.trim(),
+          password: password.trim(),
+        );
 
-        await _firestore.collection('users').doc(userCredential.user!.uid).set({
-          'email': email.trim(),
-          'createdAt': FieldValue.serverTimestamp(),
+        await _firestore.collection("users").doc(userCredential.user!.uid).set({
+          "email": email.trim(),
+          "createdAt": Timestamp.now(),
         });
       }
 
       Get.snackbar("Başarılı", "İşlem tamamlandı");
+
+      Get.offAllNamed('/home');
     } on FirebaseAuthException catch (e) {
       Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
     }

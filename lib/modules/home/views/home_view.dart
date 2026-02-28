@@ -4,6 +4,7 @@ import 'my_matches_view.dart';
 import 'notifications_view.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
+import '../../../routes/app_routes.dart';
 
 class HomeView extends StatefulWidget {
   final String userName;
@@ -50,25 +51,28 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
       ),
-      floatingActionButton: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: const Color(0xFF2EED7B), // Neon Yeşil
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF2EED7B).withOpacity(0.4),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.add,
-          size: 32,
-          color: Color(0xFF0F1712), // Koyu İkon Rengi
+      floatingActionButton: GestureDetector(
+        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2EED7B), // Neon Yeşil
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2EED7B).withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.add,
+            size: 32,
+            color: Color(0xFF0F1712), // Koyu İkon Rengi
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -321,7 +325,7 @@ class _HomeViewState extends State<HomeView> {
           // Sol Kart: Yeni Maç Başlat (Yeşil)
           Expanded(
             child: GestureDetector(
-              onTap: () {},
+              onTap: () => Get.toNamed(Routes.MATCH_CREATE),
               child: Container(
                 height: 120,
                 padding: const EdgeInsets.all(12),

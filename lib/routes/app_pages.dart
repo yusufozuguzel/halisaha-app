@@ -1,7 +1,9 @@
 import 'package:get/get.dart';
 import 'package:halisaha_app/modules/home/views/home_view.dart';
+import 'package:halisaha_app/modules/match/views/match_create_view.dart';
 import '../modules/auth/views/auth_view.dart';
 import '../modules/auth/bindings/auth_binding.dart';
+import '../modules/match/bindings/match_create_binding.dart';
 import 'app_routes.dart';
 
 class AppPages {
@@ -12,6 +14,11 @@ class AppPages {
     GetPage(
       name: Routes.HOME,
       page: () => const HomeView(userName: "Ahmet Yılmaz"),
+    ),
+    GetPage(
+      name: Routes.MATCH_CREATE,
+      page: () => const MatchCreateView(),
+      binding: MatchCreateBinding(),
     ),
   ];
 }

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'home_view.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
+import '../../../routes/app_routes.dart';
 
 class MyMatchesView extends StatefulWidget {
   const MyMatchesView({super.key});
@@ -25,23 +26,23 @@ class _MyMatchesViewState extends State<MyMatchesView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgColor,
-      floatingActionButton: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: _neonGreen,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: _neonGreen.withValues(alpha: 0.4),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: GestureDetector(
-          onTap: () {},
+      floatingActionButton: GestureDetector(
+        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: _neonGreen,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: _neonGreen.withValues(alpha: 0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: const Icon(Icons.add, size: 32, color: Color(0xFF0F1712)),
         ),
       ),

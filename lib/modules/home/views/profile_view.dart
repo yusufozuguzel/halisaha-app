@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../auth/controllers/auth_controller.dart';
 import 'home_view.dart';
 import 'my_matches_view.dart';
 import 'discover_view.dart';
@@ -401,6 +402,7 @@ class _ProfileViewState extends State<ProfileView> {
         onPressed: () {
           Get.back();
           // Gerçek çıkış mantığı buraya eklenebilir
+          Get.find<AuthController>().logout();
           Get.snackbar(
             'Çıkış',
             'Güvenli şekilde çıkış yapıldı.',

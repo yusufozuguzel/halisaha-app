@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
+import 'package:get_storage/get_storage.dart';
 
 class AuthView extends GetView<AuthController> {
   const AuthView({super.key});
@@ -36,6 +37,17 @@ class _LoginFormState extends State<_LoginForm> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool obscureText = true;
+  bool rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final savedEmail = GetStorage().read<String>('rememberedEmail');
+    if (savedEmail != null && savedEmail.isNotEmpty) {
+      emailController.text = savedEmail;
+      rememberMe = true;
+    }
+  }
 
   @override
   void dispose() {
@@ -88,7 +100,7 @@ class _LoginFormState extends State<_LoginForm> {
           ),
           const SizedBox(height: 40),
           const Text(
-            "Email",
+            "Email veya Kullanıcı Adı",
             style: TextStyle(
               color: Colors.white,
               fontSize: 14,
@@ -98,7 +110,7 @@ class _LoginFormState extends State<_LoginForm> {
           const SizedBox(height: 8),
           _CustomTextField(
             controller: emailController,
-            hintText: "ornek@email.com",
+            hintText: "ornek@email.com veya Kullanıcı Adı",
             prefixIcon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
           ),
@@ -149,11 +161,32 @@ class _LoginFormState extends State<_LoginForm> {
               },
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Checkbox(
+                value: rememberMe,
+                onChanged: (val) {
+                  setState(() {
+                    rememberMe = val ?? false;
+                  });
+                },
+                activeColor: const Color(0xFF2EED7B),
+                checkColor: Colors.black,
+                side: BorderSide(color: Colors.white.withOpacity(0.5)),
+              ),
+              const Text(
+                "Beni Hatırla",
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () => widget.controller.login(
               emailController.text,
               passwordController.text,
+              rememberMe: rememberMe,
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2EED7B),

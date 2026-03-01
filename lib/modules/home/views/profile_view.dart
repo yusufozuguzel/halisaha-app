@@ -1,13 +1,13 @@
+import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../auth/controllers/auth_controller.dart';
 import 'home_view.dart';
 import 'my_matches_view.dart';
 import 'discover_view.dart';
-import '../../../routes/app_routes.dart';
 
 // ============================================================
 // PROFILE VIEW
@@ -24,11 +24,10 @@ class _ProfileViewState extends State<ProfileView> {
   static const _card = Color(0xFF16221A);
   static const _green = Color(0xFF2EED7B);
 
-  // Editable profile state
-  String _name = 'Recep Onur Demiray';
-  String _position = 'ORTA SAHA';
-  String _avatarUrl = 'https://picsum.photos/seed/profile1/200/200';
-  File? _avatarFile; // Yerel seçilen fotoğrafı tutmak için
+  // Editable profile state (Will be overridden by Stream)
+  String _name = '...';
+  String _position = '...';
+  String _avatarUrl = '...';
 
   // Radar values (0.0 – 1.0)
   final Map<String, double> _radarValues = {
@@ -42,6 +41,7 @@ class _ProfileViewState extends State<ProfileView> {
   void _showEditSheet() {
     final nameCtrl = TextEditingController(text: _name);
     final posCtrl = TextEditingController(text: _position);
+    final avatarCtrl = TextEditingController(text: _avatarUrl);
 
     Get.bottomSheet(
       StatefulBuilder(
@@ -88,7 +88,7 @@ class _ProfileViewState extends State<ProfileView> {
                   const SizedBox(height: 14),
                   _editField('Mevki', posCtrl, Icons.sports_soccer),
                   const SizedBox(height: 14),
-                  _buildEditAvatarPicker(setSheet),
+                  _editField('Avatar Link', avatarCtrl, Icons.image_outlined),
                   const SizedBox(height: 28),
                   SizedBox(
                     width: double.infinity,
@@ -101,6 +101,9 @@ class _ProfileViewState extends State<ProfileView> {
                           _position = posCtrl.text.trim().isEmpty
                               ? _position
                               : posCtrl.text.trim().toUpperCase();
+                          _avatarUrl = avatarCtrl.text.trim().isEmpty
+                              ? _avatarUrl
+                              : avatarCtrl.text.trim();
                         });
                         Get.back();
                       },
@@ -171,196 +174,6 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildEditAvatarPicker(StateSetter setSheet) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Profil Fotoğrafı',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
-            fontSize: 12,
-            decoration: TextDecoration.none,
-          ),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () {
-            // Edit profil penceresini kapatıp ImagePickerSheet'i aç
-            Get.back();
-            _showImagePickerSheet();
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F1712),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _card,
-                    image: DecorationImage(
-                      image: _avatarFile != null
-                          ? FileImage(_avatarFile!) as ImageProvider
-                          : NetworkImage(_avatarUrl),
-                      fit: BoxFit.cover,
-                    ),
-                    border: Border.all(
-                      color: _green.withOpacity(0.5),
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: Text(
-                    'Profil Fotoğrafını Değiştir',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.camera_alt,
-                  color: _green.withOpacity(0.8),
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Image Picker Bottom Sheet ──────────────────────────────
-  void _showImagePickerSheet() {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.only(
-          top: 24,
-          bottom: 32,
-          left: 24,
-          right: 24,
-        ),
-        decoration: const BoxDecoration(
-          color: Color(0xFF16221A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Profil Fotoğrafı Seç',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                decoration: TextDecoration.none,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _pickerOption(
-              icon: Icons.camera_alt_outlined,
-              label: 'Kamera ile Çek',
-              onTap: () async {
-                Get.back(); // Menüyü kapat
-                final picker = ImagePicker();
-                final pickedFile = await picker.pickImage(
-                  source: ImageSource.camera,
-                );
-                if (pickedFile != null) {
-                  setState(() {
-                    _avatarFile = File(pickedFile.path);
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-            _pickerOption(
-              icon: Icons.photo_library_outlined,
-              label: 'Galeriden Seç',
-              onTap: () async {
-                Get.back(); // Menüyü kapat
-                final picker = ImagePicker();
-                final pickedFile = await picker.pickImage(
-                  source: ImageSource.gallery,
-                );
-                if (pickedFile != null) {
-                  setState(() {
-                    _avatarFile = File(pickedFile.path);
-                  });
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
-  }
-
-  Widget _pickerOption({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F1712),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: _green, size: 24),
-            const SizedBox(width: 16),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
-              ),
-            ),
-            const Spacer(),
-            Icon(
-              Icons.chevron_right,
-              color: Colors.white.withOpacity(0.3),
-              size: 20,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -441,25 +254,22 @@ class _ProfileViewState extends State<ProfileView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      floatingActionButton: GestureDetector(
-        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: _green,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: _green.withOpacity(0.4),
-                blurRadius: 20,
-                spreadRadius: 2,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.add, size: 32, color: Color(0xFF0F1712)),
+      floatingActionButton: Container(
+        width: 64,
+        height: 64,
+        decoration: BoxDecoration(
+          color: _green,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: _green.withOpacity(0.4),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
+        child: const Icon(Icons.add, size: 32, color: Color(0xFF0F1712)),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomNav(),
@@ -484,124 +294,178 @@ class _ProfileViewState extends State<ProfileView> {
 
   // ── Profile Card ───────────────────────────────────────────
   Widget _buildProfileCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-      child: Stack(
-        children: [
-          Column(
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.all(40),
+            child: CircularProgressIndicator(color: Color(0xFF2EED7B)),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final fullName = data['fullName'] ?? data['name'] ?? 'Lig Oyuncusu';
+        final position = data['position'] ?? 'BELİRSİZ';
+        final avatarType = data['avatarType'] ?? 'icon';
+        final avatarData = data['avatarData'] ?? '0';
+
+        // Update local state lightly for Edit BottomSheet defaults
+        _name = fullName;
+        _position = position;
+
+        Widget avatarWidget;
+        if (avatarType == 'base64' && avatarData.isNotEmpty) {
+          try {
+            avatarWidget = Image.memory(
+              base64Decode(avatarData),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  const Icon(Icons.person, color: Colors.white, size: 40),
+            );
+          } catch (e) {
+            avatarWidget = const Icon(
+              Icons.person,
+              color: Colors.white,
+              size: 40,
+            );
+          }
+        } else {
+          final iconIndex = int.tryParse(avatarData) ?? 0;
+          final List<IconData> defaultIcons = [
+            Icons.person,
+            Icons.sports_soccer,
+            Icons.sports_martial_arts,
+            Icons.face,
+          ];
+          avatarWidget = Icon(
+            defaultIcons[iconIndex % defaultIcons.length],
+            color: Colors.white,
+            size: 40,
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+          child: Stack(
             children: [
-              // Avatar (Tıklanabilir)
-              GestureDetector(
-                onTap: _showImagePickerSheet,
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _card,
-                        image: DecorationImage(
-                          image: _avatarFile != null
-                              ? FileImage(_avatarFile!) as ImageProvider
-                              : NetworkImage(_avatarUrl),
-                          fit: BoxFit.cover,
-                        ),
-                        border: Border.all(
-                          color: _green.withOpacity(0.5),
-                          width: 3,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 2,
-                      right: 2,
-                      child: Container(
-                        width: 28,
-                        height: 28,
+              Column(
+                children: [
+                  // Avatar
+                  Stack(
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
                         decoration: BoxDecoration(
-                          color: _green,
                           shape: BoxShape.circle,
-                          border: Border.all(color: _bg, width: 2),
+                          color: _card,
+                          border: Border.all(
+                            color: _green.withOpacity(0.5),
+                            width: 3,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Color(0xFF0F1712),
-                          size: 14,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(50),
+                          child: avatarWidget,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: _green.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _green.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: _green,
-                        shape: BoxShape.circle,
+                      Positioned(
+                        bottom: 2,
+                        right: 2,
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: _card,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: _bg, width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.settings,
+                            color: Colors.white60,
+                            size: 14,
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    fullName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _position,
-                      style: const TextStyle(
-                        color: _green,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
-                        decoration: TextDecoration.none,
-                      ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 5,
                     ),
-                  ],
+                    decoration: BoxDecoration(
+                      color: _green.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _green.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: _green,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          position.toString().toUpperCase(),
+                          style: const TextStyle(
+                            color: _green,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              // Edit icon (top-right)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: InkWell(
+                  onTap: _showEditSheet,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      color: Colors.white.withOpacity(0.5),
+                      size: 20,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-          // Edit icon (top-right)
-          Positioned(
-            top: 0,
-            right: 0,
-            child: InkWell(
-              onTap: _showEditSheet,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Icon(
-                  Icons.edit_outlined,
-                  color: Colors.white.withOpacity(0.5),
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

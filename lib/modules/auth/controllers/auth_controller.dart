@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:get_storage/get_storage.dart';
 import '../../../routes/app_routes.dart';
 
 class AuthController extends GetxController {
@@ -22,20 +23,66 @@ class AuthController extends GetxController {
     ever(firebaseUser, _setInitialScreen);
   }
 
-  _setInitialScreen(User? user) {
+  Future<void> _setInitialScreen(User? user) async {
     if (user == null) {
       Get.offAllNamed(Routes.AUTH);
     } else {
-      Get.offAllNamed(Routes.HOME);
+      try {
+        final doc = await _firestore.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+          final isComplete = data['isProfileComplete'] ?? false;
+          if (isComplete) {
+            Get.offAllNamed(Routes.HOME);
+          } else {
+            Get.offAllNamed(Routes.PROFILE_SETUP);
+          }
+        } else {
+          // If no doc exists somehow, force profile setup
+          Get.offAllNamed(Routes.PROFILE_SETUP);
+        }
+      } catch (e) {
+        // Fallback
+        Get.offAllNamed(Routes.HOME);
+      }
     }
   }
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(
+    String input,
+    String password, {
+    bool rememberMe = false,
+  }) async {
     try {
+      String emailToLogin = input.trim();
+
+      // Check if it's a username (no @ symbol)
+      if (!emailToLogin.contains('@')) {
+        final querySnapshot = await _firestore
+            .collection('users')
+            .where('name', isEqualTo: emailToLogin)
+            .limit(1)
+            .get();
+
+        if (querySnapshot.docs.isEmpty) {
+          Get.snackbar("Hata", "Kullanıcı adı bulunamadı");
+          return;
+        }
+
+        emailToLogin = querySnapshot.docs.first.data()['email'] ?? '';
+      }
+
       await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
+        email: emailToLogin,
         password: password.trim(),
       );
+
+      if (rememberMe) {
+        GetStorage().write('rememberedEmail', input.trim());
+      } else {
+        GetStorage().remove('rememberedEmail');
+      }
+
       Get.snackbar("Başarılı", "Giriş yapıldı");
     } on FirebaseAuthException catch (e) {
       Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
@@ -67,6 +114,7 @@ class AuthController extends GetxController {
   Future<void> logout() async {
     try {
       await _auth.signOut();
+      isLogin.value = true;
       // Notice: we don't need any manual routing here either
     } catch (e) {
       Get.snackbar("Hata", "Çıkış yapılırken bir hata oluştu: ${e.toString()}");

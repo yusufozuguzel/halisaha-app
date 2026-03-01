@@ -1,10 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'my_matches_view.dart';
 import 'notifications_view.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
-import '../../../routes/app_routes.dart';
 
 class HomeView extends StatefulWidget {
   final String userName;
@@ -51,28 +53,25 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
       ),
-      floatingActionButton: GestureDetector(
-        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2EED7B), // Neon Yeşil
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF2EED7B).withOpacity(0.4),
-                blurRadius: 20,
-                spreadRadius: 2,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.add,
-            size: 32,
-            color: Color(0xFF0F1712), // Koyu İkon Rengi
-          ),
+      floatingActionButton: Container(
+        width: 64,
+        height: 64,
+        decoration: BoxDecoration(
+          color: const Color(0xFF2EED7B), // Neon Yeşil
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2EED7B).withOpacity(0.4),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.add,
+          size: 32,
+          color: Color(0xFF0F1712), // Koyu İkon Rengi
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -197,120 +196,184 @@ class _HomeViewState extends State<HomeView> {
   // 1. Header: Profil Fotoğrafı, Hoş geldin Yazısı ve Bildirim İkonu
   // -----------------------------------------------------------------------------
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-      child: Row(
-        children: [
-          // Profil Fotoğrafı (Avatar)
-          Stack(
-            children: [
-              Container(
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Center(
+              child: CircularProgressIndicator(color: Color(0xFF2EED7B)),
+            ),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final fullName = data['fullName'] ?? data['name'] ?? widget.userName;
+        final avatarType = data['avatarType'] ?? 'icon';
+        final avatarData = data['avatarData'] ?? '0';
+
+        Widget avatarWidget;
+        if (avatarType == 'base64' && avatarData.isNotEmpty) {
+          try {
+            avatarWidget = ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.memory(
+                base64Decode(avatarData),
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[800],
-                  image: const DecorationImage(
-                    image: NetworkImage(
-                      'https://picsum.photos/seed/avatar1/200/200',
-                    ), // Placeholder Avatar
-                    fit: BoxFit.cover,
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.person, color: Colors.white, size: 24),
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2EED7B), // Online Durum
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF0F1712),
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          // İsim ve Selamlama
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Hoş geldin,',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    '${widget.userName} 👋', // Dinamik İsim
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const Spacer(),
-          // Bildirim İkonu
-          GestureDetector(
-            onTap: () => Get.to(
-              () => const NotificationsView(),
-              transition: Transition.fadeIn,
-              duration: const Duration(milliseconds: 300),
+            );
+          } catch (e) {
+            avatarWidget = const Icon(
+              Icons.person,
+              color: Colors.white,
+              size: 24,
+            );
+          }
+        } else {
+          // Default icons mapping based on ProfileSetupController logic
+          final iconIndex = int.tryParse(avatarData) ?? 0;
+          final List<IconData> defaultIcons = [
+            Icons.person,
+            Icons.sports_soccer,
+            Icons.sports_martial_arts,
+            Icons.face,
+          ];
+          avatarWidget = Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.grey[800],
+              shape: BoxShape.circle,
             ),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                shape: BoxShape.circle,
-              ),
-              child: Stack(
-                alignment: Alignment.center,
+            child: Icon(
+              defaultIcons[iconIndex % defaultIcons.length],
+              color: Colors.white,
+              size: 24,
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Row(
+            children: [
+              // Profil Fotoğrafı (Avatar)
+              Stack(
                 children: [
-                  const Icon(
-                    Icons.notifications_outlined,
-                    color: Colors.white,
-                    size: 22,
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: avatarWidget,
                   ),
                   Positioned(
-                    top: 10,
-                    right: 10,
+                    bottom: 0,
+                    right: 0,
                     child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.redAccent,
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2EED7B), // Online Durum
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF0F1712),
+                          width: 2,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(width: 12),
+              // İsim ve Selamlama
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hoş geldin,',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '$fullName 👋', // Dinamik İsim
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const Spacer(),
+              // Bildirim İkonu
+              GestureDetector(
+                onTap: () => Get.to(
+                  () => const NotificationsView(),
+                  transition: Transition.fadeIn,
+                  duration: const Duration(milliseconds: 300),
+                ),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.redAccent,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -325,7 +388,7 @@ class _HomeViewState extends State<HomeView> {
           // Sol Kart: Yeni Maç Başlat (Yeşil)
           Expanded(
             child: GestureDetector(
-              onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+              onTap: () {},
               child: Container(
                 height: 120,
                 padding: const EdgeInsets.all(12),

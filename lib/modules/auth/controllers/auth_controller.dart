@@ -30,31 +30,34 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> submit(String email, String password) async {
+  Future<void> login(String email, String password) async {
     try {
-      UserCredential userCredential;
+      await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+      Get.snackbar("Başarılı", "Giriş yapıldı");
+    } on FirebaseAuthException catch (e) {
+      Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
+    }
+  }
 
-      if (isLogin.value) {
-        userCredential = await _auth.signInWithEmailAndPassword(
-          email: email.trim(),
-          password: password.trim(),
-        );
-      } else {
-        userCredential = await _auth.createUserWithEmailAndPassword(
-          email: email.trim(),
-          password: password.trim(),
-        );
+  Future<void> register(String email, String password, String fullName) async {
+    try {
+      UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(
+            email: email.trim(),
+            password: password.trim(),
+          );
 
-        await _firestore.collection("users").doc(userCredential.user!.uid).set({
-          "email": email.trim(),
-          "createdAt": Timestamp.now(),
-        });
-      }
+      await _firestore.collection("users").doc(userCredential.user!.uid).set({
+        "uid": userCredential.user!.uid,
+        "email": email.trim(),
+        "name": fullName.trim(),
+        "createdAt": Timestamp.now(),
+      });
 
-      Get.snackbar("Başarılı", "İşlem tamamlandı");
-
-      // No need to manually route Get.offAllNamed('/home')
-      // ever(firebaseUser) will handle routing automatically.
+      Get.snackbar("Başarılı", "Kayıt işlemi tamamlandı");
     } on FirebaseAuthException catch (e) {
       Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
     }

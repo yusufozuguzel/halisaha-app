@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'home_view.dart';
 import 'my_matches_view.dart';
 import 'profile_view.dart';
-import '../../../routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../match/controllers/my_matches_controller.dart';
+import '../../match/controllers/match_create_controller.dart';
+import '../../match/views/match_create_view.dart';
 import '../controllers/discover_controller.dart';
 
 // ============================================================
@@ -75,7 +77,14 @@ class DiscoverView extends GetView<DiscoverController> {
     return Scaffold(
       backgroundColor: bg,
       floatingActionButton: GestureDetector(
-        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        onTap: () {
+          Get.put(MatchCreateController());
+          Get.to(
+            () => MatchCreateView(),
+            transition: Transition.downToUp,
+            duration: const Duration(milliseconds: 300),
+          );
+        },
         child: Container(
           width: 64,
           height: 64,
@@ -574,13 +583,19 @@ class DiscoverView extends GetView<DiscoverController> {
     final title = matchData['title'] ?? 'İsimsiz Maç';
     final venue = matchData['venue'] ?? 'Bilinmeyen Saha';
     final dateString = controller.formatDate(matchData['date']);
-    final maxPlayers = matchData['maxPlayers']?.toString() ?? '?';
-    final currentPlayers = matchData['currentPlayers'] as List<dynamic>?;
-    final currentCount = currentPlayers?.length.toString() ?? '1';
     final price = matchData['price']?.toString() ?? '0';
 
+    // Buton dinamiği hesabı
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final List<dynamic> currentPlayers = matchData['currentPlayers'] ?? [];
+
+    final bool isUserJoined = currentPlayers.contains(currentUserId);
+    final bool isCreator =
+        currentPlayers.isNotEmpty && currentPlayers.first == currentUserId;
+
     return Container(
-      width: 200,
+      width: 260,
+      margin: const EdgeInsets.only(right: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: card,
@@ -660,7 +675,7 @@ class DiscoverView extends GetView<DiscoverController> {
               Icon(Icons.people_outline, color: subText, size: 14),
               const SizedBox(width: 4),
               Text(
-                '$currentCount / $maxPlayers',
+                '${(matchData['currentPlayers'] as List?)?.length ?? 1} / ${matchData['maxPlayers'] ?? 14}',
                 style: TextStyle(
                   color: subText,
                   fontSize: 11,
@@ -670,20 +685,17 @@ class DiscoverView extends GetView<DiscoverController> {
               const Spacer(),
               InkWell(
                 onTap: () {
-                  Get.snackbar(
-                    'Katılım',
-                    '$title maçına katılım isteği gönderildi!',
-                    backgroundColor: const Color(0xFF1C3A24),
-                    colorText: _green,
-                    borderRadius: 12,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    snackPosition: SnackPosition.BOTTOM,
-                    duration: const Duration(seconds: 3),
-                    icon: const Icon(Icons.check_circle, color: _green),
-                  );
+                  if (isCreator) {
+                    controller.cancelMatch(matchData['id']);
+                  } else if (isUserJoined) {
+                    controller.leaveMatch(matchData['id'], currentPlayers);
+                  } else {
+                    controller.joinMatch(
+                      matchData['id'],
+                      currentPlayers,
+                      matchData['maxPlayers'] ?? 14,
+                    );
+                  }
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
@@ -694,12 +706,26 @@ class DiscoverView extends GetView<DiscoverController> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F1712), // Koyu arka plan
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _green.withOpacity(0.5)),
+                    border: Border.all(
+                      color: isCreator
+                          ? Colors.red
+                          : isUserJoined
+                          ? Colors.orangeAccent.shade700
+                          : _green.withOpacity(0.5),
+                    ),
                   ),
-                  child: const Text(
-                    'Katıl',
+                  child: Text(
+                    isCreator
+                        ? 'Maçı İptal Et'
+                        : isUserJoined
+                        ? 'Maçtan Ayrıl'
+                        : 'Maça Katıl',
                     style: TextStyle(
-                      color: _green,
+                      color: isCreator
+                          ? Colors.red
+                          : isUserJoined
+                          ? Colors.orangeAccent.shade700
+                          : _green,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                       decoration: TextDecoration.none,

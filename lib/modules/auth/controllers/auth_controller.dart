@@ -65,7 +65,10 @@ class AuthController extends GetxController {
             .get();
 
         if (querySnapshot.docs.isEmpty) {
-          Get.snackbar("Hata", "Kullanıcı adı bulunamadı");
+          Get.snackbar(
+            "Hata",
+            "Kullanıcı bulunamadı. Lütfen isminizi büyük/küçük harfe dikkat ederek doğru girdiğinizden emin olun.",
+          );
           return;
         }
 
@@ -86,6 +89,9 @@ class AuthController extends GetxController {
       Get.snackbar("Başarılı", "Giriş yapıldı");
     } on FirebaseAuthException catch (e) {
       Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
+    } catch (e) {
+      print("SİSTEM HATASI: $e");
+      Get.snackbar("Giriş Hatası", "Hata detayı: $e");
     }
   }
 

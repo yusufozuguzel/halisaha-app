@@ -4,9 +4,11 @@ import 'package:get/get.dart';
 import 'home_view.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
-import '../../../routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../match/controllers/my_matches_controller.dart';
+import '../../match/controllers/match_create_controller.dart';
+import '../../match/views/match_create_view.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MyMatchesView extends GetView<MyMatchesController> {
   MyMatchesView({super.key}) {
@@ -25,7 +27,14 @@ class MyMatchesView extends GetView<MyMatchesController> {
     return Scaffold(
       backgroundColor: bgColor,
       floatingActionButton: GestureDetector(
-        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        onTap: () {
+          Get.put(MatchCreateController());
+          Get.to(
+            () => MatchCreateView(),
+            transition: Transition.downToUp,
+            duration: const Duration(milliseconds: 300),
+          );
+        },
         child: Container(
           width: 64,
           height: 64,
@@ -72,33 +81,44 @@ class MyMatchesView extends GetView<MyMatchesController> {
                   );
                 }
 
-                if (controller.myMatches.isEmpty) {
+                final isUpcomingTab = _isUpcoming.value;
+                final displayedMatches = isUpcomingTab
+                    ? controller.upcomingMatches
+                    : controller.pastMatches;
+
+                if (displayedMatches.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.sports_soccer_outlined,
+                          isUpcomingTab
+                              ? Icons.sports_soccer_outlined
+                              : Icons.history,
                           size: 64,
                           color: neonGreen.withOpacity(0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Henüz bir maça katılmadın\nveya maç oluşturmadın.',
+                          isUpcomingTab
+                              ? 'Henüz planlanmış bir maçın bulunmuyor.'
+                              : 'Henüz tamamlanmış bir maçın bulunmuyor.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: AppColors.text(context).withOpacity(0.7),
                             fontSize: 16,
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 40),
-                          child: _buildDashedAddButton(
-                            context,
-                            neonGreen: neonGreen,
+                        if (isUpcomingTab) ...[
+                          const SizedBox(height: 24),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 40),
+                            child: _buildDashedAddButton(
+                              context,
+                              neonGreen: neonGreen,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   );
@@ -106,11 +126,11 @@ class MyMatchesView extends GetView<MyMatchesController> {
 
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
-                  itemCount: controller.myMatches.length,
+                  itemCount: displayedMatches.length,
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 14),
                   itemBuilder: (context, index) {
-                    final match = controller.myMatches[index];
+                    final match = displayedMatches[index];
 
                     final title = match['title'] ?? 'Bilinmeyen Maç';
                     final venue = match['venue'] ?? 'Bilinmeyen Saha';
@@ -132,6 +152,8 @@ class MyMatchesView extends GetView<MyMatchesController> {
                       dateText: dateString,
                       quotaText: '$currentCount / $maxPlayers',
                       priceText: '$price TL',
+                      matchId: match['id']?.toString() ?? '',
+                      currentPlayers: currentPlayers ?? [],
                     );
                   },
                 );
@@ -233,12 +255,18 @@ class MyMatchesView extends GetView<MyMatchesController> {
     required String dateText,
     required String quotaText,
     required String priceText,
+    required String matchId,
+    required List<dynamic> currentPlayers,
   }) {
     final isDark = AppColors.isDark(context);
     final cardBg = AppColors.card(context);
     final textWhite = AppColors.text(context);
     final textGrey = AppColors.labelColor(context);
     final darkGreenBlack = const Color(0xFF0F1712);
+
+    final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final bool isCreator =
+        currentPlayers.isNotEmpty && currentPlayers[0] == currentUserId;
 
     return Container(
       decoration: BoxDecoration(
@@ -357,6 +385,30 @@ class MyMatchesView extends GetView<MyMatchesController> {
                             ),
                           ),
                         ),
+                        if (isCreator) ...[
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => controller.cancelMatch(matchId),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: darkGreenBlack,
+                                border: Border.all(
+                                  color: Colors.red.withOpacity(0.4),
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -376,7 +428,14 @@ class MyMatchesView extends GetView<MyMatchesController> {
   }) {
     final textGrey = AppColors.labelColor(context);
     return GestureDetector(
-      onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+      onTap: () {
+        Get.put(MatchCreateController());
+        Get.to(
+          () => MatchCreateView(),
+          transition: Transition.downToUp,
+          duration: const Duration(milliseconds: 300),
+        );
+      },
       child: CustomPaint(
         painter: _DashedBorderPainter(
           color: textGrey.withOpacity(0.4),

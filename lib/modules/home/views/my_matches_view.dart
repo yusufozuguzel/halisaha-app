@@ -5,6 +5,7 @@ import 'home_view.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
 import '../../../routes/app_routes.dart';
+import '../../../core/theme/app_theme.dart';
 
 class MyMatchesView extends StatefulWidget {
   const MyMatchesView({super.key});
@@ -16,14 +17,22 @@ class MyMatchesView extends StatefulWidget {
 class _MyMatchesViewState extends State<MyMatchesView> {
   bool _isUpcoming = true;
 
-  static const Color _bgColor = Color(0xFF0F1712);
-  static const Color _cardBg = Color(0xFF16221A);
-  static const Color _neonGreen = Color(0xFF2EED7B);
-  static const Color _textWhite = Colors.white;
-  static const Color _textGrey = Color(0xFF8A9E94);
+  // Dinamik renkler — build() içinde hesaplanır
+  late Color _bgColor;
+  late Color _cardBg;
+  late Color _neonGreen;
+  late Color _textWhite;
+  late Color _textGrey;
 
   @override
   Widget build(BuildContext context) {
+    // Tema renklerini güncelle
+    _bgColor = AppColors.bg(context);
+    _cardBg = AppColors.card(context);
+    _neonGreen = kGreen;
+    _textWhite = AppColors.text(context);
+    _textGrey = AppColors.labelColor(context);
+
     return Scaffold(
       backgroundColor: _bgColor,
       floatingActionButton: GestureDetector(
@@ -36,14 +45,14 @@ class _MyMatchesViewState extends State<MyMatchesView> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: _neonGreen.withValues(alpha: 0.4),
+                color: _neonGreen.withOpacity(0.4),
                 blurRadius: 20,
                 spreadRadius: 2,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: const Icon(Icons.add, size: 32, color: Color(0xFF0F1712)),
+          child: Icon(Icons.add, size: 32, color: _bgColor),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -67,10 +76,10 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                 time: '20:00',
                 dateLabel: 'Bugün',
                 showBubble: true,
-                avatarColors: [
-                  const Color(0xFF5E6AD2),
-                  const Color(0xFF8B5CF6),
-                  const Color(0xFFEC4899),
+                avatarColors: const [
+                  Color(0xFF5E6AD2),
+                  Color(0xFF8B5CF6),
+                  Color(0xFFEC4899),
                 ],
                 extraCount: '+8',
                 statusText: 'kişi katılıyor',
@@ -85,10 +94,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                 time: '21:30',
                 dateLabel: 'Yarın',
                 showBubble: false,
-                avatarColors: [
-                  const Color(0xFFEF4444),
-                  const Color(0xFF3B82F6),
-                ],
+                avatarColors: const [Color(0xFFEF4444), Color(0xFF3B82F6)],
                 extraCount: '+3',
                 statusText: '5 kişi eksik',
               ),
@@ -102,7 +108,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                 time: '19:00',
                 dateLabel: 'Cuma',
                 showBubble: false,
-                avatarColors: [const Color(0xFF6B7280)],
+                avatarColors: const [Color(0xFF6B7280)],
                 extraCount: '+12',
                 statusText: 'Kadro Tamam',
               ),
@@ -116,12 +122,12 @@ class _MyMatchesViewState extends State<MyMatchesView> {
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────
+  // ── Header ──────────────────────────────────────────────────
   Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
+        Text(
           'Maçlarım',
           style: TextStyle(
             color: _textWhite,
@@ -138,14 +144,14 @@ class _MyMatchesViewState extends State<MyMatchesView> {
               color: _cardBg,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.tune, color: _textWhite, size: 22),
+            child: Icon(Icons.tune, color: _textWhite, size: 22),
           ),
         ),
       ],
     );
   }
 
-  // ── Tab Toggle ─────────────────────────────────────────────
+  // ── Tab Toggle ──────────────────────────────────────────────
   Widget _buildTabToggle() {
     return Container(
       padding: const EdgeInsets.all(4),
@@ -188,7 +194,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
     );
   }
 
-  // ── Match Card ─────────────────────────────────────────────
+  // ── Match Card ──────────────────────────────────────────────
   Widget _buildMatchCard({
     required Color leftBorderColor,
     required IconData icon,
@@ -202,16 +208,18 @@ class _MyMatchesViewState extends State<MyMatchesView> {
     required String extraCount,
     required String statusText,
   }) {
+    final isDark = AppColors.isDark(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: isDark
+            ? Colors.white.withOpacity(0.05)
+            : _cardBg.withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppColors.border(context)),
       ),
       child: IntrinsicHeight(
         child: Row(
           children: [
-            // Sol renkli dikey çizgi
             Container(
               width: 4,
               decoration: BoxDecoration(
@@ -222,14 +230,12 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                 ),
               ),
             ),
-            // İçerik
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Üst satır: ikon + isim + saat/gün
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -238,7 +244,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                         Expanded(
                           child: Text(
                             venueName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _textWhite,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -251,7 +257,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                           children: [
                             Text(
                               time,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _textWhite,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -269,7 +275,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                                 ),
                                 child: Text(
                                   dateLabel,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: _bgColor,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
@@ -279,7 +285,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                             else
                               Text(
                                 dateLabel,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: _textGrey,
                                   fontSize: 12,
                                 ),
@@ -293,21 +299,17 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                       padding: const EdgeInsets.only(left: 26),
                       child: Text(
                         location,
-                        style: const TextStyle(color: _textGrey, fontSize: 12),
+                        style: TextStyle(color: _textGrey, fontSize: 12),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // Alt satır: avatarlar + durum + detaylar
                     Row(
                       children: [
                         _buildAvatarStack(avatarColors, extraCount),
                         const SizedBox(width: 8),
                         Text(
                           statusText,
-                          style: const TextStyle(
-                            color: _textGrey,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: _textGrey, fontSize: 12),
                         ),
                         const Spacer(),
                         GestureDetector(
@@ -319,11 +321,11 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                             ),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.2),
+                                color: AppColors.border(context),
                               ),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Detaylar',
                               style: TextStyle(
                                 color: _textWhite,
@@ -363,10 +365,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                 decoration: BoxDecoration(
                   color: colors[i],
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF16221A),
-                    width: 1.5,
-                  ),
+                  border: Border.all(color: _cardBg, width: 1.5),
                 ),
               ),
             ),
@@ -376,14 +375,16 @@ class _MyMatchesViewState extends State<MyMatchesView> {
               padding: const EdgeInsets.symmetric(horizontal: 5),
               height: size,
               decoration: BoxDecoration(
-                color: const Color(0xFF2D3E36),
+                color: AppColors.isDark(context)
+                    ? const Color(0xFF2D3E36)
+                    : const Color(0xFFDDEEE4),
                 borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: const Color(0xFF16221A), width: 1.5),
+                border: Border.all(color: _cardBg, width: 1.5),
               ),
               child: Center(
                 child: Text(
                   extra,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textWhite,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
@@ -397,13 +398,13 @@ class _MyMatchesViewState extends State<MyMatchesView> {
     );
   }
 
-  // ── Dashed Add Button ──────────────────────────────────────
+  // ── Dashed Add Button ───────────────────────────────────────
   Widget _buildDashedAddButton() {
     return GestureDetector(
-      onTap: () {},
+      onTap: () => Get.toNamed(Routes.MATCH_CREATE),
       child: CustomPaint(
         painter: _DashedBorderPainter(
-          color: _textGrey.withValues(alpha: 0.4),
+          color: _textGrey.withOpacity(0.4),
           borderRadius: 16,
         ),
         child: Container(
@@ -416,13 +417,13 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: _neonGreen.withValues(alpha: 0.12),
+                  color: _neonGreen.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.add, color: _neonGreen, size: 28),
+                child: Icon(Icons.add, color: _neonGreen, size: 28),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Yeni maç planla',
                 style: TextStyle(color: _textGrey, fontSize: 14),
               ),
@@ -433,12 +434,13 @@ class _MyMatchesViewState extends State<MyMatchesView> {
     );
   }
 
-  // ── Bottom Nav (Maçlarım aktif) ────────────────────────────
+  // ── Bottom Nav (Maçlarım aktif) ─────────────────────────────
   Widget _buildBottomNavigationBar() {
+    final navBg = AppColors.navBg(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF16221A),
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: navBg,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
         ),
@@ -449,7 +451,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
           topRight: Radius.circular(24),
         ),
         child: BottomAppBar(
-          color: const Color(0xFF16221A),
+          color: navBg,
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
@@ -505,12 +507,11 @@ class _MyMatchesViewState extends State<MyMatchesView> {
     bool isActive, {
     required VoidCallback onTap,
   }) {
-    final color = isActive ? _neonGreen : Colors.white.withValues(alpha: 0.4);
-
+    final color = isActive ? _neonGreen : AppColors.navInactive(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: _neonGreen.withValues(alpha: 0.15),
+      splashColor: _neonGreen.withOpacity(0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Column(
@@ -541,7 +542,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
   }
 }
 
-// ── Dashed Border Painter ──────────────────────────────────────
+// ── Dashed Border Painter ───────────────────────────────────────
 class _DashedBorderPainter extends CustomPainter {
   final Color color;
   final double borderRadius;

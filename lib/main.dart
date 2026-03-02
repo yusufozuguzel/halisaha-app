@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'routes/app_pages.dart';
 import 'modules/auth/controllers/auth_controller.dart';
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,9 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Halisaha App',
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: ThemeMode.dark,
       initialRoute: AppPages.initial,
       getPages: AppPages.routes,
     );

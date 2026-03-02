@@ -5,6 +5,7 @@ import 'notifications_view.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
 import '../../../routes/app_routes.dart';
+import '../../../core/theme/app_theme.dart';
 
 class HomeView extends StatefulWidget {
   final String userName;
@@ -17,6 +18,9 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   final ScrollController _scrollController = ScrollController();
 
+  // Dinamik renkler — build() içinde hesaplanır
+  late Color _bg;
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -25,14 +29,13 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    // Scaffold eklendi: BottomNavigationBar ve FloatingActionButton desteği için.
+    _bg = AppColors.bg(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1712), // Ana arka plan
+      backgroundColor: _bg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(
-            bottom: 24,
-          ), // Alt kısımda biraz boşluk
+          padding: const EdgeInsets.only(bottom: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -45,7 +48,6 @@ class _HomeViewState extends State<HomeView> {
               _buildDailyFields(),
               const SizedBox(height: 32),
               _buildFriendActivities(),
-              // BottomNavigationBar'ın üstünde içerik kalmaması için boşluk
               const SizedBox(height: 80),
             ],
           ),
@@ -57,22 +59,18 @@ class _HomeViewState extends State<HomeView> {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: const Color(0xFF2EED7B), // Neon Yeşil
+            color: kGreen,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2EED7B).withOpacity(0.4),
+                color: kGreen.withOpacity(0.4),
                 blurRadius: 20,
                 spreadRadius: 2,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.add,
-            size: 32,
-            color: Color(0xFF0F1712), // Koyu İkon Rengi
-          ),
+          child: Icon(Icons.add, size: 32, color: _bg),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -80,14 +78,13 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // -----------------------------------------------------------------------------
-  // Bottom Navigation Bar
-  // -----------------------------------------------------------------------------
+  // ── Bottom Navigation Bar ───────────────────────────────────
   Widget _buildBottomNavigationBar() {
+    final navBg = AppColors.navBg(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF16221A), // Alt Menü Arka Planı
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: navBg,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
         ),
@@ -98,7 +95,7 @@ class _HomeViewState extends State<HomeView> {
           topRight: Radius.circular(24),
         ),
         child: BottomAppBar(
-          color: const Color(0xFF16221A),
+          color: navBg,
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
@@ -122,7 +119,7 @@ class _HomeViewState extends State<HomeView> {
                   transition: Transition.noTransition,
                 ),
               ),
-              const SizedBox(width: 48), // Orta boşluk (Floating Button için)
+              const SizedBox(width: 48),
               _buildNavBarItem(
                 Icons.explore_outlined,
                 'Keşfet',
@@ -154,15 +151,11 @@ class _HomeViewState extends State<HomeView> {
     bool isActive, {
     required VoidCallback onTap,
   }) {
-    // Aktif renk: Neon Yeşil (#2EED7B), Pasif: Gri
-    final color = isActive
-        ? const Color(0xFF2EED7B)
-        : Colors.white.withValues(alpha: 0.4);
-
+    final color = isActive ? kGreen : AppColors.navInactive(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: const Color(0xFF2EED7B).withValues(alpha: 0.15),
+      splashColor: kGreen.withOpacity(0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Column(
@@ -179,7 +172,6 @@ class _HomeViewState extends State<HomeView> {
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
-            // Aktif sekme göstergesi (küçük nokta)
             if (isActive)
               Container(
                 margin: const EdgeInsets.only(top: 4),
@@ -193,15 +185,14 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // -----------------------------------------------------------------------------
-  // 1. Header: Profil Fotoğrafı, Hoş geldin Yazısı ve Bildirim İkonu
-  // -----------------------------------------------------------------------------
+  // ── Header ──────────────────────────────────────────────────
   Widget _buildHeader() {
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
       child: Row(
         children: [
-          // Profil Fotoğrafı (Avatar)
           Stack(
             children: [
               Container(
@@ -213,7 +204,7 @@ class _HomeViewState extends State<HomeView> {
                   image: const DecorationImage(
                     image: NetworkImage(
                       'https://picsum.photos/seed/avatar1/200/200',
-                    ), // Placeholder Avatar
+                    ),
                     fit: BoxFit.cover,
                   ),
                   border: Border.all(
@@ -229,49 +220,40 @@ class _HomeViewState extends State<HomeView> {
                   width: 14,
                   height: 14,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2EED7B), // Online Durum
+                    color: kGreen,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF0F1712),
-                      width: 2,
-                    ),
+                    border: Border.all(color: _bg, width: 2),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(width: 12),
-          // İsim ve Selamlama
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Hoş geldin,',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: subText,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   decoration: TextDecoration.none,
                 ),
               ),
               const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    '${widget.userName} 👋', // Dinamik İsim
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ],
+              Text(
+                '${widget.userName} 👋',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.none,
+                ),
               ),
             ],
           ),
           const Spacer(),
-          // Bildirim İkonu
           GestureDetector(
             onTap: () => Get.to(
               () => const NotificationsView(),
@@ -282,15 +264,15 @@ class _HomeViewState extends State<HomeView> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: AppColors.overlay(context),
                 shape: BoxShape.circle,
               ),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.notifications_outlined,
-                    color: Colors.white,
+                    color: textColor,
                     size: 22,
                   ),
                   Positioned(
@@ -314,15 +296,14 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // -----------------------------------------------------------------------------
-  // 2. Quick Actions: Yeni Maç Başlat & Bir Maça Katıl
-  // -----------------------------------------------------------------------------
+  // ── Quick Actions ───────────────────────────────────────────
   Widget _buildQuickActions() {
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Row(
         children: [
-          // Sol Kart: Yeni Maç Başlat (Yeşil)
           Expanded(
             child: GestureDetector(
               onTap: () => Get.toNamed(Routes.MATCH_CREATE),
@@ -330,11 +311,11 @@ class _HomeViewState extends State<HomeView> {
                 height: 120,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2EED7B), // Neon Yeşil
+                  color: kGreen,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2EED7B).withOpacity(0.3),
+                      color: kGreen.withOpacity(0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 8),
                     ),
@@ -351,11 +332,7 @@ class _HomeViewState extends State<HomeView> {
                         color: Colors.black.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
-                        Icons.add,
-                        color: Color(0xFF0F1712),
-                        size: 22,
-                      ),
+                      child: const Icon(Icons.add, color: kDarkBg, size: 22),
                     ),
                     const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,7 +341,7 @@ class _HomeViewState extends State<HomeView> {
                         Text(
                           'Organizasyon',
                           style: TextStyle(
-                            color: Color(0xFF0F1712),
+                            color: kDarkBg,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.none,
@@ -374,7 +351,7 @@ class _HomeViewState extends State<HomeView> {
                         Text(
                           'Yeni Maç\nBaşlat',
                           style: TextStyle(
-                            color: Color(0xFF0F1712),
+                            color: kDarkBg,
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
                             height: 1.1,
@@ -389,7 +366,6 @@ class _HomeViewState extends State<HomeView> {
             ),
           ),
           const SizedBox(width: 16),
-          // Sağ Kart: Bir Maça Katıl (Koyu)
           Expanded(
             child: GestureDetector(
               onTap: () {},
@@ -397,9 +373,9 @@ class _HomeViewState extends State<HomeView> {
                 height: 120,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: AppColors.overlay(context),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  border: Border.all(color: AppColors.border(context)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,12 +385,12 @@ class _HomeViewState extends State<HomeView> {
                       width: 34,
                       height: 34,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: AppColors.overlay(context),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
                         Icons.qr_code_scanner_rounded,
-                        color: Color(0xFF2EED7B),
+                        color: kGreen,
                         size: 20,
                       ),
                     ),
@@ -425,17 +401,17 @@ class _HomeViewState extends State<HomeView> {
                         Text(
                           'Kod veya Link',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: subText,
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                             decoration: TextDecoration.none,
                           ),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
+                        Text(
                           'Bir Maça\nKatıl',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: textColor,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             height: 1.1,
@@ -454,22 +430,21 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // -----------------------------------------------------------------------------
-  // 3. Sıradaki Maç Kartı
-  // -----------------------------------------------------------------------------
+  // ── Next Match Card ─────────────────────────────────────────
   Widget _buildNextMatchCard() {
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
     return Column(
       children: [
-        // Başlıklar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Sıradaki Maçın',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   decoration: TextDecoration.none,
@@ -478,7 +453,7 @@ class _HomeViewState extends State<HomeView> {
               Text(
                 'Tümü',
                 style: TextStyle(
-                  color: const Color(0xFF2EED7B).withOpacity(0.8),
+                  color: kGreen.withOpacity(0.8),
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   decoration: TextDecoration.none,
@@ -488,7 +463,6 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
         const SizedBox(height: 16),
-        // Büyük Kart
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 24.0),
           height: 200,
@@ -496,15 +470,12 @@ class _HomeViewState extends State<HomeView> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             image: const DecorationImage(
-              image: NetworkImage(
-                'https://picsum.photos/seed/field1/800/400',
-              ), // Halı Saha Görseli
+              image: NetworkImage('https://picsum.photos/seed/field1/800/400'),
               fit: BoxFit.cover,
             ),
           ),
           child: Stack(
             children: [
-              // Gradient Overlay (Okunabilirlik için)
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
@@ -518,14 +489,12 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
               ),
-              // İçerik
               Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Üst Satır: Etiket ve Saat
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -543,11 +512,7 @@ class _HomeViewState extends State<HomeView> {
                           ),
                           child: const Row(
                             children: [
-                              Icon(
-                                Icons.circle,
-                                color: Color(0xFF2EED7B),
-                                size: 8,
-                              ),
+                              Icon(Icons.circle, color: kGreen, size: 8),
                               SizedBox(width: 6),
                               Text(
                                 'Onaylandı',
@@ -585,7 +550,6 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ],
                     ),
-                    // Alt Kısım: Saha Adı ve Oyuncular
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -621,7 +585,6 @@ class _HomeViewState extends State<HomeView> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Oyuncu Avatarları Stack'i
                             SizedBox(
                               width: 100,
                               height: 32,
@@ -667,7 +630,6 @@ class _HomeViewState extends State<HomeView> {
                                 ],
                               ),
                             ),
-                            // Detaylar Butonu
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -716,10 +678,9 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // -----------------------------------------------------------------------------
-  // 4. Günün Sahaları (Yatay Liste)
-  // -----------------------------------------------------------------------------
+  // ── Daily Fields ────────────────────────────────────────────
   Widget _buildDailyFields() {
+    final textColor = AppColors.text(context);
     return Column(
       children: [
         Padding(
@@ -727,10 +688,10 @@ class _HomeViewState extends State<HomeView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Günün Sahaları',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   decoration: TextDecoration.none,
@@ -739,24 +700,20 @@ class _HomeViewState extends State<HomeView> {
               Row(
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      _scrollController.animateTo(
-                        _scrollController.offset - 250,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
+                    onTap: () => _scrollController.animateTo(
+                      _scrollController.offset - 250,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
                     child: _buildArrowButton(Icons.arrow_back),
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: () {
-                      _scrollController.animateTo(
-                        _scrollController.offset + 250,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
+                    onTap: () => _scrollController.animateTo(
+                      _scrollController.offset + 250,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
                     child: _buildArrowButton(Icons.arrow_forward),
                   ),
                 ],
@@ -797,10 +754,10 @@ class _HomeViewState extends State<HomeView> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: AppColors.overlay(context),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Colors.white.withOpacity(0.5), size: 16),
+      child: Icon(icon, color: AppColors.subText(context), size: 16),
     );
   }
 
@@ -821,7 +778,6 @@ class _HomeViewState extends State<HomeView> {
       ),
       child: Stack(
         children: [
-          // Gradient
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
@@ -832,7 +788,6 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
           ),
-          // Rating Badge
           Positioned(
             top: 12,
             right: 12,
@@ -859,7 +814,6 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
           ),
-          // Info
           Positioned(
             bottom: 16,
             left: 16,
@@ -894,26 +848,24 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // -----------------------------------------------------------------------------
-  // 5. Arkadaş Aktiviteleri (Dikey Liste)
-  // -----------------------------------------------------------------------------
+  // ── Friend Activities ───────────────────────────────────────
   Widget _buildFriendActivities() {
+    final textColor = AppColors.text(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Arkadaşların Neler Yapıyor?',
             style: TextStyle(
-              color: Colors.white,
+              color: textColor,
               fontSize: 18,
               fontWeight: FontWeight.bold,
               decoration: TextDecoration.none,
             ),
           ),
           const SizedBox(height: 16),
-          // Aktivite 1
           _buildActivityItem(
             name: 'Mehmet',
             action: 'bir maç oluşturdu.',
@@ -924,7 +876,6 @@ class _HomeViewState extends State<HomeView> {
             iconColor: Colors.blue,
           ),
           const SizedBox(height: 12),
-          // Aktivite 2
           _buildActivityItem(
             name: 'Ayşe',
             action: '"Salı Futbolu" maçına katıldı.',
@@ -932,7 +883,7 @@ class _HomeViewState extends State<HomeView> {
             avatarUrl: 'https://picsum.photos/seed/friend2/100/100',
             showJoinButton: false,
             icon: Icons.check,
-            iconColor: const Color(0xFF2EED7B),
+            iconColor: kGreen,
           ),
         ],
       ),
@@ -948,17 +899,18 @@ class _HomeViewState extends State<HomeView> {
     required IconData icon,
     required Color iconColor,
   }) {
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: AppColors.overlay(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: AppColors.border(context)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar + Badge
           Stack(
             children: [
               Container(
@@ -981,10 +933,7 @@ class _HomeViewState extends State<HomeView> {
                   decoration: BoxDecoration(
                     color: iconColor,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF0F1712),
-                      width: 2,
-                    ),
+                    border: Border.all(color: _bg, width: 2),
                   ),
                   child: Icon(icon, color: Colors.white, size: 10),
                 ),
@@ -992,26 +941,29 @@ class _HomeViewState extends State<HomeView> {
             ],
           ),
           const SizedBox(width: 12),
-          // Metinler
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 RichText(
                   text: TextSpan(
-                    style: const TextStyle(fontSize: 14, height: 1.4),
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                      color: textColor,
+                    ),
                     children: [
                       TextSpan(
                         text: name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: textColor,
                         ),
                       ),
                       const TextSpan(text: ' '),
                       TextSpan(
                         text: action,
-                        style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                        style: TextStyle(color: textColor.withOpacity(0.8)),
                       ),
                     ],
                   ),
@@ -1020,7 +972,7 @@ class _HomeViewState extends State<HomeView> {
                 Text(
                   time,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: subText,
                     fontSize: 12,
                     decoration: TextDecoration.none,
                   ),
@@ -1032,7 +984,7 @@ class _HomeViewState extends State<HomeView> {
                     child: const Text(
                       'Katıl',
                       style: TextStyle(
-                        color: Color(0xFF2EED7B),
+                        color: kGreen,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         decoration: TextDecoration.none,

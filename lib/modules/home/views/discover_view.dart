@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_view.dart';
 import 'my_matches_view.dart';
 import 'profile_view.dart';
 import '../../../routes/app_routes.dart';
+import '../../../core/theme/app_theme.dart';
 
 // ============================================================
 // Data Models
 // ============================================================
 class _FieldData {
-  final String name;
-  final String location;
-  final String distance;
-  final String rating;
-  final String price;
-  final String imageUrl;
+  final String name, location, distance, rating, price, imageUrl;
   _FieldData({
     required this.name,
     required this.location,
@@ -27,12 +22,8 @@ class _FieldData {
 }
 
 class _MatchData {
-  final String title;
-  final String venue;
-  final String time;
-  final String statusLabel;
+  final String title, venue, time, statusLabel, playerCount;
   final Color statusColor;
-  final String playerCount;
   final List<String> avatarUrls;
   _MatchData({
     required this.title,
@@ -56,9 +47,10 @@ class DiscoverView extends StatefulWidget {
 }
 
 class _DiscoverViewState extends State<DiscoverView> {
-  static const _bg = Color(0xFF0F1712);
-  static const _card = Color(0xFF16221A);
-  static const _green = Color(0xFF2EED7B);
+  // Dinamik renkler — build() içinde hesaplanır
+  late Color _bg;
+  late Color _card;
+  static const _green = kGreen;
 
   final ScrollController _popularMatchesController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -83,13 +75,13 @@ class _DiscoverViewState extends State<DiscoverView> {
     ),
   ];
 
-  final List<_MatchData> _popularMatches = [
+  late final List<_MatchData> _popularMatches = [
     _MatchData(
       title: 'Salı Akşamı Derbisi',
       venue: 'Kadıköy Spor Kompleksi',
       time: '20:00',
       statusLabel: '2/14 Oyuncu',
-      statusColor: Color(0xFF3B82F6),
+      statusColor: const Color(0xFF3B82F6),
       playerCount: '+7',
       avatarUrls: [
         'https://picsum.photos/seed/dav1/100/100',
@@ -101,7 +93,7 @@ class _DiscoverViewState extends State<DiscoverView> {
       venue: 'Beşiktaş Çim Saha',
       time: '22:00',
       statusLabel: 'Son 1 Kişi',
-      statusColor: Color(0xFFF59E0B),
+      statusColor: const Color(0xFFF59E0B),
       playerCount: '+11',
       avatarUrls: [
         'https://picsum.photos/seed/dav3/100/100',
@@ -126,9 +118,6 @@ class _DiscoverViewState extends State<DiscoverView> {
     super.dispose();
   }
 
-  // ============================================================
-  // Filter Bottom Sheet
-  // ============================================================
   void _showFilterSheet() {
     Get.bottomSheet(
       _FilterSheet(),
@@ -137,13 +126,7 @@ class _DiscoverViewState extends State<DiscoverView> {
     );
   }
 
-  // ============================================================
-  // Match Join Logic (Başvuru Mekanizması)
-  // ============================================================
   void _applyToMatch(_MatchData match) {
-    // SADECE UI TETİKLEYİCİ - VERİTABANI BAĞLANTISI YOK
-    // Backend geliştirici buraya backend logic'ini bağlayacak.
-
     Get.snackbar(
       'Katılım',
       '${match.title} maçına katılım isteği gönderildi!',
@@ -162,6 +145,9 @@ class _DiscoverViewState extends State<DiscoverView> {
   // ============================================================
   @override
   Widget build(BuildContext context) {
+    _bg = AppColors.bg(context);
+    _card = AppColors.card(context);
+
     return Scaffold(
       backgroundColor: _bg,
       floatingActionButton: GestureDetector(
@@ -181,7 +167,7 @@ class _DiscoverViewState extends State<DiscoverView> {
               ),
             ],
           ),
-          child: const Icon(Icons.add, size: 32, color: Color(0xFF0F1712)),
+          child: Icon(Icons.add, size: 32, color: _bg),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -205,10 +191,10 @@ class _DiscoverViewState extends State<DiscoverView> {
     );
   }
 
-  // ============================================================
-  // Header + Search
-  // ============================================================
+  // ── Header + Search ─────────────────────────────────────────
   Widget _buildHeader() {
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
@@ -216,10 +202,10 @@ class _DiscoverViewState extends State<DiscoverView> {
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 'Keşfet',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   decoration: TextDecoration.none,
@@ -227,22 +213,20 @@ class _DiscoverViewState extends State<DiscoverView> {
               ),
               const Spacer(),
               InkWell(
-                onTap: () {
-                  Get.snackbar(
-                    'Harita',
-                    'Harita görünümü açılıyor...',
-                    backgroundColor: _card,
-                    colorText: Colors.white,
-                    borderRadius: 12,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    snackPosition: SnackPosition.TOP,
-                    duration: const Duration(seconds: 2),
-                    icon: const Icon(Icons.map, color: _green),
-                  );
-                },
+                onTap: () => Get.snackbar(
+                  'Harita',
+                  'Harita görünümü açılıyor...',
+                  backgroundColor: _card,
+                  colorText: textColor,
+                  borderRadius: 12,
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  snackPosition: SnackPosition.TOP,
+                  duration: const Duration(seconds: 2),
+                  icon: const Icon(Icons.map, color: _green),
+                ),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -277,29 +261,21 @@ class _DiscoverViewState extends State<DiscoverView> {
           const SizedBox(height: 16),
           Row(
             children: [
-              // Arama Çubuğu
               Expanded(
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
                     color: _card,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    border: Border.all(color: AppColors.border(context)),
                   ),
                   child: TextField(
                     controller: _searchController,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: TextStyle(color: textColor, fontSize: 14),
                     decoration: InputDecoration(
                       hintText: 'Saha veya Şehir Ara',
-                      hintStyle: TextStyle(
-                        color: Colors.white.withOpacity(0.35),
-                        fontSize: 14,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Colors.white.withOpacity(0.4),
-                        size: 20,
-                      ),
+                      hintStyle: TextStyle(color: subText, fontSize: 14),
+                      prefixIcon: Icon(Icons.search, color: subText, size: 20),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 14),
                     ),
@@ -307,7 +283,6 @@ class _DiscoverViewState extends State<DiscoverView> {
                 ),
               ),
               const SizedBox(width: 10),
-              // Filtre İkonu
               InkWell(
                 onTap: _showFilterSheet,
                 borderRadius: BorderRadius.circular(14),
@@ -317,13 +292,9 @@ class _DiscoverViewState extends State<DiscoverView> {
                   decoration: BoxDecoration(
                     color: _card,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    border: Border.all(color: AppColors.border(context)),
                   ),
-                  child: Icon(
-                    Icons.tune,
-                    color: Colors.white.withOpacity(0.7),
-                    size: 20,
-                  ),
+                  child: Icon(Icons.tune, color: subText, size: 20),
                 ),
               ),
             ],
@@ -333,22 +304,20 @@ class _DiscoverViewState extends State<DiscoverView> {
     );
   }
 
-  // ============================================================
-  // Nearby Fields
-  // ============================================================
+  // ── Nearby Fields ───────────────────────────────────────────
   Widget _buildNearbyFields() {
+    final textColor = AppColors.text(context);
     return Column(
       children: [
-        // Başlık
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Yakındaki Sahalar',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   decoration: TextDecoration.none,
@@ -367,25 +336,25 @@ class _DiscoverViewState extends State<DiscoverView> {
           ),
         ),
         const SizedBox(height: 14),
-        // Kartlar
         ..._fields.map((f) => _buildFieldCard(f)).toList(),
       ],
     );
   }
 
   Widget _buildFieldCard(_FieldData field) {
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
+        border: Border.all(color: AppColors.border(context)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Görsel
           Stack(
             children: [
               SizedBox(
@@ -393,7 +362,6 @@ class _DiscoverViewState extends State<DiscoverView> {
                 width: double.infinity,
                 child: Image.network(field.imageUrl, fit: BoxFit.cover),
               ),
-              // Rating Badge
               Positioned(
                 top: 12,
                 right: 12,
@@ -427,7 +395,6 @@ class _DiscoverViewState extends State<DiscoverView> {
                   ),
                 ),
               ),
-              // Gradient Overlay → isim
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -481,7 +448,6 @@ class _DiscoverViewState extends State<DiscoverView> {
               ),
             ],
           ),
-          // Alt Kısım: Fiyat + Rezervasyon
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -492,7 +458,7 @@ class _DiscoverViewState extends State<DiscoverView> {
                     Text(
                       'Saatlik Ücret',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.45),
+                        color: subText,
                         fontSize: 11,
                         decoration: TextDecoration.none,
                       ),
@@ -503,18 +469,15 @@ class _DiscoverViewState extends State<DiscoverView> {
                         children: [
                           TextSpan(
                             text: field.price,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: textColor,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           TextSpan(
                             text: ' / 60dk',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
-                              fontSize: 12,
-                            ),
+                            style: TextStyle(color: subText, fontSize: 12),
                           ),
                         ],
                       ),
@@ -523,22 +486,20 @@ class _DiscoverViewState extends State<DiscoverView> {
                 ),
                 const Spacer(),
                 InkWell(
-                  onTap: () {
-                    Get.snackbar(
-                      'Rezervasyon',
-                      'Saha detaylarına gidiliyor...',
-                      backgroundColor: const Color(0xFF1C3A24),
-                      colorText: _green,
-                      borderRadius: 12,
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      snackPosition: SnackPosition.BOTTOM,
-                      duration: const Duration(seconds: 3),
-                      icon: const Icon(Icons.event_available, color: _green),
-                    );
-                  },
+                  onTap: () => Get.snackbar(
+                    'Rezervasyon',
+                    'Saha detaylarına gidiliyor...',
+                    backgroundColor: const Color(0xFF1C3A24),
+                    colorText: _green,
+                    borderRadius: 12,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    snackPosition: SnackPosition.BOTTOM,
+                    duration: const Duration(seconds: 3),
+                    icon: const Icon(Icons.event_available, color: _green),
+                  ),
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -552,7 +513,7 @@ class _DiscoverViewState extends State<DiscoverView> {
                     child: const Text(
                       'Rezervasyon',
                       style: TextStyle(
-                        color: Color(0xFF0F1712),
+                        color: kDarkBg,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         decoration: TextDecoration.none,
@@ -568,22 +529,20 @@ class _DiscoverViewState extends State<DiscoverView> {
     );
   }
 
-  // ============================================================
-  // Popular Matches
-  // ============================================================
+  // ── Popular Matches ─────────────────────────────────────────
   Widget _buildPopularMatches() {
+    final textColor = AppColors.text(context);
     return Column(
       children: [
-        // Başlık + Oklar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Popüler Maçlar',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   decoration: TextDecoration.none,
@@ -592,25 +551,21 @@ class _DiscoverViewState extends State<DiscoverView> {
               Row(
                 children: [
                   InkWell(
-                    onTap: () {
-                      _popularMatchesController.animateTo(
-                        _popularMatchesController.offset - 250,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
+                    onTap: () => _popularMatchesController.animateTo(
+                      _popularMatchesController.offset - 250,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
                     borderRadius: BorderRadius.circular(20),
                     child: _arrowBtn(Icons.arrow_back),
                   ),
                   const SizedBox(width: 8),
                   InkWell(
-                    onTap: () {
-                      _popularMatchesController.animateTo(
-                        _popularMatchesController.offset + 250,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
+                    onTap: () => _popularMatchesController.animateTo(
+                      _popularMatchesController.offset + 250,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
                     borderRadius: BorderRadius.circular(20),
                     child: _arrowBtn(Icons.arrow_forward),
                   ),
@@ -640,26 +595,27 @@ class _DiscoverViewState extends State<DiscoverView> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: AppColors.overlay(context),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Colors.white.withOpacity(0.5), size: 16),
+      child: Icon(icon, color: AppColors.subText(context), size: 16),
     );
   }
 
   Widget _buildMatchCard(_MatchData match) {
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
     return Container(
       width: 200,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
+        border: Border.all(color: AppColors.border(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Status + Saat
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -681,8 +637,8 @@ class _DiscoverViewState extends State<DiscoverView> {
               ),
               Text(
                 match.time,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: textColor,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   decoration: TextDecoration.none,
@@ -691,13 +647,12 @@ class _DiscoverViewState extends State<DiscoverView> {
             ],
           ),
           const SizedBox(height: 12),
-          // Başlık
           Text(
             match.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: textColor,
               fontSize: 15,
               fontWeight: FontWeight.bold,
               decoration: TextDecoration.none,
@@ -709,13 +664,12 @@ class _DiscoverViewState extends State<DiscoverView> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: subText,
               fontSize: 11,
               decoration: TextDecoration.none,
             ),
           ),
           const Spacer(),
-          // Avatarlar + Katıl
           Row(
             children: [
               SizedBox(
@@ -745,7 +699,7 @@ class _DiscoverViewState extends State<DiscoverView> {
               Text(
                 match.playerCount,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.45),
+                  color: subText,
                   fontSize: 11,
                   decoration: TextDecoration.none,
                 ),
@@ -771,14 +725,13 @@ class _DiscoverViewState extends State<DiscoverView> {
     );
   }
 
-  // ============================================================
-  // Bottom Navigation Bar  (Keşfet aktif)
-  // ============================================================
+  // ── Bottom Nav (Keşfet aktif) ───────────────────────────────
   Widget _buildBottomNav() {
+    final navBg = AppColors.navBg(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF16221A),
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: navBg,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
         ),
@@ -789,7 +742,7 @@ class _DiscoverViewState extends State<DiscoverView> {
           topRight: Radius.circular(24),
         ),
         child: BottomAppBar(
-          color: const Color(0xFF16221A),
+          color: navBg,
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
@@ -840,7 +793,7 @@ class _DiscoverViewState extends State<DiscoverView> {
     bool isActive, {
     required VoidCallback onTap,
   }) {
-    final color = isActive ? _green : Colors.white.withOpacity(0.4);
+    final color = isActive ? _green : AppColors.navInactive(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -885,8 +838,7 @@ class _FilterSheet extends StatefulWidget {
 }
 
 class _FilterSheetState extends State<_FilterSheet> {
-  static const _green = Color(0xFF2EED7B);
-  static const _card = Color(0xFF16221A);
+  static const _green = kGreen;
 
   double _distance = 5;
   double _maxPrice = 1500;
@@ -894,32 +846,35 @@ class _FilterSheetState extends State<_FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final sheetBg = AppColors.isDark(context) ? kDarkCard : Colors.white;
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
-      decoration: const BoxDecoration(
-        color: Color(0xFF16221A),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle
           Center(
             child: Container(
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: AppColors.border(context),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Filtrele',
             style: TextStyle(
-              color: Colors.white,
+              color: textColor,
               fontSize: 18,
               fontWeight: FontWeight.bold,
               decoration: TextDecoration.none,
@@ -927,13 +882,12 @@ class _FilterSheetState extends State<_FilterSheet> {
           ),
           const SizedBox(height: 22),
 
-          // Mesafe
-          _label('Mesafe: ${_distance.toInt()} km'),
+          _label('Mesafe: ${_distance.toInt()} km', subText),
           const SizedBox(height: 6),
           SliderTheme(
             data: SliderThemeData(
               activeTrackColor: _green,
-              inactiveTrackColor: Colors.white.withOpacity(0.1),
+              inactiveTrackColor: AppColors.border(context),
               thumbColor: _green,
               overlayColor: _green.withOpacity(0.2),
             ),
@@ -947,13 +901,12 @@ class _FilterSheetState extends State<_FilterSheet> {
           ),
           const SizedBox(height: 14),
 
-          // Maksimum Fiyat
-          _label('Maks. Fiyat: ₺${_maxPrice.toInt()}'),
+          _label('Maks. Fiyat: ₺${_maxPrice.toInt()}', subText),
           const SizedBox(height: 6),
           SliderTheme(
             data: SliderThemeData(
               activeTrackColor: _green,
-              inactiveTrackColor: Colors.white.withOpacity(0.1),
+              inactiveTrackColor: AppColors.border(context),
               thumbColor: _green,
               overlayColor: _green.withOpacity(0.2),
             ),
@@ -967,8 +920,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           ),
           const SizedBox(height: 18),
 
-          // Saha Tipi
-          _label('Saha Tipi'),
+          _label('Saha Tipi', subText),
           const SizedBox(height: 10),
           Row(
             children: ['Hepsi', 'Halı Saha', 'Çim Saha', 'Salon']
@@ -984,20 +936,18 @@ class _FilterSheetState extends State<_FilterSheet> {
                       decoration: BoxDecoration(
                         color: _fieldType == t
                             ? _green
-                            : Colors.white.withOpacity(0.07),
+                            : AppColors.overlay(context),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: _fieldType == t
                               ? _green
-                              : Colors.white.withOpacity(0.15),
+                              : AppColors.border(context),
                         ),
                       ),
                       child: Text(
                         t,
                         style: TextStyle(
-                          color: _fieldType == t
-                              ? const Color(0xFF0F1712)
-                              : Colors.white.withOpacity(0.7),
+                          color: _fieldType == t ? kDarkBg : textColor,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           decoration: TextDecoration.none,
@@ -1010,7 +960,6 @@ class _FilterSheetState extends State<_FilterSheet> {
           ),
           const SizedBox(height: 28),
 
-          // Uygula Butonu
           SizedBox(
             width: double.infinity,
             child: GestureDetector(
@@ -1019,8 +968,8 @@ class _FilterSheetState extends State<_FilterSheet> {
                 Get.snackbar(
                   'Filtre Uygulandı',
                   '${_distance.toInt()} km • ₺${_maxPrice.toInt()} • $_fieldType',
-                  backgroundColor: _card,
-                  colorText: Colors.white,
+                  backgroundColor: sheetBg,
+                  colorText: textColor,
                   borderRadius: 12,
                   margin: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -1041,7 +990,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                   'Uygula',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Color(0xFF0F1712),
+                    color: kDarkBg,
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                     decoration: TextDecoration.none,
@@ -1055,11 +1004,11 @@ class _FilterSheetState extends State<_FilterSheet> {
     );
   }
 
-  Widget _label(String text) {
+  Widget _label(String text, Color color) {
     return Text(
       text,
       style: TextStyle(
-        color: Colors.white.withOpacity(0.75),
+        color: color,
         fontSize: 13,
         fontWeight: FontWeight.w500,
         decoration: TextDecoration.none,

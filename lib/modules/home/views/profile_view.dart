@@ -13,6 +13,8 @@ import 'my_matches_view.dart';
 import 'discover_view.dart';
 import '../../../routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../match/controllers/match_create_controller.dart';
+import '../../match/views/match_create_view.dart';
 
 // ============================================================
 // PROFILE VIEW
@@ -550,7 +552,14 @@ class _ProfileViewState extends State<ProfileView> {
     return Scaffold(
       backgroundColor: _bg,
       floatingActionButton: GestureDetector(
-        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        onTap: () {
+          Get.put(MatchCreateController());
+          Get.to(
+            () => MatchCreateView(),
+            transition: Transition.downToUp,
+            duration: const Duration(milliseconds: 300),
+          );
+        },
         child: Container(
           width: 64,
           height: 64,

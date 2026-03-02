@@ -7,6 +7,24 @@ class MyMatchesController extends GetxController {
   final RxList<Map<String, dynamic>> myMatches = <Map<String, dynamic>>[].obs;
   final RxBool isLoading = true.obs;
 
+  List<Map<String, dynamic>> get upcomingMatches {
+    final now = Timestamp.now();
+    return myMatches.where((match) {
+      final matchDate = match['date'] as Timestamp?;
+      if (matchDate == null) return false;
+      return matchDate.compareTo(now) > 0;
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> get pastMatches {
+    final now = Timestamp.now();
+    return myMatches.where((match) {
+      final matchDate = match['date'] as Timestamp?;
+      if (matchDate == null) return false;
+      return matchDate.compareTo(now) <= 0;
+    }).toList();
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -44,6 +62,36 @@ class MyMatchesController extends GetxController {
       );
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> cancelMatch(String matchId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('matches')
+          .doc(matchId)
+          .delete();
+
+      Get.snackbar(
+        'Maç İptal Edildi',
+        'Kurduğunuz maç sistemden başarıyla silindi.',
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+
+      // Arayüz listelerini yeniden eşitle
+      await fetchMyMatches();
+    } catch (e) {
+      Get.snackbar(
+        'Silme Hatası',
+        'Maç iptal edilirken bir sorun oluştu: $e',
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
     }
   }
 

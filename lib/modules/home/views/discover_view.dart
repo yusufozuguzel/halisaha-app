@@ -150,26 +150,26 @@ class _DiscoverViewState extends State<DiscoverView> {
 
     return Scaffold(
       backgroundColor: _bg,
-      floatingActionButton: GestureDetector(
- onTap: () => Get.toNamed(Routes.MATCH_CREATE),
- child: Container(
- width: 64,
- height: 64,
-decoration: BoxDecoration(
- color: _green,
- shape: BoxShape.circle,
-boxShadow: [
- BoxShadow(
- color: _green.withOpacity(0.4),
-blurRadius: 20,
- spreadRadius: 2,
-offset: const Offset(0, 4),
-),
-],
- ),
-child: Icon(Icons.add, size: 32, color: _bg),
-),
-),
+     floatingActionButton: GestureDetector(
+        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: _green,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: _green.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(Icons.add, size: 32, color: _bg),
+        ),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomNav(),
       body: SafeArea(

@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:halisaha_app/modules/home/views/home_view.dart';
+import 'package:halisaha_app/modules/match/views/match_list_view.dart';
 import '../modules/auth/views/auth_view.dart';
 import '../modules/auth/views/profile_setup_view.dart';
 import '../modules/auth/controllers/profile_setup_controller.dart';
@@ -20,11 +21,7 @@ class AppPages {
       // ProfileController'ı uygulama başlar başlamaz permanent olarak yükle
       binding: ProfileBinding(),
     ),
-    GetPage(
-      name: Routes.AUTH,
-      page: () => AuthView(),
-      binding: AuthBinding(),
-    ),
+    GetPage(name: Routes.AUTH, page: () => AuthView(), binding: AuthBinding()),
     GetPage(
       name: Routes.PROFILE_SETUP,
       page: () => const ProfileSetupView(),
@@ -34,7 +31,7 @@ class AppPages {
     ),
     GetPage(
       name: Routes.HOME,
-      page: () => const HomeView(userName: "Ahmet Yılmaz"), 
+      page: () => const HomeView(userName: "Ahmet Yılmaz"),
     ),
     GetPage(
       name: Routes.SETTINGS,

@@ -694,7 +694,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         child: GestureDetector(
           onTap: () async {
-            await controller.createMatch();
+            await controller.createAndShareMatch();
           },
           child: Obx(
             () => Container(

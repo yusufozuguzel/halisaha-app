@@ -216,7 +216,7 @@ class _HomeViewState extends State<HomeView> {
         final avatarData = data['avatarData'] ?? '0';
 
         Widget avatarWidget;
-        if (avatarType == 'base64' && avatarData.isNotEmpty) {
+        if (avatarType == 'base64' && avatarData.toString().isNotEmpty) {
           try {
             avatarWidget = ClipRRect(
               borderRadius: BorderRadius.circular(24),
@@ -233,7 +233,7 @@ class _HomeViewState extends State<HomeView> {
             avatarWidget = Icon(Icons.person, color: textColor, size: 24);
           }
         } else {
-          final iconIndex = int.tryParse(avatarData) ?? 0;
+          final iconIndex = int.tryParse(avatarData.toString()) ?? 0;
           final List<IconData> defaultIcons = [
             Icons.person,
             Icons.sports_soccer,
@@ -266,7 +266,10 @@ class _HomeViewState extends State<HomeView> {
                     height: 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: textColor.withOpacity(0.1), width: 1),
+                      border: Border.all(
+                        color: textColor.withOpacity(0.1),
+                        width: 1,
+                      ),
                     ),
                     child: avatarWidget,
                   ),
@@ -277,7 +280,7 @@ class _HomeViewState extends State<HomeView> {
                       width: 14,
                       height: 14,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2EED7B), 
+                        color: const Color(0xFF2EED7B),
                         shape: BoxShape.circle,
                         border: Border.all(color: bg, width: 2),
                       ),
@@ -327,7 +330,11 @@ class _HomeViewState extends State<HomeView> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Icon(Icons.notifications_outlined, color: textColor, size: 22),
+                      Icon(
+                        Icons.notifications_outlined,
+                        color: textColor,
+                        size: 22,
+                      ),
                       Positioned(
                         top: 10,
                         right: 10,

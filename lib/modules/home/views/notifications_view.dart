@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/theme/app_theme.dart';
 
 // ---------------------------------------------------------------------------
 // Veri Modeli
@@ -108,10 +109,15 @@ class _NotificationsViewState extends State<NotificationsView> {
       titleText: const SizedBox.shrink(),
       messageText: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
               'Bildirim silindi.',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(
+                color: AppColors.isDark(context)
+                    ? Colors.white70
+                    : Colors.black87,
+                fontSize: 13,
+              ),
             ),
           ),
           TextButton(
@@ -122,7 +128,7 @@ class _NotificationsViewState extends State<NotificationsView> {
             child: const Text(
               'Geri Al',
               style: TextStyle(
-                color: Color(0xFF2EED7B),
+                color: kGreen,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -130,7 +136,9 @@ class _NotificationsViewState extends State<NotificationsView> {
           ),
         ],
       ),
-      backgroundColor: const Color(0xFF1C2B21),
+      backgroundColor: AppColors.isDark(context)
+          ? const Color(0xFF1C2B21)
+          : const Color(0xFFE8F5EC),
       borderRadius: 12,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       snackPosition: SnackPosition.BOTTOM,
@@ -199,25 +207,27 @@ class _NotificationsViewState extends State<NotificationsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1712),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             Expanded(
               child: (_today.isEmpty && _yesterday.isEmpty)
-                  ? _buildEmpty()
+                  ? _buildEmpty(context)
                   : ListView(
                       padding: const EdgeInsets.only(bottom: 24),
                       children: [
                         if (_today.isNotEmpty) ...[
-                          _buildSectionTitle('BUGÜN'),
-                          ..._today.map((n) => _buildCard(n, _today)).toList(),
+                          _buildSectionTitle('BUGÜN', context),
+                          ..._today
+                              .map((n) => _buildCard(n, _today, context))
+                              .toList(),
                         ],
                         if (_yesterday.isNotEmpty) ...[
-                          _buildSectionTitle('DÜN'),
+                          _buildSectionTitle('DÜN', context),
                           ..._yesterday
-                              .map((n) => _buildCard(n, _yesterday))
+                              .map((n) => _buildCard(n, _yesterday, context))
                               .toList(),
                         ],
                       ],
@@ -230,7 +240,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   // ---- Header ----
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
@@ -242,22 +252,22 @@ class _NotificationsViewState extends State<NotificationsView> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: AppColors.overlay(context),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Colors.white,
+                color: AppColors.text(context),
                 size: 16,
               ),
             ),
           ),
-          const Expanded(
+          Expanded(
             child: Text(
               'Bildirimler',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.text(context),
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 decoration: TextDecoration.none,
@@ -274,7 +284,7 @@ class _NotificationsViewState extends State<NotificationsView> {
             child: const Text(
               'Tümünü Oku',
               style: TextStyle(
-                color: Color(0xFF2EED7B),
+                color: kGreen,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 decoration: TextDecoration.none,
@@ -287,13 +297,13 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   // ---- Bölüm Başlığı ----
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Text(
         title,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.4),
+          color: AppColors.sectionLabel(context),
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.4,
@@ -304,7 +314,11 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   // ---- Bildirim Kartı ----
-  Widget _buildCard(_NotifItem item, List<_NotifItem> list) {
+  Widget _buildCard(
+    _NotifItem item,
+    List<_NotifItem> list,
+    BuildContext context,
+  ) {
     return AnimatedSize(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
@@ -312,13 +326,13 @@ class _NotificationsViewState extends State<NotificationsView> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
         decoration: BoxDecoration(
           color: item.isHighlighted
-              ? const Color(0xFF2EED7B).withOpacity(0.07)
-              : Colors.white.withOpacity(0.04),
+              ? kGreen.withOpacity(0.07)
+              : AppColors.card(context),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: item.isHighlighted
-                ? const Color(0xFF2EED7B).withOpacity(0.25)
-                : Colors.white.withOpacity(0.07),
+                ? kGreen.withOpacity(0.25)
+                : AppColors.border(context),
           ),
         ),
         child: ClipRRect(
@@ -332,7 +346,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                   Container(
                     width: 4,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF2EED7B),
+                      color: kGreen,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(16),
                         bottomLeft: Radius.circular(16),
@@ -361,7 +375,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                                       fit: BoxFit.cover,
                                     ),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.1),
+                                      color: AppColors.border(context),
                                     ),
                                   ),
                                 ),
@@ -375,7 +389,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                                       color: _iconColorFor(item.type),
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: const Color(0xFF0F1712),
+                                        color: AppColors.card(context),
                                         width: 2,
                                       ),
                                     ),
@@ -395,8 +409,8 @@ class _NotificationsViewState extends State<NotificationsView> {
                                 children: [
                                   Text(
                                     item.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: AppColors.text(context),
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
                                       decoration: TextDecoration.none,
@@ -406,7 +420,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                                   Text(
                                     item.message,
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.65),
+                                      color: AppColors.subText(context),
                                       fontSize: 12,
                                       height: 1.4,
                                       decoration: TextDecoration.none,
@@ -419,7 +433,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                             Text(
                               item.time,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.35),
+                                color: AppColors.subText(context),
                                 fontSize: 10,
                                 decoration: TextDecoration.none,
                               ),
@@ -434,19 +448,29 @@ class _NotificationsViewState extends State<NotificationsView> {
                           Row(
                             children: [
                               if (item.hasAcceptReject) ...[
-                                _greenButton('Kabul Et', () => _onAccept(item)),
+                                _greenButton(
+                                  'Kabul Et',
+                                  () => _onAccept(item),
+                                  context,
+                                ),
                                 const SizedBox(width: 8),
                                 _outlineButton(
                                   'Reddet',
                                   () => _removeItem(list, item),
+                                  context,
                                 ),
                               ],
                               if (item.hasApprove) ...[
-                                _greenButton('Onayla', () => _onApprove(item)),
+                                _greenButton(
+                                  'Onayla',
+                                  () => _onApprove(item),
+                                  context,
+                                ),
                                 const SizedBox(width: 8),
                                 _outlineButton(
                                   'Sil',
                                   () => _removeItem(list, item),
+                                  context,
                                 ),
                               ],
                               if (item.hasDelete &&
@@ -455,6 +479,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                                 _outlineButton(
                                   'Sil',
                                   () => _removeItem(list, item),
+                                  context,
                                 ),
                             ],
                           ),
@@ -471,19 +496,21 @@ class _NotificationsViewState extends State<NotificationsView> {
     );
   }
 
-  Widget _greenButton(String label, VoidCallback onTap) {
+  Widget _greenButton(String label, VoidCallback onTap, BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
-          color: const Color(0xFF2EED7B),
+          color: kGreen,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF0F1712),
+          style: TextStyle(
+            color: AppColors.isDark(context)
+                ? const Color(0xFF0F1712)
+                : Colors.white,
             fontSize: 12,
             fontWeight: FontWeight.bold,
             decoration: TextDecoration.none,
@@ -493,7 +520,11 @@ class _NotificationsViewState extends State<NotificationsView> {
     );
   }
 
-  Widget _outlineButton(String label, VoidCallback onTap) {
+  Widget _outlineButton(
+    String label,
+    VoidCallback onTap,
+    BuildContext context,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -501,12 +532,12 @@ class _NotificationsViewState extends State<NotificationsView> {
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.25)),
+          border: Border.all(color: AppColors.border(context)),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
+            color: AppColors.text(context),
             fontSize: 12,
             fontWeight: FontWeight.w500,
             decoration: TextDecoration.none,
@@ -516,21 +547,21 @@ class _NotificationsViewState extends State<NotificationsView> {
     );
   }
 
-  Widget _buildEmpty() {
+  Widget _buildEmpty(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.notifications_off_outlined,
-            color: Colors.white.withOpacity(0.2),
+            color: AppColors.subText(context).withOpacity(0.5),
             size: 64,
           ),
           const SizedBox(height: 16),
           Text(
             'Bildirim yok',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
+              color: AppColors.subText(context),
               fontSize: 16,
               fontWeight: FontWeight.w500,
               decoration: TextDecoration.none,

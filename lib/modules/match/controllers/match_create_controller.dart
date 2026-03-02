@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 
+// KENDI BACKEND DOSYALARIMIZI IMPORT EDIYORUZ 🔥
+import '../models/match_model.dart';
+import '../services/match_service.dart';
+
 class MatchCreateController extends GetxController {
+  // Backend servisimizi çağırıyoruz
+  final MatchService _matchService = MatchService();
+
   // Step indicator
   var currentStep = 0.obs;
 
@@ -122,11 +129,15 @@ class MatchCreateController extends GetxController {
     return '$hour:$minute $period';
   }
 
+  // 🔥 BACKEND ENTEGRASYONU BURADA 🔥
   Future<void> createAndShareMatch() async {
-    if (matchName.value.isEmpty) {
+    // 1. Doğrulama (Tarih ve Saat seçilmiş mi?)
+    if (matchName.value.isEmpty ||
+        selectedDate.value == null ||
+        selectedTime.value == null) {
       Get.snackbar(
         'Eksik Bilgi',
-        'Lütfen maç adını girin.',
+        'Lütfen maç adını, tarihini ve saatini eksiksiz girin.',
         backgroundColor: const Color(0xFF1A2E1F),
         colorText: const Color(0xFF2EED7B),
         snackPosition: SnackPosition.BOTTOM,
@@ -135,21 +146,49 @@ class MatchCreateController extends GetxController {
     }
 
     try {
-      // 1. Dinamik Link Hedefi Üretimi (UI/Mock)
-      final String matchId = DateTime.now().millisecondsSinceEpoch.toString();
-      final String deepLink = 'https://halisaha.app/join/$matchId';
+      // 2. Format'tan kişi sayısını çıkarıyoruz (Örn: "7x7" -> 14 kişi)
+      int capacity = 14; // Varsayılan
+      if (matchFormat.value.contains('x')) {
+        var parts = matchFormat.value.split('x');
+        if (parts.length == 2) {
+          capacity = (int.tryParse(parts[0]) ?? 7) * 2;
+        }
+      }
 
-      // 2. Native Paylaşım (share_plus) Tetiklemesi
-      // Backend ekibi veritabanı kayıt mantığını (Keşfet havuzuna pushlama vs)
-      // buraya entegre edecektir. Biz sadece UI/Share tetikleyicisini bırakıyoruz.
+      // 3. Seçilen Tarih ve Saati birleştirip tam bir DateTime objesi yapıyoruz
+      final date = selectedDate.value!;
+      final time = selectedTime.value!;
+      final matchDateTime = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+
+      // 4. Maç Modelimizi oluşturuyoruz (SADECE SENİN MODELİNDEKİ ALANLAR)
+      final newMatch = MatchModel(
+        id: '', // Firebase eklerken kendi ID'sini oluşturacak
+        title: matchName.value,
+        date: matchDateTime,
+        maxPlayers: capacity,
+      );
+
+      // 5. Firebase'e Kaydet ve oluşan ID'yi al! 🔥
+      final String generatedMatchId = await _matchService.createMatch(newMatch);
+
+      // 6. Dinamik Link Hedefi Üretimi (Gerçek Firebase ID'si ile)
+      final String deepLink = 'https://halisaha.app/join/$generatedMatchId';
+
+      // 7. Native Paylaşım (share_plus) Tetiklemesi
       await Share.share(
         '⚽ Yeni bir maça davetlisin!\n\nMaç: ${matchName.value}\n📅 $formattedDate - ⏰ $formattedTime\n📍 ${locationName.value.isNotEmpty ? locationName.value : "Belirtilmedi"}\n\nTakımlar: ${homeTeamName.value.isNotEmpty ? homeTeamName.value : "Ev Sahibi"} vs ${awayTeamName.value.isNotEmpty ? awayTeamName.value : "Deplasman"}\n\nMaça katılmak için hemen tıkla:\n$deepLink',
         subject: 'Halı Saha Maç Daveti',
       );
 
       Get.snackbar(
-        'Paylaşım Başarılı',
-        'Maç oluşturma ve davet linki paylaşım menüsü açıldı.',
+        'Maç Oluşturuldu! 🏆',
+        'Maç başarıyla kaydedildi ve paylaşım menüsü açıldı.',
         backgroundColor: const Color(0xFF16221A),
         colorText: const Color(0xFF2EED7B),
         snackPosition: SnackPosition.BOTTOM,
@@ -159,7 +198,7 @@ class MatchCreateController extends GetxController {
     } catch (e) {
       Get.snackbar(
         'Hata',
-        'Paylaşım menüsü açılamadı: $e',
+        'Maç oluşturulamadı: $e',
         backgroundColor: const Color(0xFF16221A),
         colorText: Colors.redAccent,
         snackPosition: SnackPosition.BOTTOM,

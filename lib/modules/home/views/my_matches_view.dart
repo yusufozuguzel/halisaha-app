@@ -6,131 +6,152 @@ import 'discover_view.dart';
 import 'profile_view.dart';
 import '../../../routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../match/controllers/my_matches_controller.dart';
 
-class MyMatchesView extends StatefulWidget {
-  const MyMatchesView({super.key});
+class MyMatchesView extends GetView<MyMatchesController> {
+  MyMatchesView({super.key}) {
+    // Controller hafızada yoksa oluştur (Örn: doğrudan sayfaya gidildiğinde)
+    Get.put(MyMatchesController());
+  }
 
-  @override
-  State<MyMatchesView> createState() => _MyMatchesViewState();
-}
-
-class _MyMatchesViewState extends State<MyMatchesView> {
-  bool _isUpcoming = true;
-
-  // Dinamik renkler — build() içinde hesaplanır
-  late Color _bgColor;
-  late Color _cardBg;
-  late Color _neonGreen;
-  late Color _textWhite;
-  late Color _textGrey;
+  final RxBool _isUpcoming = true.obs;
 
   @override
   Widget build(BuildContext context) {
-    // Tema renklerini güncelle
-    _bgColor = AppColors.bg(context);
-    _cardBg = AppColors.card(context);
-    _neonGreen = kGreen;
-    _textWhite = AppColors.text(context);
-    _textGrey = AppColors.labelColor(context);
+    final bgColor = AppColors.bg(context);
+    final neonGreen = const Color(0xFF2EED7B);
+    final navBg = AppColors.navBg(context);
 
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: bgColor,
       floatingActionButton: GestureDetector(
         onTap: () => Get.toNamed(Routes.MATCH_CREATE),
         child: Container(
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: _neonGreen,
+            color: neonGreen,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: _neonGreen.withOpacity(0.4),
+                color: neonGreen.withOpacity(0.4),
                 blurRadius: 20,
                 spreadRadius: 2,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Icon(Icons.add, size: 32, color: _bgColor),
+          child: Icon(Icons.add, size: 32, color: bgColor),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: _buildBottomNavigationBar(
+        context,
+        navBg: navBg,
+        neonGreen: neonGreen,
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 20),
-              _buildTabToggle(),
-              const SizedBox(height: 20),
-              _buildMatchCard(
-                leftBorderColor: _neonGreen,
-                icon: Icons.sports_soccer,
-                iconColor: _neonGreen,
-                venueName: 'Gold Arena Halı Saha',
-                location: 'Şişli, İstanbul',
-                time: '20:00',
-                dateLabel: 'Bugün',
-                showBubble: true,
-                avatarColors: const [
-                  Color(0xFF5E6AD2),
-                  Color(0xFF8B5CF6),
-                  Color(0xFFEC4899),
-                ],
-                extraCount: '+8',
-                statusText: 'kişi katılıyor',
-              ),
-              const SizedBox(height: 14),
-              _buildMatchCard(
-                leftBorderColor: const Color(0xFFF59E0B),
-                icon: Icons.stadium_outlined,
-                iconColor: const Color(0xFFF59E0B),
-                venueName: 'Vadi İstanbul Arena',
-                location: 'Sarıyer, İstanbul',
-                time: '21:30',
-                dateLabel: 'Yarın',
-                showBubble: false,
-                avatarColors: const [Color(0xFFEF4444), Color(0xFF3B82F6)],
-                extraCount: '+3',
-                statusText: '5 kişi eksik',
-              ),
-              const SizedBox(height: 14),
-              _buildMatchCard(
-                leftBorderColor: const Color(0xFF3B82F6),
-                icon: Icons.sports_outlined,
-                iconColor: const Color(0xFF3B82F6),
-                venueName: 'Beşiktaş Çim Saha',
-                location: 'Beşiktaş, İstanbul',
-                time: '19:00',
-                dateLabel: 'Cuma',
-                showBubble: false,
-                avatarColors: const [Color(0xFF6B7280)],
-                extraCount: '+12',
-                statusText: 'Kadro Tamam',
-              ),
-              const SizedBox(height: 20),
-              _buildDashedAddButton(),
-              const SizedBox(height: 80),
-            ],
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+              child: _buildHeader(context),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildTabToggle(context, neonGreen: neonGreen),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: Obx(() {
+                if (controller.isLoading.value) {
+                  return Center(
+                    child: CircularProgressIndicator(color: neonGreen),
+                  );
+                }
+
+                if (controller.myMatches.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.sports_soccer_outlined,
+                          size: 64,
+                          color: neonGreen.withOpacity(0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Henüz bir maça katılmadın\nveya maç oluşturmadın.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.text(context).withOpacity(0.7),
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: _buildDashedAddButton(
+                            context,
+                            neonGreen: neonGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
+                  itemCount: controller.myMatches.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 14),
+                  itemBuilder: (context, index) {
+                    final match = controller.myMatches[index];
+
+                    final title = match['title'] ?? 'Bilinmeyen Maç';
+                    final venue = match['venue'] ?? 'Bilinmeyen Saha';
+                    final price = match['price']?.toString() ?? '0';
+                    final maxPlayers = match['maxPlayers']?.toString() ?? '?';
+                    final currentPlayers =
+                        match['currentPlayers'] as List<dynamic>?;
+                    final currentCount =
+                        currentPlayers?.length.toString() ?? '1';
+                    final timestamp = match['date'];
+
+                    final dateString = controller.formatDate(timestamp);
+
+                    return _buildMatchCard(
+                      context: context,
+                      neonGreen: neonGreen,
+                      title: title,
+                      venue: venue,
+                      dateText: dateString,
+                      quotaText: '$currentCount / $maxPlayers',
+                      priceText: '$price TL',
+                    );
+                  },
+                );
+              }),
+            ),
+          ],
         ),
       ),
     );
   }
 
   // ── Header ──────────────────────────────────────────────────
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           'Maçlarım',
           style: TextStyle(
-            color: _textWhite,
+            color: AppColors.text(context),
             fontSize: 28,
             fontWeight: FontWeight.bold,
           ),
@@ -141,10 +162,10 @@ class _MyMatchesViewState extends State<MyMatchesView> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: _cardBg,
+              color: AppColors.card(context),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.tune, color: _textWhite, size: 22),
+            child: Icon(Icons.tune, color: AppColors.text(context), size: 22),
           ),
         ),
       ],
@@ -152,68 +173,76 @@ class _MyMatchesViewState extends State<MyMatchesView> {
   }
 
   // ── Tab Toggle ──────────────────────────────────────────────
-  Widget _buildTabToggle() {
+  Widget _buildTabToggle(BuildContext context, {required Color neonGreen}) {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: AppColors.card(context),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          _buildTab('Gelecek Maçlar', true),
-          _buildTab('Geçmiş Maçlar', false),
+          _buildTab(context, 'Gelecek Maçlar', true, neonGreen),
+          _buildTab(context, 'Geçmiş Maçlar', false, neonGreen),
         ],
       ),
     );
   }
 
-  Widget _buildTab(String label, bool isUpcoming) {
-    final isActive = _isUpcoming == isUpcoming;
+  Widget _buildTab(
+    BuildContext context,
+    String label,
+    bool isUpcoming,
+    Color neonGreen,
+  ) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _isUpcoming = isUpcoming),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive ? _neonGreen : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isActive ? _bgColor : _textGrey,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              fontSize: 14,
+        onTap: () => _isUpcoming.value = isUpcoming,
+        child: Obx(() {
+          final isActive = _isUpcoming.value == isUpcoming;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: isActive ? neonGreen : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
             ),
-          ),
-        ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isActive
+                    ? const Color(0xFF0F1712)
+                    : AppColors.labelColor(context),
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                fontSize: 14,
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
 
   // ── Match Card ──────────────────────────────────────────────
   Widget _buildMatchCard({
-    required Color leftBorderColor,
-    required IconData icon,
-    required Color iconColor,
-    required String venueName,
-    required String location,
-    required String time,
-    required String dateLabel,
-    required bool showBubble,
-    required List<Color> avatarColors,
-    required String extraCount,
-    required String statusText,
+    required BuildContext context,
+    required Color neonGreen,
+    required String title,
+    required String venue,
+    required String dateText,
+    required String quotaText,
+    required String priceText,
   }) {
     final isDark = AppColors.isDark(context);
+    final cardBg = AppColors.card(context);
+    final textWhite = AppColors.text(context);
+    final textGrey = AppColors.labelColor(context);
+    final darkGreenBlack = const Color(0xFF0F1712);
+
     return Container(
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withOpacity(0.05)
-            : _cardBg.withOpacity(0.6),
+        color: isDark ? darkGreenBlack : cardBg.withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border(context)),
       ),
@@ -223,7 +252,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
             Container(
               width: 4,
               decoration: BoxDecoration(
-                color: leftBorderColor,
+                color: neonGreen,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   bottomLeft: Radius.circular(16),
@@ -239,58 +268,39 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(icon, color: iconColor, size: 18),
+                        Icon(Icons.sports_soccer, color: neonGreen, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            venueName,
+                            title,
                             style: TextStyle(
-                              color: _textWhite,
+                              color: textWhite,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              time,
-                              style: TextStyle(
-                                color: _textWhite,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: neonGreen.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: neonGreen.withOpacity(0.5),
                             ),
-                            if (showBubble)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _neonGreen,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  dateLabel,
-                                  style: TextStyle(
-                                    color: _bgColor,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              )
-                            else
-                              Text(
-                                dateLabel,
-                                style: TextStyle(
-                                  color: _textGrey,
-                                  fontSize: 12,
-                                ),
-                              ),
-                          ],
+                          ),
+                          child: Text(
+                            dateText,
+                            style: TextStyle(
+                              color: neonGreen,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -298,18 +308,29 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                     Padding(
                       padding: const EdgeInsets.only(left: 26),
                       child: Text(
-                        location,
-                        style: TextStyle(color: _textGrey, fontSize: 12),
+                        venue,
+                        style: TextStyle(color: textGrey, fontSize: 13),
                       ),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        _buildAvatarStack(avatarColors, extraCount),
-                        const SizedBox(width: 8),
+                        Icon(Icons.people_outline, color: textGrey, size: 16),
+                        const SizedBox(width: 4),
                         Text(
-                          statusText,
-                          style: TextStyle(color: _textGrey, fontSize: 12),
+                          'Kontenjan: $quotaText',
+                          style: TextStyle(color: textGrey, fontSize: 12),
+                        ),
+                        const SizedBox(width: 16),
+                        Icon(
+                          Icons.payments_outlined,
+                          color: textGrey,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          priceText,
+                          style: TextStyle(color: textGrey, fontSize: 12),
                         ),
                         const Spacer(),
                         GestureDetector(
@@ -320,15 +341,16 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
+                              color: darkGreenBlack,
                               border: Border.all(
-                                color: AppColors.border(context),
+                                color: neonGreen.withOpacity(0.4),
                               ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               'Detaylar',
                               style: TextStyle(
-                                color: _textWhite,
+                                color: neonGreen,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -347,64 +369,17 @@ class _MyMatchesViewState extends State<MyMatchesView> {
     );
   }
 
-  Widget _buildAvatarStack(List<Color> colors, String extra) {
-    const double size = 26;
-    const double overlap = 16;
-    final width = size + (colors.length - 1) * overlap + 30;
-    return SizedBox(
-      width: width,
-      height: size,
-      child: Stack(
-        children: [
-          for (int i = 0; i < colors.length; i++)
-            Positioned(
-              left: i * overlap,
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  color: colors[i],
-                  shape: BoxShape.circle,
-                  border: Border.all(color: _cardBg, width: 1.5),
-                ),
-              ),
-            ),
-          Positioned(
-            left: colors.length * overlap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5),
-              height: size,
-              decoration: BoxDecoration(
-                color: AppColors.isDark(context)
-                    ? const Color(0xFF2D3E36)
-                    : const Color(0xFFDDEEE4),
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: _cardBg, width: 1.5),
-              ),
-              child: Center(
-                child: Text(
-                  extra,
-                  style: TextStyle(
-                    color: _textWhite,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── Dashed Add Button ───────────────────────────────────────
-  Widget _buildDashedAddButton() {
+  Widget _buildDashedAddButton(
+    BuildContext context, {
+    required Color neonGreen,
+  }) {
+    final textGrey = AppColors.labelColor(context);
     return GestureDetector(
       onTap: () => Get.toNamed(Routes.MATCH_CREATE),
       child: CustomPaint(
         painter: _DashedBorderPainter(
-          color: _textGrey.withOpacity(0.4),
+          color: textGrey.withOpacity(0.4),
           borderRadius: 16,
         ),
         child: Container(
@@ -417,15 +392,15 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: _neonGreen.withOpacity(0.12),
+                  color: neonGreen.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.add, color: _neonGreen, size: 28),
+                child: Icon(Icons.add, color: neonGreen, size: 28),
               ),
               const SizedBox(height: 10),
               Text(
                 'Yeni maç planla',
-                style: TextStyle(color: _textGrey, fontSize: 14),
+                style: TextStyle(color: textGrey, fontSize: 14),
               ),
             ],
           ),
@@ -435,8 +410,11 @@ class _MyMatchesViewState extends State<MyMatchesView> {
   }
 
   // ── Bottom Nav (Maçlarım aktif) ─────────────────────────────
-  Widget _buildBottomNavigationBar() {
-    final navBg = AppColors.navBg(context);
+  Widget _buildBottomNavigationBar(
+    BuildContext context, {
+    required Color navBg,
+    required Color neonGreen,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: navBg,
@@ -461,34 +439,42 @@ class _MyMatchesViewState extends State<MyMatchesView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildNavBarItem(
+                context,
                 Icons.home_filled,
                 'Ana Sayfa',
                 false,
+                neonGreen,
                 onTap: () => Get.offAll(
                   () => const HomeView(userName: 'Onur'),
                   transition: Transition.noTransition,
                 ),
               ),
               _buildNavBarItem(
+                context,
                 Icons.sports_soccer,
                 'Maçlarım',
                 true,
+                neonGreen,
                 onTap: () {},
               ),
               const SizedBox(width: 48),
               _buildNavBarItem(
+                context,
                 Icons.explore_outlined,
                 'Keşfet',
                 false,
+                neonGreen,
                 onTap: () => Get.offAll(
-                  () => const DiscoverView(),
+                  () => DiscoverView(),
                   transition: Transition.noTransition,
                 ),
               ),
               _buildNavBarItem(
+                context,
                 Icons.person_outline,
                 'Profil',
                 false,
+                neonGreen,
                 onTap: () => Get.offAll(
                   () => const ProfileView(),
                   transition: Transition.noTransition,
@@ -502,16 +488,18 @@ class _MyMatchesViewState extends State<MyMatchesView> {
   }
 
   Widget _buildNavBarItem(
+    BuildContext context,
     IconData icon,
     String label,
-    bool isActive, {
+    bool isActive,
+    Color neonGreen, {
     required VoidCallback onTap,
   }) {
-    final color = isActive ? _neonGreen : AppColors.navInactive(context);
+    final color = isActive ? neonGreen : AppColors.navInactive(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: _neonGreen.withOpacity(0.15),
+      splashColor: neonGreen.withOpacity(0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Column(

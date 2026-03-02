@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/match_create_controller.dart';
-import '../../home/views/discover_view.dart';
 
 class MatchCreateView extends GetView<MatchCreateController> {
   const MatchCreateView({super.key});
@@ -176,7 +175,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
           _fieldLabel('Maç Adı'),
           const SizedBox(height: 8),
           _styledTextField(
-            controller: controller.matchNameController,
+            controller: controller.titleController,
             hint: 'Örn: Cuma Akşamı Derbisi',
           ),
           const SizedBox(height: 16),
@@ -186,14 +185,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Maç Formatı'),
+                    _fieldLabel('Kişi Sayısı (Max)'),
                     const SizedBox(height: 8),
-                    Obx(
-                      () => _styledDropdown(
-                        value: controller.matchFormat.value,
-                        items: controller.matchFormats,
-                        onChanged: (v) => controller.matchFormat.value = v!,
-                      ),
+                    _styledTextField(
+                      controller: controller.maxPlayersController,
+                      hint: 'Örn: 14',
                     ),
                   ],
                 ),
@@ -203,14 +199,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Saha Türü'),
+                    _fieldLabel('Maç Ücreti'),
                     const SizedBox(height: 8),
-                    Obx(
-                      () => _styledDropdown(
-                        value: controller.fieldType.value,
-                        items: controller.fieldTypes,
-                        onChanged: (v) => controller.fieldType.value = v!,
-                      ),
+                    _styledTextField(
+                      controller: controller.priceController,
+                      hint: 'Örn: 1500',
                     ),
                   ],
                 ),
@@ -237,14 +230,18 @@ class MatchCreateView extends GetView<MatchCreateController> {
                   children: [
                     _fieldLabel('Tarih'),
                     const SizedBox(height: 8),
-                    Obx(
-                      () => _pickerButton(
+                    Obx(() {
+                      final date = controller.selectedDate.value;
+                      final label = date != null
+                          ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
+                          : 'mm/dd/yy';
+                      return _pickerButton(
                         icon: Icons.calendar_today_outlined,
-                        label: controller.formattedDate,
+                        label: label,
                         onTap: () => controller.pickDate(context),
-                        isSet: controller.selectedDate.value != null,
-                      ),
-                    ),
+                        isSet: date != null,
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -255,15 +252,19 @@ class MatchCreateView extends GetView<MatchCreateController> {
                   children: [
                     _fieldLabel('Saat'),
                     const SizedBox(height: 8),
-                    Obx(
-                      () => _pickerButton(
+                    Obx(() {
+                      final time = controller.selectedTime.value;
+                      final label = time != null
+                          ? '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'
+                          : '--:--';
+                      return _pickerButton(
                         icon: Icons.access_time_rounded,
-                        label: _formatted24Time(),
+                        label: label,
                         onTap: () => controller.pickTime(context),
-                        isSet: controller.selectedTime.value != null,
+                        isSet: time != null,
                         trailingIcon: Icons.watch_later_outlined,
-                      ),
-                    ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -318,14 +319,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
     );
   }
 
-  // ─── 24-Hour Time Helper ─────────────────────────────────────────────────────
-  String _formatted24Time() {
-    final t = controller.selectedTime.value;
-    if (t == null) return '--:--';
-    final hour = t.hour.toString().padLeft(2, '0');
-    final minute = t.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
+  // ─── 24-Hour Time Helper (Removed as it is now in-lined) ───────────────
 
   Widget _locationField() {
     return Container(
@@ -342,7 +336,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
-              controller: controller.locationController,
+              controller: controller.venueController,
               style: const TextStyle(color: _textWhite, fontSize: 14),
               decoration: const InputDecoration(
                 hintText: 'Halı saha adını girin veya seçin',
@@ -629,11 +623,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _fieldLabel('EV SAHİBİ'),
+                _fieldLabel('KİŞİ SAYISI (MAX)'),
                 const SizedBox(height: 8),
                 _styledTextField(
-                  controller: controller.homeTeamController,
-                  hint: '1. Takım',
+                  controller: controller.maxPlayersController,
+                  hint: 'Örn: 14',
                 ),
               ],
             ),
@@ -667,12 +661,12 @@ class MatchCreateView extends GetView<MatchCreateController> {
               children: [
                 Align(
                   alignment: Alignment.centerRight,
-                  child: _fieldLabel('DEPLASMAN'),
+                  child: _fieldLabel('MAÇ ÜCRETİ'),
                 ),
                 const SizedBox(height: 8),
                 _styledTextField(
-                  controller: controller.awayTeamController,
-                  hint: '2. Takım',
+                  controller: controller.priceController,
+                  hint: 'Örn: 150',
                   textAlign: TextAlign.right,
                 ),
               ],
@@ -700,44 +694,53 @@ class MatchCreateView extends GetView<MatchCreateController> {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         child: GestureDetector(
           onTap: () async {
-            await controller.createAndShareMatch();
-            Get.offAll(
-              () => const DiscoverView(),
-              transition: Transition.noTransition,
-            );
+            await controller.createMatch();
           },
-          child: Container(
-            height: 56,
-            decoration: BoxDecoration(
-              color: _neon,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: _neon.withOpacity(0.40),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.rocket_launch_rounded,
-                  color: Color(0xFF0F1712),
-                  size: 22,
-                ),
-                SizedBox(width: 10),
-                Text(
-                  'Maç Oluştur ve Link Paylaş',
-                  style: TextStyle(
-                    color: Color(0xFF0F1712),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
+          child: Obx(
+            () => Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: _neon,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: _neon.withOpacity(0.40),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (controller.isLoading.value)
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF0F1712),
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                  else ...[
+                    const Icon(
+                      Icons.rocket_launch_rounded,
+                      color: Color(0xFF0F1712),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Oluştur',
+                      style: TextStyle(
+                        color: Color(0xFF0F1712),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
@@ -783,39 +786,6 @@ class MatchCreateView extends GetView<MatchCreateController> {
             isDense: true,
             contentPadding: EdgeInsets.zero,
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _styledDropdown({
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _cardBorder),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          dropdownColor: const Color(0xFF1A2E1F),
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: _neon,
-            size: 22,
-          ),
-          style: const TextStyle(color: _textWhite, fontSize: 14),
-          items: items
-              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-              .toList(),
-          onChanged: onChanged,
         ),
       ),
     );

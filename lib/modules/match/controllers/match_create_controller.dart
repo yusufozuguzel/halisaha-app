@@ -1,85 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:share_plus/share_plus.dart'; // Paylaşım özelliği için eklendi 🔥
 
-// KENDI BACKEND DOSYALARIMIZI IMPORT EDIYORUZ 🔥
+// KENDI BACKEND DOSYALARIMIZI IMPORT EDIYORUZ
 import '../models/match_model.dart';
 import '../services/match_service.dart';
 
 class MatchCreateController extends GetxController {
-  // Backend servisimizi çağırıyoruz
+  // Backend servisimizi çağırıyoruz (Takımın eklediği)
   final MatchService _matchService = MatchService();
 
-  // Step indicator
+  // Step indicator (Takımın eklediği)
   var currentStep = 0.obs;
 
-  // General Info
-  var matchName = ''.obs;
-  var matchFormat = '7x7'.obs;
-  var fieldType = 'Açık Saha'.obs;
+  // TextEditingController variables (Senin sağlam altyapın)
+  final titleController = TextEditingController();
+  final venueController = TextEditingController();
+  final priceController = TextEditingController();
+  final maxPlayersController = TextEditingController(text: '14');
 
-  // Time & Location
-  var selectedDate = Rxn<DateTime>();
-  var selectedTime = Rxn<TimeOfDay>();
-  var locationName = ''.obs;
+  // Reactive variables for Date and Time
+  final selectedDate = Rx<DateTime?>(null);
+  final selectedTime = Rx<TimeOfDay?>(null);
 
-  // Teams
-  var homeTeamName = ''.obs;
-  var awayTeamName = ''.obs;
-
-  // Text editing controllers
-  final matchNameController = TextEditingController();
-  final locationController = TextEditingController();
-  final homeTeamController = TextEditingController();
-  final awayTeamController = TextEditingController();
-
-  // Options
-  final List<String> matchFormats = ['5x5', '6x6', '7x7', '8x8', '11x11'];
-  final List<String> fieldTypes = [
-    'Açık Saha',
-    'Kapalı Saha',
-    'Sentetik Çim',
-    'Doğal Çim',
-  ];
-
-  @override
-  void onInit() {
-    super.onInit();
-    matchNameController.addListener(
-      () => matchName.value = matchNameController.text,
-    );
-    locationController.addListener(
-      () => locationName.value = locationController.text,
-    );
-    homeTeamController.addListener(
-      () => homeTeamName.value = homeTeamController.text,
-    );
-    awayTeamController.addListener(
-      () => awayTeamName.value = awayTeamController.text,
-    );
-  }
+  // Loading state
+  final isLoading = false.obs;
 
   @override
   void onClose() {
-    matchNameController.dispose();
-    locationController.dispose();
-    homeTeamController.dispose();
-    awayTeamController.dispose();
+    titleController.dispose();
+    venueController.dispose();
+    priceController.dispose();
+    maxPlayersController.dispose();
     super.onClose();
   }
 
+  // Pick Date Function
   Future<void> pickDate(BuildContext context) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: selectedDate.value ?? now,
-      firstDate: now,
+      firstDate: now, // Geçmişe maç açılamaz
       lastDate: DateTime(now.year + 2),
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF2EED7B),
-            onPrimary: Color(0xFF0F1712),
+            primary: Color(0xFF2EED7B), // Neon yeşil
+            onPrimary: Colors.black,
             surface: Color(0xFF1A2E1F),
             onSurface: Colors.white,
           ),
@@ -88,9 +58,12 @@ class MatchCreateController extends GetxController {
         child: child!,
       ),
     );
-    if (picked != null) selectedDate.value = picked;
+    if (picked != null) {
+      selectedDate.value = picked;
+    }
   }
 
+  // Pick Time Function
   Future<void> pickTime(BuildContext context) async {
     final picked = await showTimePicker(
       context: context,
@@ -98,8 +71,8 @@ class MatchCreateController extends GetxController {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF2EED7B),
-            onPrimary: Color(0xFF0F1712),
+            primary: Color(0xFF2EED7B), // Neon yeşil
+            onPrimary: Colors.black,
             surface: Color(0xFF1A2E1F),
             onSurface: Colors.white,
           ),
@@ -108,101 +81,109 @@ class MatchCreateController extends GetxController {
         child: child!,
       ),
     );
-    if (picked != null) selectedTime.value = picked;
+    if (picked != null) {
+      selectedTime.value = picked;
+    }
   }
 
-  String get formattedDate {
-    if (selectedDate.value == null) return 'mm/dd/yy';
-    final d = selectedDate.value!;
-    final month = d.month.toString().padLeft(2, '0');
-    final day = d.day.toString().padLeft(2, '0');
-    final year = d.year.toString().substring(2);
-    return '$month/$day/$year';
-  }
-
-  String get formattedTime {
-    if (selectedTime.value == null) return '--:-- --';
-    final t = selectedTime.value!;
-    final hour = t.hourOfPeriod.toString().padLeft(2, '0');
-    final minute = t.minute.toString().padLeft(2, '0');
-    final period = t.period == DayPeriod.am ? 'AM' : 'PM';
-    return '$hour:$minute $period';
-  }
-
-  // 🔥 BACKEND ENTEGRASYONU BURADA 🔥
+  // 🔥 BİRLEŞTİRİLMİŞ BACKEND VE PAYLAŞIM ENTEGRASYONU 🔥
   Future<void> createAndShareMatch() async {
-    // 1. Doğrulama (Tarih ve Saat seçilmiş mi?)
-    if (matchName.value.isEmpty ||
+    // 1. Sıkı Doğrulama (Senin Kodun)
+    final title = titleController.text.trim();
+    final venue = venueController.text.trim();
+    final priceStr = priceController.text.trim();
+    final maxPlayersStr = maxPlayersController.text.trim();
+
+    if (title.isEmpty ||
+        venue.isEmpty ||
+        priceStr.isEmpty ||
+        maxPlayersStr.isEmpty ||
         selectedDate.value == null ||
         selectedTime.value == null) {
       Get.snackbar(
         'Eksik Bilgi',
-        'Lütfen maç adını, tarihini ve saatini eksiksiz girin.',
-        backgroundColor: const Color(0xFF1A2E1F),
-        colorText: const Color(0xFF2EED7B),
+        'Lütfen tüm alanları doldurun ve tarih/saat seçin.',
+        backgroundColor: Colors.red[900],
+        colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
 
-    try {
-      // 2. Format'tan kişi sayısını çıkarıyoruz (Örn: "7x7" -> 14 kişi)
-      int capacity = 14; // Varsayılan
-      if (matchFormat.value.contains('x')) {
-        var parts = matchFormat.value.split('x');
-        if (parts.length == 2) {
-          capacity = (int.tryParse(parts[0]) ?? 7) * 2;
-        }
-      }
+    final price = double.tryParse(priceStr) ?? 0.0;
+    final maxPlayers = int.tryParse(maxPlayersStr) ?? 14;
 
-      // 3. Seçilen Tarih ve Saati birleştirip tam bir DateTime objesi yapıyoruz
+    try {
+      isLoading.value = true;
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Oturum açmış kullanıcı bulunamadı.');
+      }
+      final uid = user.uid;
+
+      // 2. Zaman Dönüşümü
       final date = selectedDate.value!;
       final time = selectedTime.value!;
-      final matchDateTime = DateTime(
+      final combinedDateTime = DateTime(
         date.year,
         date.month,
         date.day,
         time.hour,
         time.minute,
       );
+      final timestamp = Timestamp.fromDate(combinedDateTime);
 
-      // 4. Maç Modelimizi oluşturuyoruz (SADECE SENİN MODELİNDEKİ ALANLAR)
-      final newMatch = MatchModel(
-        id: '', // Firebase eklerken kendi ID'sini oluşturacak
-        title: matchName.value,
-        date: matchDateTime,
-        maxPlayers: capacity,
-      );
+      // 3. Veritabanı Şemasına Uygun Kayıt (Senin kusursuz şeman)
+      final matchData = {
+        'title': title,
+        'venue': venue,
+        'price': price,
+        'maxPlayers': maxPlayers,
+        'date': timestamp,
+        'createdBy': uid,
+        'currentPlayers': [uid], // Kurucuyu listeye ekle
+        'status': 'open',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
 
-      // 5. Firebase'e Kaydet ve oluşan ID'yi al! 🔥
-      final String generatedMatchId = await _matchService.createMatch(newMatch);
+      // 4. Firestore'a ekle ve otomatik oluşan ID'yi al!
+      final docRef = await FirebaseFirestore.instance.collection('matches').add(matchData);
+      final String generatedMatchId = docRef.id;
 
-      // 6. Dinamik Link Hedefi Üretimi (Gerçek Firebase ID'si ile)
+      // 5. Dinamik Link Hedefi Üretimi (Takımın eklediği özellik)
       final String deepLink = 'https://halisaha.app/join/$generatedMatchId';
+      
+      // Paylaşım metni için tarih formatlama
+      final String formattedDate = "${date.day}/${date.month}/${date.year}";
+      final String formattedTime = "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
 
-      // 7. Native Paylaşım (share_plus) Tetiklemesi
-      await Share.share(
-        '⚽ Yeni bir maça davetlisin!\n\nMaç: ${matchName.value}\n📅 $formattedDate - ⏰ $formattedTime\n📍 ${locationName.value.isNotEmpty ? locationName.value : "Belirtilmedi"}\n\nTakımlar: ${homeTeamName.value.isNotEmpty ? homeTeamName.value : "Ev Sahibi"} vs ${awayTeamName.value.isNotEmpty ? awayTeamName.value : "Deplasman"}\n\nMaça katılmak için hemen tıkla:\n$deepLink',
-        subject: 'Halı Saha Maç Daveti',
-      );
-
+      // 6. Başarı Mesajı ve Kapanış
+      Get.back(); // Formu kapatır
       Get.snackbar(
         'Maç Oluşturuldu! 🏆',
         'Maç başarıyla kaydedildi ve paylaşım menüsü açıldı.',
-        backgroundColor: const Color(0xFF16221A),
+        backgroundColor: const Color(0xFF1A2E1F),
         colorText: const Color(0xFF2EED7B),
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
-        icon: const Icon(Icons.check_circle_outline, color: Color(0xFF2EED7B)),
       );
+
+      // 7. Native Paylaşım (share_plus) Tetiklemesi
+      await Share.share(
+        '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $formattedTime\n📍 $venue\n\nMaça katılmak için hemen tıkla:\n$deepLink',
+        subject: 'Halı Saha Maç Daveti',
+      );
+
     } catch (e) {
       Get.snackbar(
         'Hata',
         'Maç oluşturulamadı: $e',
-        backgroundColor: const Color(0xFF16221A),
-        colorText: Colors.redAccent,
+        backgroundColor: Colors.red[900],
+        colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
+    } finally {
+      isLoading.value = false;
     }
   }
 }

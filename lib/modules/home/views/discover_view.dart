@@ -150,7 +150,7 @@ class _DiscoverViewState extends State<DiscoverView> {
 
     return Scaffold(
       backgroundColor: _bg,
-      floatingActionButton: GestureDetector(
+     floatingActionButton: GestureDetector(
         onTap: () => Get.toNamed(Routes.MATCH_CREATE),
         child: Container(
           width: 64,

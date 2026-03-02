@@ -235,7 +235,7 @@ class _HomeViewState extends State<HomeView> {
         final avatarData = data['avatarData'] ?? '0';
 
         Widget avatarWidget;
-        if (avatarType == 'base64' && avatarData.isNotEmpty) {
+        if (avatarType == 'base64' && avatarData.toString().isNotEmpty) {
           try {
             avatarWidget = ClipRRect(
               borderRadius: BorderRadius.circular(24),
@@ -252,7 +252,7 @@ class _HomeViewState extends State<HomeView> {
             avatarWidget = Icon(Icons.person, color: textColor, size: 24);
           }
         } else {
-          final iconIndex = int.tryParse(avatarData) ?? 0;
+          final iconIndex = int.tryParse(avatarData.toString()) ?? 0;
           final List<IconData> defaultIcons = [
             Icons.person,
             Icons.sports_soccer,

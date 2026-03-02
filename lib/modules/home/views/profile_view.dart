@@ -65,8 +65,10 @@ class _ProfileViewState extends State<ProfileView> {
         builder: (ctx, setSheet) {
           final isDark = AppColors.isDark(ctx);
           final sheetBg = isDark ? const Color(0xFF16221A) : Colors.white;
-          final inputBg = isDark ? const Color(0xFF0F1712) : const Color(0xFFF0F4F1);
-          
+          final inputBg = isDark
+              ? const Color(0xFF0F1712)
+              : const Color(0xFFF0F4F1);
+
           return Container(
             padding: EdgeInsets.only(
               left: 24,
@@ -101,49 +103,116 @@ class _ProfileViewState extends State<ProfileView> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Obx(() {
-                        final f = _ctrl.avatarFile.value;
-                        return GestureDetector(
-                          onTap: _showImagePickerSheet,
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              image: DecorationImage(
-                                image: f != null
-                                    ? FileImage(f) as ImageProvider
-                                    : NetworkImage(_ctrl.avatarUrl.value),
-                                fit: BoxFit.cover,
-                              ),
-                              border: Border.all(
-                                color: _green.withOpacity(0.5),
-                                width: 2,
-                              ),
-                            ),
-                            child: Align(
-                              alignment: Alignment.bottomRight,
-                              child: Container(
-                                width: 18,
-                                height: 18,
-                                decoration: BoxDecoration(
-                                  color: _green,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: sheetBg,
-                                    width: 1.5,
+                      Builder(
+                        builder: (_) {
+                          // Edit sheet'teki avatar: Firestore stream'inden okunan veriyi kullan
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user == null)
+                            return const SizedBox(width: 52, height: 52);
+                          return StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user.uid)
+                                .snapshots(),
+                            builder: (ctx2, snap) {
+                              Widget innerAvatar;
+                              if (snap.hasData) {
+                                final d =
+                                    snap.data!.data()
+                                        as Map<String, dynamic>? ??
+                                    {};
+                                final aType = d['avatarType'] ?? 'icon';
+                                final aData = d['avatarData'] ?? '0';
+                                if (aType == 'base64' &&
+                                    aData.toString().isNotEmpty) {
+                                  try {
+                                    innerAvatar = ClipRRect(
+                                      borderRadius: BorderRadius.circular(26),
+                                      child: Image.memory(
+                                        base64Decode(aData),
+                                        width: 52,
+                                        height: 52,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          Icons.person,
+                                          color: AppColors.text(ctx),
+                                          size: 24,
+                                        ),
+                                      ),
+                                    );
+                                  } catch (_) {
+                                    innerAvatar = Icon(
+                                      Icons.person,
+                                      color: AppColors.text(ctx),
+                                      size: 24,
+                                    );
+                                  }
+                                } else {
+                                  final iconIdx =
+                                      int.tryParse(aData.toString()) ?? 0;
+                                  const defaultIcons = [
+                                    Icons.person,
+                                    Icons.sports_soccer,
+                                    Icons.sports_martial_arts,
+                                    Icons.face,
+                                  ];
+                                  innerAvatar = Icon(
+                                    defaultIcons[iconIdx % defaultIcons.length],
+                                    color: AppColors.text(ctx),
+                                    size: 24,
+                                  );
+                                }
+                              } else {
+                                innerAvatar = Icon(
+                                  Icons.person,
+                                  color: AppColors.text(ctx),
+                                  size: 24,
+                                );
+                              }
+                              return GestureDetector(
+                                onTap: _showImagePickerSheet,
+                                child: Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppColors.overlay(ctx),
+                                    border: Border.all(
+                                      color: _green.withOpacity(0.5),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      Center(child: innerAvatar),
+                                      Align(
+                                        alignment: Alignment.bottomRight,
+                                        child: Container(
+                                          width: 18,
+                                          height: 18,
+                                          decoration: BoxDecoration(
+                                            color: _green,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: sheetBg,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.camera_alt,
+                                            color: Color(0xFF0F1712),
+                                            size: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Color(0xFF0F1712),
-                                  size: 10,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
+                              );
+                            },
+                          );
+                        },
+                      ),
                       const SizedBox(width: 16),
                       // Başlık — Expanded sayesinde taşmayı önler
                       Expanded(
@@ -181,16 +250,20 @@ class _ProfileViewState extends State<ProfileView> {
                   SizedBox(
                     width: double.infinity,
                     child: GestureDetector(
-                      onTap: () {
+                      onTap: () async {
                         // Hem GetX Controller'ı hem de yerel state'i güncelle
-                        _ctrl.updateProfile(
+                        await _ctrl.updateProfile(
                           newName: nameCtrl.text,
                           newPosition: posCtrl.text,
                           newAvatarFile: tempAvatar,
                         );
                         setState(() {
-                          _name = nameCtrl.text.trim().isEmpty ? _name : nameCtrl.text.trim();
-                          _position = posCtrl.text.trim().isEmpty ? _position : posCtrl.text.trim().toUpperCase();
+                          _name = nameCtrl.text.trim().isEmpty
+                              ? _name
+                              : nameCtrl.text.trim();
+                          _position = posCtrl.text.trim().isEmpty
+                              ? _position
+                              : posCtrl.text.trim().toUpperCase();
                         });
                         Get.back();
                       },
@@ -271,12 +344,21 @@ class _ProfileViewState extends State<ProfileView> {
     Get.bottomSheet(
       Builder(
         builder: (ctx) {
-          final sheetBg = AppColors.isDark(ctx) ? const Color(0xFF16221A) : Colors.white;
+          final sheetBg = AppColors.isDark(ctx)
+              ? const Color(0xFF16221A)
+              : Colors.white;
           return Container(
-            padding: const EdgeInsets.only(top: 24, bottom: 32, left: 24, right: 24),
+            padding: const EdgeInsets.only(
+              top: 24,
+              bottom: 32,
+              left: 24,
+              right: 24,
+            ),
             decoration: BoxDecoration(
               color: sheetBg,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -307,9 +389,11 @@ class _ProfileViewState extends State<ProfileView> {
                   onTap: () async {
                     Get.back();
                     final picker = ImagePicker();
-                    final picked = await picker.pickImage(source: ImageSource.camera);
+                    final picked = await picker.pickImage(
+                      source: ImageSource.camera,
+                    );
                     if (picked != null) {
-                      _ctrl.updateProfile(
+                      await _ctrl.updateProfile(
                         newName: _ctrl.name.value,
                         newPosition: _ctrl.position.value,
                         newAvatarFile: File(picked.path),
@@ -325,9 +409,11 @@ class _ProfileViewState extends State<ProfileView> {
                   onTap: () async {
                     Get.back();
                     final picker = ImagePicker();
-                    final picked = await picker.pickImage(source: ImageSource.gallery);
+                    final picked = await picker.pickImage(
+                      source: ImageSource.gallery,
+                    );
                     if (picked != null) {
-                      _ctrl.updateProfile(
+                      await _ctrl.updateProfile(
                         newName: _ctrl.name.value,
                         newPosition: _ctrl.position.value,
                         newAvatarFile: File(picked.path),
@@ -357,7 +443,9 @@ class _ProfileViewState extends State<ProfileView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.isDark(ctx) ? const Color(0xFF0F1712) : const Color(0xFFF0F4F1),
+          color: AppColors.isDark(ctx)
+              ? const Color(0xFF0F1712)
+              : const Color(0xFFF0F4F1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border(ctx)),
         ),
@@ -478,7 +566,13 @@ class _ProfileViewState extends State<ProfileView> {
               ),
             ],
           ),
-          child: Icon(Icons.add, size: 32, color: AppColors.isDark(context) ? const Color(0xFF0F1712) : Colors.white),
+          child: Icon(
+            Icons.add,
+            size: 32,
+            color: AppColors.isDark(context)
+                ? const Color(0xFF0F1712)
+                : Colors.white,
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -509,7 +603,10 @@ class _ProfileViewState extends State<ProfileView> {
     if (user == null) return const SizedBox.shrink();
 
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Padding(
@@ -535,28 +632,43 @@ class _ProfileViewState extends State<ProfileView> {
         });
 
         Widget avatarWidget;
-        if (avatarType == 'base64' && avatarData.isNotEmpty) {
+        if (avatarType == 'base64' && avatarData.toString().isNotEmpty) {
           try {
-            avatarWidget = Image.memory(
-              base64Decode(avatarData),
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Icon(Icons.person, color: textColor, size: 40),
+            avatarWidget = ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: Image.memory(
+                base64Decode(avatarData),
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (context, error, stackTrace) =>
+                    Icon(Icons.person, color: textColor, size: 40),
+              ),
             );
           } catch (e) {
             avatarWidget = Icon(Icons.person, color: textColor, size: 40);
           }
         } else {
-          final iconIndex = int.tryParse(avatarData) ?? 0;
+          final iconIndex = int.tryParse(avatarData.toString()) ?? 0;
           final List<IconData> defaultIcons = [
             Icons.person,
             Icons.sports_soccer,
             Icons.sports_martial_arts,
             Icons.face,
           ];
-          avatarWidget = Icon(
-            defaultIcons[iconIndex % defaultIcons.length],
-            color: textColor,
-            size: 40,
+          avatarWidget = Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: AppColors.overlay(context),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              defaultIcons[iconIndex % defaultIcons.length],
+              color: textColor,
+              size: 40,
+            ),
           );
         }
 
@@ -568,39 +680,39 @@ class _ProfileViewState extends State<ProfileView> {
               Column(
                 children: [
                   // Avatar
-                  Stack(
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _card,
-                          border: Border.all(
-                            color: _green.withOpacity(0.5),
-                            width: 3,
+                  GestureDetector(
+                    onTap: _showImagePickerSheet,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _card,
+                            border: Border.all(
+                              color: _green.withOpacity(0.5),
+                              width: 3,
+                            ),
                           ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(50),
                           child: avatarWidget,
                         ),
-                      ),
-                      Positioned(
-                        bottom: 2,
-                        right: 2,
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: _green,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: _bg, width: 2),
+                        Positioned(
+                          bottom: 2,
+                          right: 2,
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: _green,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: _bg, width: 2),
+                            ),
+                            child: Icon(Icons.camera_alt, color: _bg, size: 14),
                           ),
-                          child: Icon(Icons.camera_alt, color: _bg, size: 14),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -617,7 +729,10 @@ class _ProfileViewState extends State<ProfileView> {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: _green.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -725,7 +840,13 @@ class _ProfileViewState extends State<ProfileView> {
           SizedBox(
             width: 220,
             height: 220,
-            child: CustomPaint(painter: _RadarPainter(values: _radarValues)),
+            child: CustomPaint(
+              painter: _RadarPainter(
+                values: _radarValues,
+                gridColor: AppColors.border(context),
+                textColor: AppColors.subText(context),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -761,72 +882,15 @@ class _ProfileViewState extends State<ProfileView> {
   Widget _buildStatRow() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: _statBox(
-              value: '24',
-              label: 'OYNANAN MAÇ',
-              valueFontSize: 32,
-              valueColor: AppColors.text(context),
-              labelColor: AppColors.subText(context),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              decoration: BoxDecoration(
-                color: AppColors.isDark(context) ? const Color(0xFF2A2310) : const Color(0xFFFFF8E1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFFFC107).withOpacity(0.3),
-                ),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '3',
-                    style: TextStyle(
-                      color: Color(0xFFFFC107),
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.star, color: Color(0xFFFFC107), size: 12),
-                      SizedBox(width: 4),
-                      Text(
-                        'MVP',
-                        style: TextStyle(
-                          color: Color(0xFFFFC107),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _statBox(
-              value: '9.8',
-              label: 'FAİR-PLAY',
-              valueFontSize: 28,
-              valueColor: _green,
-              labelColor: AppColors.subText(context),
-            ),
-          ),
-        ],
+      child: SizedBox(
+        width: double.infinity,
+        child: _statBox(
+          value: '24',
+          label: 'OYNANAN MAÇ',
+          valueFontSize: 32,
+          valueColor: AppColors.text(context),
+          labelColor: AppColors.subText(context),
+        ),
       ),
     );
   }
@@ -1070,7 +1134,14 @@ class _ProfileViewState extends State<ProfileView> {
 // ============================================================
 class _RadarPainter extends CustomPainter {
   final Map<String, double> values;
-  const _RadarPainter({required this.values});
+  final Color gridColor;
+  final Color textColor;
+
+  const _RadarPainter({
+    required this.values,
+    required this.gridColor,
+    required this.textColor,
+  });
 
   static const _labels = ['ŞUT', 'HIZ', 'DEFANS', 'PAS'];
 
@@ -1083,7 +1154,7 @@ class _RadarPainter extends CustomPainter {
     const startAngle = -math.pi / 2;
 
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.09)
+      ..color = gridColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -1106,7 +1177,7 @@ class _RadarPainter extends CustomPainter {
     }
 
     final axisPaint = Paint()
-      ..color = Colors.white.withOpacity(0.09)
+      ..color = gridColor
       ..strokeWidth = 1;
 
     for (int i = 0; i < sides; i++) {
@@ -1169,7 +1240,7 @@ class _RadarPainter extends CustomPainter {
         text: TextSpan(
           text: _labels[i],
           style: TextStyle(
-            color: Colors.white.withOpacity(0.55),
+            color: textColor,
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),

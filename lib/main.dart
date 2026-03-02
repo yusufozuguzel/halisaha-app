@@ -6,9 +6,12 @@ import 'routes/app_pages.dart';
 import 'modules/auth/controllers/auth_controller.dart';
 import 'core/theme/app_theme.dart';
 
+import 'package:get_storage/get_storage.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await GetStorage.init();
 
   Get.put(AuthController(), permanent: true);
 

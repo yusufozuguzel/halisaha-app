@@ -151,25 +151,25 @@ class _DiscoverViewState extends State<DiscoverView> {
     return Scaffold(
       backgroundColor: _bg,
       floatingActionButton: GestureDetector(
-        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: _green,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: _green.withOpacity(0.4),
-                blurRadius: 20,
-                spreadRadius: 2,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(Icons.add, size: 32, color: _bg),
-        ),
-      ),
+        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: _green,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: _green.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(Icons.add, size: 32, color: _bg),
+        ),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomNav(),
       body: SafeArea(
@@ -706,7 +706,22 @@ class _DiscoverViewState extends State<DiscoverView> {
               ),
               const Spacer(),
               InkWell(
-                onTap: () => _applyToMatch(match),
+                onTap: () {
+                  Get.snackbar(
+                    'Katılım',
+                    '${match.title} maçına katılım isteği gönderildi!',
+                    backgroundColor: const Color(0xFF1C3A24),
+                    colorText: _green,
+                    borderRadius: 12,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    snackPosition: SnackPosition.BOTTOM,
+                    duration: const Duration(seconds: 3),
+                    icon: const Icon(Icons.check_circle, color: _green),
+                  );
+                },
                 borderRadius: BorderRadius.circular(8),
                 child: const Text(
                   'Katıl',

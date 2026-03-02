@@ -1,7 +1,10 @@
-import 'dart:math' as math;
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../controllers/profile_controller.dart';
@@ -26,7 +29,11 @@ class _ProfileViewState extends State<ProfileView> {
   late Color _bg;
   late Color _card;
 
-  static const _green = kGreen;
+  static const _green = Color(0xFF2EED7B);
+
+  // Editable profile state (Yusuf'un Firebase Stream'i ile güncellenecek)
+  String _name = '...';
+  String _position = '...';
 
   // Controller — permanent:true olduğu için her zaman aynı örneği döner
   late final ProfileController _ctrl;
@@ -43,15 +50,14 @@ class _ProfileViewState extends State<ProfileView> {
   void initState() {
     super.initState();
     // Controller zaten Get.put(permanent:true) ile kaydedilmiş;
-    // yoksa burada da oluştur (fallback).
     _ctrl = Get.put(ProfileController(), permanent: true);
   }
 
   // ── Edit Profile Bottom Sheet ──────────────────────────────
   void _showEditSheet() {
-    // Controller'dan güncel verileri al
-    final nameCtrl = TextEditingController(text: _ctrl.name.value);
-    final posCtrl = TextEditingController(text: _ctrl.position.value);
+    // Hem Firebase'den gelen son veriyi hem de Controller'ı kullan
+    final nameCtrl = TextEditingController(text: _name);
+    final posCtrl = TextEditingController(text: _position);
     File? tempAvatar = _ctrl.avatarFile.value;
 
     Get.bottomSheet(
@@ -59,9 +65,8 @@ class _ProfileViewState extends State<ProfileView> {
         builder: (ctx, setSheet) {
           final isDark = AppColors.isDark(ctx);
           final sheetBg = isDark ? const Color(0xFF16221A) : Colors.white;
-          final inputBg = isDark
-              ? const Color(0xFF0F1712)
-              : const Color(0xFFF0F4F1);
+          final inputBg = isDark ? const Color(0xFF0F1712) : const Color(0xFFF0F4F1);
+          
           return Container(
             padding: EdgeInsets.only(
               left: 24,
@@ -85,17 +90,17 @@ class _ProfileViewState extends State<ProfileView> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: AppColors.border(ctx),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Avatar + başlık — Row tam genişlik, avatar sol kenara çivilendi
+                  // Avatar + başlık — Senin tasarımın: Row tam genişlik, avatar sola çakılı
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      // 1) CircleAvatar — sabit 52×52, asla esnemiyor
                       Obx(() {
                         final f = _ctrl.avatarFile.value;
                         return GestureDetector(
@@ -125,15 +130,13 @@ class _ProfileViewState extends State<ProfileView> {
                                   color: _green,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: AppColors.isDark(ctx)
-                                        ? const Color(0xFF16221A)
-                                        : Colors.white,
+                                    color: sheetBg,
                                     width: 1.5,
                                   ),
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
-                                  color: kDarkBg,
+                                  color: Color(0xFF0F1712),
                                   size: 10,
                                 ),
                               ),
@@ -141,10 +144,8 @@ class _ProfileViewState extends State<ProfileView> {
                           ),
                         );
                       }),
-                      // 2) Boşluk
                       const SizedBox(width: 16),
-                      // 3) Başlık — Expanded sayesinde kalan alanı doldurur,
-                      //    avatarı asla itmez. maxLines + ellipsis taşmayı önler.
+                      // Başlık — Expanded sayesinde taşmayı önler
                       Expanded(
                         child: Text(
                           'Profili Düzenle',
@@ -181,12 +182,16 @@ class _ProfileViewState extends State<ProfileView> {
                     width: double.infinity,
                     child: GestureDetector(
                       onTap: () {
-                        // Controller'a kaydet (kalıcı state)
+                        // Hem GetX Controller'ı hem de yerel state'i güncelle
                         _ctrl.updateProfile(
                           newName: nameCtrl.text,
                           newPosition: posCtrl.text,
                           newAvatarFile: tempAvatar,
                         );
+                        setState(() {
+                          _name = nameCtrl.text.trim().isEmpty ? _name : nameCtrl.text.trim();
+                          _position = posCtrl.text.trim().isEmpty ? _position : posCtrl.text.trim().toUpperCase();
+                        });
                         Get.back();
                       },
                       child: Container(
@@ -195,11 +200,11 @@ class _ProfileViewState extends State<ProfileView> {
                           color: _green,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Kaydet',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: kDarkBg,
+                            color: AppColors.bg(ctx),
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                             decoration: TextDecoration.none,
@@ -266,21 +271,12 @@ class _ProfileViewState extends State<ProfileView> {
     Get.bottomSheet(
       Builder(
         builder: (ctx) {
-          final sheetBg = AppColors.isDark(ctx)
-              ? const Color(0xFF16221A)
-              : Colors.white;
+          final sheetBg = AppColors.isDark(ctx) ? const Color(0xFF16221A) : Colors.white;
           return Container(
-            padding: const EdgeInsets.only(
-              top: 24,
-              bottom: 32,
-              left: 24,
-              right: 24,
-            ),
+            padding: const EdgeInsets.only(top: 24, bottom: 32, left: 24, right: 24),
             decoration: BoxDecoration(
               color: sheetBg,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -289,7 +285,7 @@ class _ProfileViewState extends State<ProfileView> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: AppColors.border(ctx),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -311,9 +307,7 @@ class _ProfileViewState extends State<ProfileView> {
                   onTap: () async {
                     Get.back();
                     final picker = ImagePicker();
-                    final picked = await picker.pickImage(
-                      source: ImageSource.camera,
-                    );
+                    final picked = await picker.pickImage(source: ImageSource.camera);
                     if (picked != null) {
                       _ctrl.updateProfile(
                         newName: _ctrl.name.value,
@@ -331,9 +325,7 @@ class _ProfileViewState extends State<ProfileView> {
                   onTap: () async {
                     Get.back();
                     final picker = ImagePicker();
-                    final picked = await picker.pickImage(
-                      source: ImageSource.gallery,
-                    );
+                    final picked = await picker.pickImage(source: ImageSource.gallery);
                     if (picked != null) {
                       _ctrl.updateProfile(
                         newName: _ctrl.name.value,
@@ -365,9 +357,7 @@ class _ProfileViewState extends State<ProfileView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.isDark(ctx)
-              ? const Color(0xFF0F1712)
-              : const Color(0xFFF0F4F1),
+          color: AppColors.isDark(ctx) ? const Color(0xFF0F1712) : const Color(0xFFF0F4F1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border(ctx)),
         ),
@@ -488,7 +478,7 @@ class _ProfileViewState extends State<ProfileView> {
               ),
             ],
           ),
-          child: Icon(Icons.add, size: 32, color: _bg),
+          child: Icon(Icons.add, size: 32, color: AppColors.isDark(context) ? const Color(0xFF0F1712) : Colors.white),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -515,19 +505,70 @@ class _ProfileViewState extends State<ProfileView> {
   // ── Profile Card ───────────────────────────────────────────
   Widget _buildProfileCard() {
     final textColor = AppColors.text(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-      child: Stack(
-        children: [
-          // Obx ile controller'dan veri oku
-          Obx(() {
-            final f = _ctrl.avatarFile.value;
-            return Column(
-              children: [
-                GestureDetector(
-                  onTap: _showImagePickerSheet,
-                  child: Stack(
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.all(40),
+            child: CircularProgressIndicator(color: _green),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final fullName = data['fullName'] ?? data['name'] ?? 'Lig Oyuncusu';
+        final position = data['position'] ?? 'BELİRSİZ';
+        final avatarType = data['avatarType'] ?? 'icon';
+        final avatarData = data['avatarData'] ?? '0';
+
+        // BottomSheet için yerel state'i güncelle
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _name = fullName;
+              _position = position;
+            });
+          }
+        });
+
+        Widget avatarWidget;
+        if (avatarType == 'base64' && avatarData.isNotEmpty) {
+          try {
+            avatarWidget = Image.memory(
+              base64Decode(avatarData),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Icon(Icons.person, color: textColor, size: 40),
+            );
+          } catch (e) {
+            avatarWidget = Icon(Icons.person, color: textColor, size: 40);
+          }
+        } else {
+          final iconIndex = int.tryParse(avatarData) ?? 0;
+          final List<IconData> defaultIcons = [
+            Icons.person,
+            Icons.sports_soccer,
+            Icons.sports_martial_arts,
+            Icons.face,
+          ];
+          avatarWidget = Icon(
+            defaultIcons[iconIndex % defaultIcons.length],
+            color: textColor,
+            size: 40,
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  // Avatar
+                  Stack(
                     children: [
                       Container(
                         width: 100,
@@ -535,16 +576,14 @@ class _ProfileViewState extends State<ProfileView> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: _card,
-                          image: DecorationImage(
-                            image: f != null
-                                ? FileImage(f) as ImageProvider
-                                : NetworkImage(_ctrl.avatarUrl.value),
-                            fit: BoxFit.cover,
-                          ),
                           border: Border.all(
                             color: _green.withOpacity(0.5),
                             width: 3,
                           ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(50),
+                          child: avatarWidget,
                         ),
                       ),
                       Positioned(
@@ -563,77 +602,75 @@ class _ProfileViewState extends State<ProfileView> {
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _ctrl.name.value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.none,
+                  const SizedBox(height: 16),
+                  Text(
+                    fullName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _green.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _green.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: _green,
-                          shape: BoxShape.circle,
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _green.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _green.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: _green,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _ctrl.position.value,
-                        style: const TextStyle(
-                          color: _green,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                          decoration: TextDecoration.none,
+                        const SizedBox(width: 6),
+                        Text(
+                          position.toString().toUpperCase(),
+                          style: const TextStyle(
+                            color: _green,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                            decoration: TextDecoration.none,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            );
-          }),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: InkWell(
-              onTap: _showEditSheet,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Icon(
-                  Icons.edit_outlined,
-                  color: AppColors.subText(context),
-                  size: 20,
+                ],
+              ),
+              // Edit icon (top-right)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: InkWell(
+                  onTap: _showEditSheet,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      color: AppColors.subText(context),
+                      size: 20,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -740,7 +777,7 @@ class _ProfileViewState extends State<ProfileView> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
-                color: const Color(0xFF2A2310),
+                color: AppColors.isDark(context) ? const Color(0xFF2A2310) : const Color(0xFFFFF8E1),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: const Color(0xFFFFC107).withOpacity(0.3),
@@ -1098,10 +1135,10 @@ class _RadarPainter extends CustomPainter {
     }
 
     final fillPaint = Paint()
-      ..color = kGreen.withOpacity(0.22)
+      ..color = const Color(0xFF2EED7B).withOpacity(0.22)
       ..style = PaintingStyle.fill;
     final strokePaint = Paint()
-      ..color = kGreen
+      ..color = const Color(0xFF2EED7B)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -1116,7 +1153,7 @@ class _RadarPainter extends CustomPainter {
     canvas.drawPath(dataPath, fillPaint);
     canvas.drawPath(dataPath, strokePaint);
 
-    final dotPaint = Paint()..color = kGreen;
+    final dotPaint = Paint()..color = const Color(0xFF2EED7B);
     for (final p in dataPoints) {
       canvas.drawCircle(p, 5, dotPaint);
     }

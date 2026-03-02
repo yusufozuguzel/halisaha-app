@@ -1,14 +1,14 @@
 import 'package:get/get.dart';
 import 'package:halisaha_app/modules/home/views/home_view.dart';
 import '../modules/auth/views/auth_view.dart';
+import '../modules/auth/views/profile_setup_view.dart';
+import '../modules/auth/controllers/profile_setup_controller.dart';
 import '../modules/auth/bindings/auth_binding.dart';
-import '../modules/match/views/match_create_view.dart';
-import '../modules/match/bindings/match_create_binding.dart';
 import '../modules/root/views/root_view.dart';
 import '../modules/settings/views/settings_view.dart';
 import '../modules/settings/bindings/settings_binding.dart';
 import '../modules/home/bindings/profile_binding.dart';
-import '../routes/app_routes.dart';
+import 'app_routes.dart';
 
 class AppPages {
   static const initial = Routes.ROOT;
@@ -20,15 +20,21 @@ class AppPages {
       // ProfileController'ı uygulama başlar başlamaz permanent olarak yükle
       binding: ProfileBinding(),
     ),
-    GetPage(name: Routes.AUTH, page: () => AuthView(), binding: AuthBinding()),
     GetPage(
-      name: Routes.HOME,
-      page: () => const HomeView(userName: 'Ahmet Yılmaz'),
+      name: Routes.AUTH,
+      page: () => AuthView(),
+      binding: AuthBinding(),
     ),
     GetPage(
-      name: Routes.MATCH_CREATE,
-      page: () => const MatchCreateView(),
-      binding: MatchCreateBinding(),
+      name: Routes.PROFILE_SETUP,
+      page: () => const ProfileSetupView(),
+      binding: BindingsBuilder(() {
+        Get.put(ProfileSetupController());
+      }),
+    ),
+    GetPage(
+      name: Routes.HOME,
+      page: () => const HomeView(userName: "Ahmet Yılmaz"), 
     ),
     GetPage(
       name: Routes.SETTINGS,

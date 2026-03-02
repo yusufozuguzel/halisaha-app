@@ -5,10 +5,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'my_matches_view.dart';
 import 'notifications_view.dart';
+import '../controllers/home_controller.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
 import '../../../routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
+
+// 👇 BİZİM EFSANE FORMU İÇERİ ALIYORUZ 👇
+import '../../match/controllers/match_create_controller.dart';
+import '../../match/views/match_create_view.dart';
 
 class HomeView extends StatefulWidget {
   final String userName;
@@ -28,9 +33,22 @@ class _HomeViewState extends State<HomeView> {
     super.dispose();
   }
 
+  // 👇 YÖNLENDİRME METODUMUZ (HER İKİ BUTON DA BUNU KULLANACAK) 👇
+  void _goToCreateMatch() {
+    // Beynini (Controller'ı) hazırlayıp efsane form sayfasına geçiyoruz
+    Get.put(MatchCreateController());
+    Get.to(
+      () => const MatchCreateView(),
+      transition: Transition.downToUp, // Alttan yukarı şık bir animasyon
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _bg = AppColors.bg(context);
+
+    Get.put(HomeController());
 
     return Scaffold(
       backgroundColor: _bg,
@@ -54,8 +72,9 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
       ),
+      // 👇 ORTADAKİ DEVASA YEŞİL "+" BUTONU 👇
       floatingActionButton: GestureDetector(
-        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        onTap: _goToCreateMatch, // Direkt bizim metodu çağırıyor
         child: Container(
           width: 64,
           height: 64,
@@ -266,7 +285,10 @@ class _HomeViewState extends State<HomeView> {
                     height: 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: textColor.withOpacity(0.1), width: 1),
+                      border: Border.all(
+                        color: textColor.withOpacity(0.1),
+                        width: 1,
+                      ),
                     ),
                     child: avatarWidget,
                   ),
@@ -277,7 +299,7 @@ class _HomeViewState extends State<HomeView> {
                       width: 14,
                       height: 14,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2EED7B), 
+                        color: const Color(0xFF2EED7B),
                         shape: BoxShape.circle,
                         border: Border.all(color: bg, width: 2),
                       ),
@@ -327,7 +349,11 @@ class _HomeViewState extends State<HomeView> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Icon(Icons.notifications_outlined, color: textColor, size: 22),
+                      Icon(
+                        Icons.notifications_outlined,
+                        color: textColor,
+                        size: 22,
+                      ),
                       Positioned(
                         top: 10,
                         right: 10,
@@ -360,8 +386,9 @@ class _HomeViewState extends State<HomeView> {
       child: Row(
         children: [
           Expanded(
+            // 👇 SOL ÜSTTEKİ "YENİ MAÇ BAŞLAT" KARTI 👇
             child: GestureDetector(
-              onTap: () {},
+              onTap: _goToCreateMatch, // Direkt bizim metodu çağırıyor
               child: Container(
                 height: 120,
                 padding: const EdgeInsets.all(12),
@@ -486,9 +513,14 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // ── Next Match Card ─────────────────────────────────────────
+  // ── Next Match Card (🔥 GERÇEK FİREBASE VERİSİ 🔥) ────────────
   Widget _buildNextMatchCard() {
     final textColor = AppColors.text(context);
     final subText = AppColors.subText(context);
+
+    // Yukarıda ayağa kaldırdığımız controller'ı buluyoruz
+    final homeController = Get.find<HomeController>();
+
     return Column(
       children: [
         Padding(
@@ -497,7 +529,7 @@ class _HomeViewState extends State<HomeView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Sıradaki Maçın',
+                'Sıradaki Maç',
                 style: TextStyle(
                   color: textColor,
                   fontSize: 18,
@@ -518,202 +550,249 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24.0),
-          height: 200,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            image: const DecorationImage(
-              image: NetworkImage('https://picsum.photos/seed/field1/800/400'),
-              fit: BoxFit.cover,
-            ),
-          ),
-          child: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.1),
-                      Colors.black.withOpacity(0.8),
-                    ],
+
+        // 👇 Obx ile Firebase'i canlı canlı dinliyoruz! 👇
+        Obx(() {
+          // 1. Veri yükleniyorsa dönen top göster
+          if (homeController.isLoading.value) {
+            return const SizedBox(
+              height: 200,
+              child: Center(
+                child: CircularProgressIndicator(color: Color(0xFF2EED7B)),
+              ),
+            );
+          }
+
+          // 2. Eğer Firebase'de hiç maç yoksa uyarı göster
+          if (homeController.upcomingMatches.isEmpty) {
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24.0),
+              height: 120,
+              decoration: BoxDecoration(
+                color: AppColors.overlay(context),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.border(context)),
+              ),
+              child: Center(
+                child: Text(
+                  'Yaklaşan maç bulunmuyor.\nHemen yepyeni bir maç kur!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: subText,
+                    fontSize: 14,
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.1),
+            );
+          }
+
+          // 3. Veri varsa, en güncel maçı (listedeki ilk maçı) al!
+          final nextMatch = homeController.upcomingMatches.first;
+
+          // Tarih ve Saati parçalayıp ekrana uygun hale getiriyoruz
+          final dateStr =
+              "${nextMatch.date.day.toString().padLeft(2, '0')}/${nextMatch.date.month.toString().padLeft(2, '0')}/${nextMatch.date.year}";
+          final timeStr =
+              "${nextMatch.date.hour.toString().padLeft(2, '0')}:${nextMatch.date.minute.toString().padLeft(2, '0')}";
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24.0),
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              image: const DecorationImage(
+                image: NetworkImage(
+                  'https://picsum.photos/seed/field1/800/400',
+                ),
+                fit: BoxFit.cover,
+              ),
+            ),
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.1),
+                        Colors.black.withOpacity(0.8),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.1),
+                              ),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(
+                                  Icons.circle,
+                                  color: Color(0xFF2EED7B),
+                                  size: 8,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Yaklaşıyor',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: const Row(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Icon(Icons.circle, color: kGreen, size: 8),
-                              SizedBox(width: 6),
                               Text(
-                                'Onaylandı',
-                                style: TextStyle(
+                                timeStr,
+                                style: const TextStyle(
                                   color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                              Text(
+                                dateStr,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w600,
                                   decoration: TextDecoration.none,
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            const Text(
-                              '20:00',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.none,
-                              ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nextMatch.title, // 🔥 FİREBASE'DEN GELEN MAÇ ADI 🔥
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.none,
                             ),
-                            Text(
-                              'Bugün, Salı',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 11,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Gold Arena Halı Saha',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.none,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              color: Colors.white.withOpacity(0.6),
-                              size: 14,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Şişli, İstanbul',
-                              style: TextStyle(
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.people,
                                 color: Colors.white.withOpacity(0.6),
-                                fontSize: 13,
-                                decoration: TextDecoration.none,
+                                size: 14,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            SizedBox(
-                              width: 100,
-                              height: 32,
-                              child: Stack(
-                                children: [
-                                  _buildAvatarPlaceholder(
-                                    0,
-                                    'https://picsum.photos/seed/av2/100/100',
-                                  ),
-                                  _buildAvatarPlaceholder(
-                                    24,
-                                    'https://picsum.photos/seed/av3/100/100',
-                                  ),
-                                  _buildAvatarPlaceholder(
-                                    48,
-                                    'https://picsum.photos/seed/av4/100/100',
-                                  ),
-                                  Positioned(
-                                    left: 72,
-                                    child: Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.15),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: const Text(
-                                        '+8',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          decoration: TextDecoration.none,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'Detaylar',
+                              const SizedBox(width: 4),
+                              Text(
+                                'Kapasite: ${nextMatch.maxPlayers} Kişi',
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 13,
                                   decoration: TextDecoration.none,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              SizedBox(
+                                width: 100,
+                                height: 32,
+                                child: Stack(
+                                  children: [
+                                    _buildAvatarPlaceholder(
+                                      0,
+                                      'https://picsum.photos/seed/av2/100/100',
+                                    ),
+                                    _buildAvatarPlaceholder(
+                                      24,
+                                      'https://picsum.photos/seed/av3/100/100',
+                                    ),
+                                    Positioned(
+                                      left: 48,
+                                      child: Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.15),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.white,
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: const Icon(
+                                          Icons.add,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'Detaylar',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }

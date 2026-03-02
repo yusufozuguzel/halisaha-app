@@ -20,8 +20,6 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   final ScrollController _scrollController = ScrollController();
-
-  // Dinamik renkler — build() içinde hesaplanır
   late Color _bg;
 
   @override
@@ -56,26 +54,24 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
       ),
-floatingActionButton: GestureDetector(
-        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2EED7B), // kGreen
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF2EED7B).withOpacity(0.4),
-                blurRadius: 20,
-                spreadRadius: 2,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(Icons.add, size: 32, color: _bg),
-        ),
-      ),
+      floatingActionButton: GestureDetector(
+        onTap: () => Get.toNamed(Routes.MATCH_CREATE),
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2EED7B), // kGreen
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2EED7B).withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(Icons.add, size: 32, color: _bg),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -192,170 +188,168 @@ floatingActionButton: GestureDetector(
 
   // ── Header ──────────────────────────────────────────────────
   Widget _buildHeader() {
-// ── Header ──────────────────────────────────────────────────
-  Widget _buildHeader() {
-    final textColor = AppColors.text(context);
-    final subText = AppColors.subText(context);
-    final bg = AppColors.bg(context);
+    final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
+    final bg = AppColors.bg(context);
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return const SizedBox.shrink();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-            child: Center(
-              child: CircularProgressIndicator(color: Color(0xFF2EED7B)),
-            ),
-          );
-        }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Center(
+              child: CircularProgressIndicator(color: Color(0xFF2EED7B)),
+            ),
+          );
+        }
 
-        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-        final fullName = data['fullName'] ?? data['name'] ?? widget.userName;
-        final avatarType = data['avatarType'] ?? 'icon';
-        final avatarData = data['avatarData'] ?? '0';
+        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final fullName = data['fullName'] ?? data['name'] ?? widget.userName;
+        final avatarType = data['avatarType'] ?? 'icon';
+        final avatarData = data['avatarData'] ?? '0';
 
-        Widget avatarWidget;
-        if (avatarType == 'base64' && avatarData.isNotEmpty) {
-          try {
-            avatarWidget = ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Image.memory(
-                base64Decode(avatarData),
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    Icon(Icons.person, color: textColor, size: 24),
-              ),
-            );
-          } catch (e) {
-            avatarWidget = Icon(Icons.person, color: textColor, size: 24);
-          }
-        } else {
-          final iconIndex = int.tryParse(avatarData) ?? 0;
-          final List<IconData> defaultIcons = [
-            Icons.person,
-            Icons.sports_soccer,
-            Icons.sports_martial_arts,
-            Icons.face,
-          ];
-          avatarWidget = Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.overlay(context),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              defaultIcons[iconIndex % defaultIcons.length],
-              color: textColor,
-              size: 24,
-            ),
-          );
-        }
+        Widget avatarWidget;
+        if (avatarType == 'base64' && avatarData.isNotEmpty) {
+          try {
+            avatarWidget = ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.memory(
+                base64Decode(avatarData),
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    Icon(Icons.person, color: textColor, size: 24),
+              ),
+            );
+          } catch (e) {
+            avatarWidget = Icon(Icons.person, color: textColor, size: 24);
+          }
+        } else {
+          final iconIndex = int.tryParse(avatarData) ?? 0;
+          final List<IconData> defaultIcons = [
+            Icons.person,
+            Icons.sports_soccer,
+            Icons.sports_martial_arts,
+            Icons.face,
+          ];
+          avatarWidget = Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.overlay(context),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              defaultIcons[iconIndex % defaultIcons.length],
+              color: textColor,
+              size: 24,
+            ),
+          );
+        }
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Row(
-            children: [
-              Stack(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: textColor.withOpacity(0.1), width: 1),
-                    ),
-                    child: avatarWidget,
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2EED7B), // Online Durumu (Yeşil)
-                        shape: BoxShape.circle,
-                        border: Border.all(color: bg, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hoş geldin,',
-                    style: TextStyle(
-                      color: subText,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$fullName 👋',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => Get.to(
-                  () => const NotificationsView(),
-                  transition: Transition.fadeIn,
-                  duration: const Duration(milliseconds: 300),
-                ),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.overlay(context),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Icon(Icons.notifications_outlined, color: textColor, size: 22),
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.redAccent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: textColor.withOpacity(0.1), width: 1),
+                    ),
+                    child: avatarWidget,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2EED7B), 
+                        shape: BoxShape.circle,
+                        border: Border.all(color: bg, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hoş geldin,',
+                    style: TextStyle(
+                      color: subText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$fullName 👋',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Get.to(
+                  () => const NotificationsView(),
+                  transition: Transition.fadeIn,
+                  duration: const Duration(milliseconds: 300),
+                ),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.overlay(context),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Icon(Icons.notifications_outlined, color: textColor, size: 22),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.redAccent,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   // ── Quick Actions ───────────────────────────────────────────
   Widget _buildQuickActions() {

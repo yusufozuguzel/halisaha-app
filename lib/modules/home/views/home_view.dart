@@ -135,7 +135,7 @@ class _HomeViewState extends State<HomeView> {
                 'Maçlarım',
                 false,
                 onTap: () => Get.offAll(
-                  () => const MyMatchesView(),
+                  () => MyMatchesView(),
                   transition: Transition.noTransition,
                 ),
               ),
@@ -145,7 +145,7 @@ class _HomeViewState extends State<HomeView> {
                 'Keşfet',
                 false,
                 onTap: () => Get.offAll(
-                  () => const DiscoverView(),
+                  () => DiscoverView(),
                   transition: Transition.noTransition,
                 ),
               ),

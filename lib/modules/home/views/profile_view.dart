@@ -954,7 +954,7 @@ class _ProfileViewState extends State<ProfileView> {
             iconColor: AppColors.subText(context),
             label: 'Maç Geçmişi',
             onTap: () => Get.offAll(
-              () => const MyMatchesView(),
+              () => MyMatchesView(),
               transition: Transition.noTransition,
             ),
           ),
@@ -1065,7 +1065,7 @@ class _ProfileViewState extends State<ProfileView> {
                 'Maçlarım',
                 false,
                 onTap: () => Get.offAll(
-                  () => const MyMatchesView(),
+                  () => MyMatchesView(),
                   transition: Transition.noTransition,
                 ),
               ),
@@ -1075,7 +1075,7 @@ class _ProfileViewState extends State<ProfileView> {
                 'Keşfet',
                 false,
                 onTap: () => Get.offAll(
-                  () => const DiscoverView(),
+                  () => DiscoverView(),
                   transition: Transition.noTransition,
                 ),
               ),

@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'routes/app_pages.dart';
 import 'modules/auth/controllers/auth_controller.dart';
+import 'modules/home/controllers/notifications_controller.dart';
 import 'core/theme/app_theme.dart';
 
 import 'package:get_storage/get_storage.dart';
@@ -14,6 +15,7 @@ void main() async {
   await GetStorage.init();
 
   Get.put(AuthController(), permanent: true);
+  Get.put(NotificationsController(), permanent: true);
 
   runApp(const MyApp());
 }

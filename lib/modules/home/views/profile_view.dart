@@ -889,18 +889,48 @@ class _ProfileViewState extends State<ProfileView> {
 
   // ── Stat Row ───────────────────────────────────────────────
   Widget _buildStatRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: SizedBox(
-        width: double.infinity,
-        child: _statBox(
-          value: '24',
-          label: 'OYNANAN MAÇ',
-          valueFontSize: 32,
-          valueColor: AppColors.text(context),
-          labelColor: AppColors.subText(context),
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: SizedBox(
+          width: double.infinity,
+          child: _statBox(
+            value: '0',
+            label: 'OYNANAN MAÇ',
+            valueFontSize: 32,
+            valueColor: AppColors.text(context),
+            labelColor: AppColors.subText(context),
+          ),
         ),
-      ),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('matches')
+          .where('currentPlayers', arrayContains: user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        String matchCount = '0';
+        if (snapshot.hasData) {
+          matchCount = snapshot.data!.docs.length.toString();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SizedBox(
+            width: double.infinity,
+            child: _statBox(
+              value: matchCount,
+              label: 'OYNANAN MAÇ',
+              valueFontSize: 32,
+              valueColor: AppColors.text(context),
+              labelColor: AppColors.subText(context),
+            ),
+          ),
+        );
+      },
     );
   }
 

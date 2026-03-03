@@ -1,24 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/match_create_controller.dart';
+import '../../../core/theme/app_theme.dart';
 
 class MatchCreateView extends GetView<MatchCreateController> {
   const MatchCreateView({super.key});
 
-  // ─── Color Palette ──────────────────────────────────────────────────────────
-  static const _bg = Color(0xFF0F1712);
-  static const _card = Color(0xFF162318);
-  static const _cardBorder = Color(0xFF2A3D2F);
-  static const _neon = Color(0xFF2EED7B);
-  static const _neonDim = Color(0xFF1A3325);
-  static const _labelColor = Color(0xFF8BAF92);
-  static const _textWhite = Color(0xFFE8F5EC);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
-      appBar: _buildAppBar(),
+      backgroundColor: AppColors.bg(context),
+      appBar: _buildAppBar(context),
       body: Stack(
         children: [
           SingleChildScrollView(
@@ -27,36 +19,41 @@ class MatchCreateView extends GetView<MatchCreateController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                _buildProgressStepper(),
+                _buildProgressStepper(context),
                 const SizedBox(height: 28),
-                _buildSectionHeader(Icons.info_outline, 'GENEL BİLGİLER'),
+                _buildSectionHeader(
+                  Icons.info_outline,
+                  'GENEL BİLGİLER',
+                  context,
+                ),
                 const SizedBox(height: 16),
                 _buildGeneralInfoSection(context),
                 const SizedBox(height: 28),
                 _buildSectionHeader(
                   Icons.calendar_month_outlined,
                   'ZAMAN VE KONUM',
+                  context,
                 ),
                 const SizedBox(height: 16),
                 _buildTimeLocationSection(context),
                 const SizedBox(height: 28),
-                _buildSectionHeader(Icons.group_outlined, 'TAKIMLAR'),
+                _buildSectionHeader(Icons.group_outlined, 'TAKIMLAR', context),
                 const SizedBox(height: 16),
-                _buildTeamsSection(),
+                _buildTeamsSection(context),
                 const SizedBox(height: 16),
               ],
             ),
           ),
-          _buildBottomButton(),
+          _buildBottomButton(context),
         ],
       ),
     );
   }
 
   // ─── AppBar ─────────────────────────────────────────────────────────────────
-  AppBar _buildAppBar() {
+  AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg(context),
       elevation: 0,
       centerTitle: true,
       leading: GestureDetector(
@@ -64,17 +61,21 @@ class MatchCreateView extends GetView<MatchCreateController> {
         child: Container(
           margin: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: _card,
+            color: AppColors.card(context),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _cardBorder),
+            border: Border.all(color: AppColors.border(context)),
           ),
-          child: const Icon(Icons.chevron_left, color: _neon, size: 22),
+          child: const Icon(
+            Icons.chevron_left,
+            color: Color(0xFF2EED7B),
+            size: 22,
+          ),
         ),
       ),
-      title: const Text(
+      title: Text(
         'Yeni Maç Oluştur',
         style: TextStyle(
-          color: _textWhite,
+          color: AppColors.text(context),
           fontSize: 17,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
@@ -84,30 +85,35 @@ class MatchCreateView extends GetView<MatchCreateController> {
   }
 
   // ─── Progress Stepper ───────────────────────────────────────────────────────
-  Widget _buildProgressStepper() {
+  Widget _buildProgressStepper(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         children: [
-          _stepCircle(1, 'DETAYLAR', true),
+          _stepCircle(1, 'DETAYLAR', true, context),
           Expanded(
             child: Container(
               height: 2,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [_neon, Color(0xFF2A3D2F)],
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF2EED7B), AppColors.border(context)],
                 ),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          _stepCircle(2, 'DAVET', false),
+          _stepCircle(2, 'DAVET', false, context),
         ],
       ),
     );
   }
 
-  Widget _stepCircle(int number, String label, bool isActive) {
+  Widget _stepCircle(
+    int number,
+    String label,
+    bool isActive,
+    BuildContext context,
+  ) {
     return Column(
       children: [
         Container(
@@ -115,14 +121,21 @@ class MatchCreateView extends GetView<MatchCreateController> {
           height: 38,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isActive ? _neon : _card,
-            border: Border.all(color: isActive ? _neon : _cardBorder, width: 2),
+            color: isActive ? const Color(0xFF2EED7B) : AppColors.card(context),
+            border: Border.all(
+              color: isActive
+                  ? const Color(0xFF2EED7B)
+                  : AppColors.border(context),
+              width: 2,
+            ),
           ),
           child: Center(
             child: Text(
               number.toString(),
               style: TextStyle(
-                color: isActive ? _bg : _labelColor,
+                color: isActive
+                    ? AppColors.bg(context)
+                    : AppColors.subText(context),
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
               ),
@@ -133,7 +146,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
         Text(
           label,
           style: TextStyle(
-            color: isActive ? _neon : _labelColor,
+            color: isActive
+                ? const Color(0xFF2EED7B)
+                : AppColors.subText(context),
             fontSize: 10,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
@@ -144,17 +159,21 @@ class MatchCreateView extends GetView<MatchCreateController> {
   }
 
   // ─── Section Header ──────────────────────────────────────────────────────────
-  Widget _buildSectionHeader(IconData icon, String title) {
+  Widget _buildSectionHeader(
+    IconData icon,
+    String title,
+    BuildContext context,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          Icon(icon, color: _neon, size: 16),
+          Icon(icon, color: Color(0xFF2EED7B), size: 16),
           const SizedBox(width: 8),
           Text(
             title,
             style: const TextStyle(
-              color: _neon,
+              color: Color(0xFF2EED7B),
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.8,
@@ -172,11 +191,12 @@ class MatchCreateView extends GetView<MatchCreateController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _fieldLabel('Maç Adı'),
+          _fieldLabel('Maç Adı', context),
           const SizedBox(height: 8),
           _styledTextField(
             controller: controller.titleController,
             hint: 'Örn: Cuma Akşamı Derbisi',
+            context: context,
           ),
           const SizedBox(height: 16),
           Row(
@@ -185,11 +205,12 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Kişi Sayısı (Max)'),
+                    _fieldLabel('Kişi Sayısı (Max)', context),
                     const SizedBox(height: 8),
                     _styledTextField(
                       controller: controller.maxPlayersController,
                       hint: 'Örn: 14',
+                      context: context,
                     ),
                   ],
                 ),
@@ -199,11 +220,12 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Maç Ücreti'),
+                    _fieldLabel('Maç Ücreti', context),
                     const SizedBox(height: 8),
                     _styledTextField(
                       controller: controller.priceController,
                       hint: 'Örn: 1500',
+                      context: context,
                     ),
                   ],
                 ),
@@ -228,7 +250,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Tarih'),
+                    _fieldLabel('Tarih', context),
                     const SizedBox(height: 8),
                     Obx(() {
                       final date = controller.selectedDate.value;
@@ -240,6 +262,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                         label: label,
                         onTap: () => controller.pickDate(context),
                         isSet: date != null,
+                        context: context,
                       );
                     }),
                   ],
@@ -250,7 +273,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Saat'),
+                    _fieldLabel('Saat', context),
                     const SizedBox(height: 8),
                     Obx(() {
                       final time = controller.selectedTime.value;
@@ -262,6 +285,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                         label: label,
                         onTap: () => controller.pickTime(context),
                         isSet: time != null,
+                        context: context,
                         trailingIcon: Icons.watch_later_outlined,
                       );
                     }),
@@ -271,11 +295,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
             ],
           ),
           const SizedBox(height: 16),
-          _fieldLabel('Saha Adı / Konum'),
+          _fieldLabel('Saha Adı / Konum', context),
           const SizedBox(height: 8),
-          _locationField(),
+          _locationField(context),
           const SizedBox(height: 14),
-          _mapPlaceholder(),
+          _mapPlaceholder(context),
         ],
       ),
     );
@@ -287,6 +311,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
     required VoidCallback onTap,
     required bool isSet,
     IconData? trailingIcon,
+    required BuildContext context,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -294,53 +319,78 @@ class MatchCreateView extends GetView<MatchCreateController> {
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: _card,
+          color: AppColors.card(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSet ? _neon : _cardBorder),
+          border: Border.all(
+            color: isSet
+                ? const Color(0xFF2EED7B)
+                : (AppColors.isDark(context)
+                      ? AppColors.border(context)
+                      : Colors.black12),
+            width: 1.0,
+          ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSet ? _neon : _labelColor, size: 18),
+            Icon(
+              icon,
+              color: isSet
+                  ? const Color(0xFF2EED7B)
+                  : AppColors.subText(context),
+              size: 18,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isSet ? _textWhite : _labelColor,
+                  color: isSet
+                      ? AppColors.text(context)
+                      : AppColors.subText(context),
                   fontSize: 14,
                 ),
               ),
             ),
             if (trailingIcon != null)
-              Icon(trailingIcon, color: _labelColor, size: 16),
+              Icon(trailingIcon, color: AppColors.subText(context), size: 16),
           ],
         ),
       ),
     );
   }
 
-  // ─── 24-Hour Time Helper (Removed as it is now in-lined) ───────────────
-
-  Widget _locationField() {
+  Widget _locationField(BuildContext context) {
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: _card,
+        color: AppColors.card(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _cardBorder),
+        border: Border.all(
+          color: AppColors.isDark(context)
+              ? AppColors.border(context)
+              : Colors.grey.shade300,
+          width: 1.0,
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.location_on_outlined, color: _neon, size: 20),
+          const Icon(
+            Icons.location_on_outlined,
+            color: Color(0xFF2EED7B),
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: controller.venueController,
-              style: const TextStyle(color: _textWhite, fontSize: 14),
-              decoration: const InputDecoration(
+              style: TextStyle(color: AppColors.text(context), fontSize: 14),
+              decoration: InputDecoration(
                 hintText: 'Halı saha adını girin veya seçin',
-                hintStyle: TextStyle(color: _labelColor, fontSize: 13),
+                hintStyle: TextStyle(
+                  color: AppColors.subText(context),
+                  fontSize: 13,
+                ),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -353,11 +403,17 @@ class MatchCreateView extends GetView<MatchCreateController> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: _neonDim,
+                color: AppColors.overlay(context),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _neon.withOpacity(0.4)),
+                border: Border.all(
+                  color: const Color(0xFF2EED7B).withOpacity(0.4),
+                ),
               ),
-              child: const Icon(Icons.map_outlined, color: _neon, size: 18),
+              child: const Icon(
+                Icons.map_outlined,
+                color: Color(0xFF2EED7B),
+                size: 18,
+              ),
             ),
           ),
         ],
@@ -365,26 +421,45 @@ class MatchCreateView extends GetView<MatchCreateController> {
     );
   }
 
-  Widget _mapPlaceholder() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 140,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _cardBorder),
-        ),
+  Widget _mapPlaceholder(BuildContext context) {
+    return Container(
+      height: 140,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.isDark(context) ? Colors.transparent : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppColors.isDark(context)
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CustomPaint(painter: _MapPatternPainter()),
+            CustomPaint(
+              painter: _MapPatternPainter(
+                cardColor: AppColors.isDark(context)
+                    ? AppColors.card(context)
+                    : Colors.white,
+                isDark: AppColors.isDark(context),
+              ),
+            ),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, _bg.withOpacity(0.55)],
+                  colors: [
+                    Colors.transparent,
+                    AppColors.bg(context).withOpacity(0.55),
+                  ],
                 ),
               ),
             ),
@@ -398,19 +473,25 @@ class MatchCreateView extends GetView<MatchCreateController> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: _bg.withOpacity(0.82),
+                    color: AppColors.bg(context).withOpacity(0.82),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: _neon.withOpacity(0.6)),
+                    border: Border.all(
+                      color: const Color(0xFF2EED7B).withOpacity(0.6),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.map_outlined, color: _neon, size: 16),
-                      SizedBox(width: 8),
+                    children: [
+                      const Icon(
+                        Icons.map_outlined,
+                        color: Color(0xFF2EED7B),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'Haritada Görüntüle',
                         style: TextStyle(
-                          color: _textWhite,
+                          color: AppColors.text(context),
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -434,9 +515,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         height: MediaQuery.of(context).size.height * 0.72,
-        decoration: const BoxDecoration(
-          color: Color(0xFF162318),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        decoration: BoxDecoration(
+          color: AppColors.bg(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
           children: [
@@ -447,7 +528,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A3D2F),
+                  color: AppColors.border(context),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -459,14 +540,14 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 children: [
                   const Icon(
                     Icons.location_on_outlined,
-                    color: _neon,
+                    color: Color(0xFF2EED7B),
                     size: 20,
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     'Konum Seç',
                     style: TextStyle(
-                      color: _textWhite,
+                      color: AppColors.text(context),
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                     ),
@@ -478,13 +559,18 @@ class MatchCreateView extends GetView<MatchCreateController> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F1712),
+                        color: AppColors.card(context),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF2A3D2F)),
+                        border: Border.all(
+                          color: AppColors.isDark(context)
+                              ? AppColors.border(context)
+                              : Colors.black12,
+                          width: 1.0,
+                        ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.close,
-                        color: _labelColor,
+                        color: AppColors.subText(context),
                         size: 18,
                       ),
                     ),
@@ -499,21 +585,33 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F1712),
+                  color: AppColors.card(context),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF2A3D2F)),
+                  border: Border.all(
+                    color: AppColors.isDark(context)
+                        ? AppColors.border(context)
+                        : Colors.black12,
+                    width: 1.0,
+                  ),
                 ),
                 child: Row(
-                  children: const [
-                    Icon(Icons.search, color: _labelColor, size: 18),
-                    SizedBox(width: 10),
+                  children: [
+                    Icon(
+                      Icons.search,
+                      color: AppColors.subText(context),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
-                        style: TextStyle(color: _textWhite, fontSize: 14),
+                        style: TextStyle(
+                          color: AppColors.text(context),
+                          fontSize: 14,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Saha adı veya konum ara...',
                           hintStyle: TextStyle(
-                            color: _labelColor,
+                            color: AppColors.subText(context),
                             fontSize: 13,
                           ),
                           border: InputBorder.none,
@@ -536,7 +634,14 @@ class MatchCreateView extends GetView<MatchCreateController> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      CustomPaint(painter: _MapPatternPainter()),
+                      CustomPaint(
+                        painter: _MapPatternPainter(
+                          cardColor: AppColors.isDark(context)
+                              ? AppColors.card(context)
+                              : Colors.white,
+                          isDark: AppColors.isDark(context),
+                        ),
+                      ),
                       // Gradient overlay
                       Container(
                         decoration: BoxDecoration(
@@ -545,7 +650,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              const Color(0xFF0F1712).withOpacity(0.4),
+                              AppColors.isDark(context)
+                                  ? AppColors.bg(context).withOpacity(0.4)
+                                  : Colors.transparent,
                             ],
                           ),
                         ),
@@ -554,7 +661,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                       const Center(
                         child: Icon(
                           Icons.location_pin,
-                          color: _neon,
+                          color: Color(0xFF2EED7B),
                           size: 40,
                           shadows: [
                             Shadow(color: Colors.black54, blurRadius: 8),
@@ -574,29 +681,29 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 child: Container(
                   height: 52,
                   decoration: BoxDecoration(
-                    color: _neon,
+                    color: const Color(0xFF2EED7B),
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: _neon.withOpacity(0.35),
+                        color: const Color(0xFF2EED7B).withOpacity(0.35),
                         blurRadius: 20,
                         offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.check_circle_outline,
-                        color: Color(0xFF0F1712),
+                        color: AppColors.bg(context),
                         size: 20,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
                         'Bu Konumu Seç',
                         style: TextStyle(
-                          color: Color(0xFF0F1712),
+                          color: AppColors.bg(context),
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                         ),
@@ -613,7 +720,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
   }
 
   // ─── Teams Section ───────────────────────────────────────────────────────────
-  Widget _buildTeamsSection() {
+  Widget _buildTeamsSection(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
@@ -623,11 +730,12 @@ class MatchCreateView extends GetView<MatchCreateController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _fieldLabel('KİŞİ SAYISI (MAX)'),
+                _fieldLabel('KİŞİ SAYISI (MAX)', context),
                 const SizedBox(height: 8),
                 _styledTextField(
                   controller: controller.maxPlayersController,
                   hint: 'Örn: 14',
+                  context: context,
                 ),
               ],
             ),
@@ -639,14 +747,14 @@ class MatchCreateView extends GetView<MatchCreateController> {
               height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _neonDim,
-                border: Border.all(color: _neon, width: 1.5),
+                color: AppColors.overlay(context),
+                border: Border.all(color: const Color(0xFF2EED7B), width: 1.5),
               ),
               child: const Center(
                 child: Text(
                   'VS',
                   style: TextStyle(
-                    color: _neon,
+                    color: Color(0xFF2EED7B),
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
@@ -661,12 +769,13 @@ class MatchCreateView extends GetView<MatchCreateController> {
               children: [
                 Align(
                   alignment: Alignment.centerRight,
-                  child: _fieldLabel('MAÇ ÜCRETİ'),
+                  child: _fieldLabel('MAÇ ÜCRETİ', context),
                 ),
                 const SizedBox(height: 8),
                 _styledTextField(
                   controller: controller.priceController,
                   hint: 'Örn: 150',
+                  context: context,
                   textAlign: TextAlign.right,
                 ),
               ],
@@ -678,7 +787,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
   }
 
   // ─── Bottom Button ───────────────────────────────────────────────────────────
-  Widget _buildBottomButton() {
+  Widget _buildBottomButton(BuildContext context) {
     return Positioned(
       left: 0,
       right: 0,
@@ -688,7 +797,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_bg.withOpacity(0), _bg, _bg],
+            colors: [
+              AppColors.bg(context).withOpacity(0),
+              AppColors.bg(context),
+              AppColors.bg(context),
+            ],
           ),
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
@@ -700,11 +813,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
             () => Container(
               height: 56,
               decoration: BoxDecoration(
-                color: _neon,
+                color: const Color(0xFF2EED7B),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: _neon.withOpacity(0.40),
+                    color: const Color(0xFF2EED7B).withOpacity(0.40),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -714,25 +827,25 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (controller.isLoading.value)
-                    const SizedBox(
+                    SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
-                        color: Color(0xFF0F1712),
+                        color: AppColors.bg(context),
                         strokeWidth: 2.5,
                       ),
                     )
                   else ...[
-                    const Icon(
+                    Icon(
                       Icons.rocket_launch_rounded,
-                      color: Color(0xFF0F1712),
+                      color: AppColors.bg(context),
                       size: 22,
                     ),
                     const SizedBox(width: 10),
-                    const Text(
+                    Text(
                       'Oluştur',
                       style: TextStyle(
-                        color: Color(0xFF0F1712),
+                        color: AppColors.bg(context),
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.3,
@@ -749,11 +862,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
   }
 
   // ─── Shared Widgets ───────────────────────────────────────────────────────────
-  Widget _fieldLabel(String text) {
+  Widget _fieldLabel(String text, BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: _labelColor,
+      style: TextStyle(
+        color: AppColors.subText(context),
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.8,
@@ -764,24 +877,33 @@ class MatchCreateView extends GetView<MatchCreateController> {
   Widget _styledTextField({
     required TextEditingController controller,
     required String hint,
+    required BuildContext context,
     TextAlign textAlign = TextAlign.start,
   }) {
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: _card,
+        color: AppColors.card(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _cardBorder),
+        border: Border.all(
+          color: AppColors.isDark(context)
+              ? AppColors.border(context)
+              : Colors.black12,
+          width: 1.0,
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Center(
         child: TextField(
           controller: controller,
           textAlign: textAlign,
-          style: const TextStyle(color: _textWhite, fontSize: 14),
+          style: TextStyle(color: AppColors.text(context), fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: _labelColor, fontSize: 13),
+            hintStyle: TextStyle(
+              color: AppColors.subText(context),
+              fontSize: 13,
+            ),
             border: InputBorder.none,
             isDense: true,
             contentPadding: EdgeInsets.zero,
@@ -794,14 +916,19 @@ class MatchCreateView extends GetView<MatchCreateController> {
 
 // ─── Map Pattern Painter ──────────────────────────────────────────────────────
 class _MapPatternPainter extends CustomPainter {
+  final Color cardColor;
+  final bool isDark;
+
+  _MapPatternPainter({required this.cardColor, required this.isDark});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = const Color(0xFF162318);
+    final bgPaint = Paint()..color = isDark ? cardColor : Colors.white;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Draw a football pitch outline
     final linePaint = Paint()
-      ..color = const Color(0xFF2EED7B).withOpacity(0.18)
+      ..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.18 : 0.7)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
@@ -823,7 +950,7 @@ class _MapPatternPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(cx, cy),
       2.5,
-      Paint()..color = const Color(0xFF2EED7B).withOpacity(0.25),
+      Paint()..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.25 : 0.8),
     );
 
     // Goal areas
@@ -846,7 +973,8 @@ class _MapPatternPainter extends CustomPainter {
     );
 
     // Grid dots
-    final dotPaint = Paint()..color = const Color(0xFF2EED7B).withOpacity(0.07);
+    final dotPaint = Paint()
+      ..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.07 : 0.5);
     for (double x = 20; x < size.width; x += 18) {
       for (double y = 14; y < size.height; y += 18) {
         canvas.drawCircle(Offset(x, y), 1, dotPaint);

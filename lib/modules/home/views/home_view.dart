@@ -554,7 +554,7 @@ class _HomeViewState extends State<HomeView> {
         // 👇 Obx ile Firebase'i canlı canlı dinliyoruz! 👇
         Obx(() {
           // 1. Veri yükleniyorsa dönen top göster
-          if (homeController.isLoading.value) {
+          if (homeController.isNextMatchLoading.value) {
             return const SizedBox(
               height: 200,
               child: Center(
@@ -563,8 +563,9 @@ class _HomeViewState extends State<HomeView> {
             );
           }
 
-          // 2. Eğer Firebase'de hiç maç yoksa uyarı göster
-          if (homeController.upcomingMatches.isEmpty) {
+          // 2. Eğer sıradaki maç yoksa
+          final nextMatch = homeController.nextMatch.value;
+          if (nextMatch == null) {
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 24.0),
               height: 120,
@@ -573,24 +574,37 @@ class _HomeViewState extends State<HomeView> {
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: AppColors.border(context)),
               ),
-              child: Center(
-                child: Text(
-                  'Yaklaşan maç bulunmuyor.\nHemen yepyeni bir maç kur!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: subText,
-                    fontSize: 14,
-                    decoration: TextDecoration.none,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Yaklaşan bir maçın bulunmuyor.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: subText,
+                      fontSize: 14,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: _goToCreateMatch,
+                    child: const Text(
+                      'Hemen bir maç kur veya katıl!',
+                      style: TextStyle(
+                        color: Color(0xFF2EED7B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           }
 
-          // 3. Veri varsa, en güncel maçı (listedeki ilk maçı) al!
-          final nextMatch = homeController.upcomingMatches.first;
-
-          // Tarih ve Saati parçalayıp ekrana uygun hale getiriyoruz
+          // 3. Veri varsa ekrana çiz
           final dateStr =
               "${nextMatch.date.day.toString().padLeft(2, '0')}/${nextMatch.date.month.toString().padLeft(2, '0')}/${nextMatch.date.year}";
           final timeStr =
@@ -693,7 +707,7 @@ class _HomeViewState extends State<HomeView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            nextMatch.title, // 🔥 FİREBASE'DEN GELEN MAÇ ADI 🔥
+                            nextMatch.title,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -763,22 +777,28 @@ class _HomeViewState extends State<HomeView> {
                                   ],
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
+                              GestureDetector(
+                                onTap: () => Get.toNamed(
+                                  Routes.MATCH_DETAIL,
+                                  arguments: nextMatch.id,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text(
-                                  'Detaylar',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    decoration: TextDecoration.none,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    'Detaylar',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.none,
+                                    ),
                                   ),
                                 ),
                               ),

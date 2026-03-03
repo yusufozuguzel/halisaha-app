@@ -5,8 +5,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:share_plus/share_plus.dart'; // Paylaşım özelliği için eklendi 🔥
 
 // KENDI BACKEND DOSYALARIMIZI IMPORT EDIYORUZ
-import '../models/match_model.dart';
 import '../services/match_service.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../modules/home/controllers/notifications_controller.dart';
+import '../../../modules/home/controllers/home_controller.dart';
+import 'my_matches_controller.dart';
 
 class MatchCreateController extends GetxController {
   // Backend servisimizi çağırıyoruz (Takımın eklediği)
@@ -46,14 +49,21 @@ class MatchCreateController extends GetxController {
       firstDate: now, // Geçmişe maç açılamaz
       lastDate: DateTime(now.year + 2),
       builder: (context, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF2EED7B), // Neon yeşil
-            onPrimary: Colors.black,
-            surface: Color(0xFF1A2E1F),
-            onSurface: Colors.white,
-          ),
-          dialogBackgroundColor: const Color(0xFF1A2E1F),
+        data: Theme.of(context).copyWith(
+          colorScheme: AppColors.isDark(context)
+              ? const ColorScheme.dark(
+                  primary: Color(0xFF2EED7B), // Neon yeşil
+                  onPrimary: Colors.black,
+                  surface: Color(0xFF162318), // AppColors.card(context) Dark
+                  onSurface: Colors.white,
+                )
+              : const ColorScheme.light(
+                  primary: Color(0xFF2EED7B), // Neon yeşil
+                  onPrimary: Colors.white,
+                  surface: Color(0xFFFFFFFF), // AppColors.card(context) Light
+                  onSurface: Colors.black,
+                ),
+          dialogBackgroundColor: AppColors.card(context),
         ),
         child: child!,
       ),
@@ -68,17 +78,29 @@ class MatchCreateController extends GetxController {
     final picked = await showTimePicker(
       context: context,
       initialTime: selectedTime.value ?? TimeOfDay.now(),
+      initialEntryMode:
+          TimePickerEntryMode.input, // Doğrudan klavye girişi açılsın
       builder: (context, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF2EED7B), // Neon yeşil
-            onPrimary: Colors.black,
-            surface: Color(0xFF1A2E1F),
-            onSurface: Colors.white,
-          ),
-          dialogBackgroundColor: const Color(0xFF1A2E1F),
+        data: Theme.of(context).copyWith(
+          colorScheme: AppColors.isDark(context)
+              ? const ColorScheme.dark(
+                  primary: Color(0xFF2EED7B), // Neon yeşil
+                  onPrimary: Colors.black,
+                  surface: Color(0xFF162318), // AppColors.card(context) Dark
+                  onSurface: Colors.white,
+                )
+              : const ColorScheme.light(
+                  primary: Color(0xFF2EED7B), // Neon yeşil
+                  onPrimary: Colors.white,
+                  surface: Color(0xFFFFFFFF), // AppColors.card(context) Light
+                  onSurface: Colors.black,
+                ),
+          dialogBackgroundColor: AppColors.card(context),
         ),
-        child: child!,
+        child: MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        ),
       ),
     );
     if (picked != null) {
@@ -148,15 +170,18 @@ class MatchCreateController extends GetxController {
       };
 
       // 4. Firestore'a ekle ve otomatik oluşan ID'yi al!
-      final docRef = await FirebaseFirestore.instance.collection('matches').add(matchData);
+      final docRef = await FirebaseFirestore.instance
+          .collection('matches')
+          .add(matchData);
       final String generatedMatchId = docRef.id;
 
       // 5. Dinamik Link Hedefi Üretimi (Takımın eklediği özellik)
       final String deepLink = 'https://halisaha.app/join/$generatedMatchId';
-      
+
       // Paylaşım metni için tarih formatlama
       final String formattedDate = "${date.day}/${date.month}/${date.year}";
-      final String formattedTime = "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+      final String formattedTime =
+          "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
 
       // 6. Başarı Mesajı ve Kapanış
       Get.back(); // Formu kapatır
@@ -168,12 +193,25 @@ class MatchCreateController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
 
-      // 7. Native Paylaşım (share_plus) Tetiklemesi
+      // 7. Bildirim tetikle
+      Get.find<NotificationsController>().addNotification(
+        title: 'Yeni Maç Oluşturuldu 🏆',
+        message: '"$title" maçı başarıyla kuruldu. Hadi sahaya!',
+      );
+
+      // 8. Ana sayfa ve Maçlarım listelerini yenile
+      if (Get.isRegistered<MyMatchesController>()) {
+        Get.find<MyMatchesController>().fetchMyMatches();
+      }
+      if (Get.isRegistered<HomeController>()) {
+        Get.find<HomeController>().fetchMatches();
+      }
+
+      // 9. Native Paylaşım (share_plus) Tetiklemesi
       await Share.share(
         '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $formattedTime\n📍 $venue\n\nMaça katılmak için hemen tıkla:\n$deepLink',
         subject: 'Halı Saha Maç Daveti',
       );
-
     } catch (e) {
       Get.snackbar(
         'Hata',

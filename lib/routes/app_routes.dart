@@ -4,5 +4,6 @@ abstract class Routes {
   static const HOME = '/home';
   static const PROFILE_SETUP = '/profile-setup';
   static const MATCH_CREATE = '/match-create';
+  static const MATCH_DETAIL = '/match-detail';
   static const SETTINGS = '/settings';
 }

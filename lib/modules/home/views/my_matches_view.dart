@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'home_view.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
@@ -8,7 +10,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../match/controllers/my_matches_controller.dart';
 import '../../match/controllers/match_create_controller.dart';
 import '../../match/views/match_create_view.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+// 👇 İŞTE EKSİK OLAN KAHRAMANLARIMIZ 👇
+import '../../match/views/match_detail_view.dart';
+import '../../match/services/match_service.dart';
 
 class MyMatchesView extends GetView<MyMatchesController> {
   MyMatchesView({super.key}) {
@@ -30,7 +35,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
         onTap: () {
           Get.put(MatchCreateController());
           Get.to(
-            () => MatchCreateView(),
+            () => const MatchCreateView(),
             transition: Transition.downToUp,
             duration: const Duration(milliseconds: 300),
           );
@@ -361,8 +366,15 @@ class MyMatchesView extends GetView<MyMatchesController> {
                           style: TextStyle(color: textGrey, fontSize: 12),
                         ),
                         const Spacer(),
+
+                        // 👇 DETAY BUTONUNA FİREBASE BAĞLANDI 👇
                         GestureDetector(
-                          onTap: () {},
+                          onTap: () {
+                            Get.to(
+                              () => const MatchDetailView(),
+                              arguments: matchId,
+                            );
+                          },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -385,6 +397,8 @@ class MyMatchesView extends GetView<MyMatchesController> {
                             ),
                           ),
                         ),
+
+                        // 👇 KURUCU İSE SİL, OYUNCU İSE AYRIL BUTONU 👇
                         if (isCreator) ...[
                           const SizedBox(width: 8),
                           GestureDetector(
@@ -404,6 +418,46 @@ class MyMatchesView extends GetView<MyMatchesController> {
                               child: const Icon(
                                 Icons.delete_outline,
                                 color: Colors.red,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              try {
+                                await MatchService().leaveMatch(matchId);
+                                Get.snackbar(
+                                  "Başarılı",
+                                  "Maçtan ayrıldın!",
+                                  backgroundColor: Colors.green[100],
+                                  colorText: Colors.green[900],
+                                );
+                              } catch (e) {
+                                Get.snackbar(
+                                  "Hata",
+                                  "Ayrılırken bir sorun oluştu.",
+                                  backgroundColor: Colors.red[100],
+                                  colorText: Colors.red[900],
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: darkGreenBlack,
+                                border: Border.all(
+                                  color: Colors.orange.withOpacity(0.4),
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.exit_to_app,
+                                color: Colors.orange,
                                 size: 16,
                               ),
                             ),
@@ -431,7 +485,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
       onTap: () {
         Get.put(MatchCreateController());
         Get.to(
-          () => MatchCreateView(),
+          () => const MatchCreateView(),
           transition: Transition.downToUp,
           duration: const Duration(milliseconds: 300),
         );
@@ -504,7 +558,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
                 false,
                 neonGreen,
                 onTap: () => Get.offAll(
-                  () => const HomeView(userName: 'Onur'),
+                  () => const HomeView(userName: 'Oyuncu'),
                   transition: Transition.noTransition,
                 ),
               ),

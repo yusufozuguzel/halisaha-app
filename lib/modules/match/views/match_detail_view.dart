@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme/app_theme.dart';
 import '../controllers/match_detail_controller.dart';
+import 'package:share_plus/share_plus.dart';
 
 class MatchDetailView extends StatelessWidget {
   const MatchDetailView({super.key});
@@ -109,6 +110,32 @@ class MatchDetailView extends StatelessWidget {
             ),
           ),
           centerTitle: true,
+
+          // 👇 EKLENEN YENİ KISIM TAM OLARAK BURASI 👇
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.share,
+                color: Color(0xFF2EED7B),
+              ), // Neon Yeşil İkon
+              onPressed: () {
+                final matchTitle = match['title'] ?? 'Efsane Maç';
+                final matchDate = controller.formatDate(
+                  match['date'] as Timestamp?,
+                );
+                // Get.arguments bizim liste sayfasından yolladığımız maç ID'si
+                final matchLink =
+                    "https://bizimuygulama.com/mac/${Get.arguments}";
+
+                Share.share(
+                  'Sahaya çıkıyoruz! ⚽\n\n"$matchTitle" maçında kadroda yerini al.\n📅 Tarih: $matchDate\n\nHemen katılmak için tıkla:\n$matchLink',
+                );
+              },
+            ),
+            const SizedBox(width: 8), // Sağdan biraz boşluk
+          ],
+
+          // 👆 EKLENEN KISIM BİTİŞ 👆
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),

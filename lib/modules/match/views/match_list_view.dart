@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/match_controller.dart';
+import '../services/match_service.dart';
+import 'match_detail_view.dart';
 
 class MatchListView extends GetView<MatchController> {
   const MatchListView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Controller'ı sayfaya bağlıyoruz
     Get.put(MatchController());
 
     return Scaffold(
@@ -17,7 +18,6 @@ class MatchListView extends GetView<MatchController> {
         foregroundColor: Colors.white,
       ),
       body: Obx(() {
-        // Eğer liste boşsa ekranda uyarı gösterelim
         if (controller.matches.isEmpty) {
           return const Center(
             child: Text(
@@ -27,7 +27,6 @@ class MatchListView extends GetView<MatchController> {
           );
         }
 
-        // Maçlar varsa listeyi ekrana basalım
         return ListView.builder(
           itemCount: controller.matches.length,
           itemBuilder: (context, index) {
@@ -49,21 +48,62 @@ class MatchListView extends GetView<MatchController> {
                   "Kapasite: ${match.maxPlayers} Kişi\nTarih: ${match.date.toString().substring(0, 16)}",
                 ),
                 isThreeLine: true,
-                trailing: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[600],
-                  ),
-                  onPressed: () {
-                    Get.snackbar(
-                      "Yakında!",
-                      "Maça katılma özelliği birazdan eklenecek 😎",
-                    );
-                  },
-                  child: const Text(
-                    "Katıl",
-                    style: TextStyle(color: Colors.white),
-                  ),
+
+                // 👇 YAN YANA İKİ BUTON BURADA BAŞLIYOR 👇
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // --- DETAY BUTONU ---
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[600],
+                      ),
+                      onPressed: () {
+                        // Maçın ID'sini argüman olarak detay sayfasına gönderiyoruz
+                        Get.to(
+                          () => const MatchDetailView(),
+                          arguments: match.id,
+                        );
+                      },
+                      child: const Text(
+                        "Detay",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // --- AYRIL BUTONU ---
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[600],
+                      ),
+                      onPressed: () async {
+                        try {
+                          await MatchService().leaveMatch(match.id);
+
+                          Get.snackbar(
+                            "Başarılı",
+                            "${match.title} maçından ayrıldın!",
+                            backgroundColor: Colors.green[100],
+                            colorText: Colors.green[900],
+                          );
+                        } catch (e) {
+                          Get.snackbar(
+                            "Hata",
+                            "Maçtan ayrılırken bir sorun oluştu.",
+                            backgroundColor: Colors.red[100],
+                            colorText: Colors.red[900],
+                          );
+                        }
+                      },
+                      child: const Text(
+                        "Ayrıl",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
+
+                // 👆 BUTONLAR BURADA BİTİYOR 👆
               ),
             );
           },

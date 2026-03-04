@@ -10,6 +10,7 @@ import 'discover_view.dart';
 import 'profile_view.dart';
 import '../../../routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:share_plus/share_plus.dart';
 
 // 👇 BİZİM EFSANE FORMU İÇERİ ALIYORUZ 👇
 import '../../match/controllers/match_create_controller.dart';
@@ -386,9 +387,9 @@ class _HomeViewState extends State<HomeView> {
       child: Row(
         children: [
           Expanded(
-            // 👇 SOL ÜSTTEKİ "YENİ MAÇ BAŞLAT" KARTI 👇
+            // --- SOL KART: YENİ MAÇ BAŞLAT ---
             child: GestureDetector(
-              onTap: _goToCreateMatch, // Direkt bizim metodu çağırıyor
+              onTap: _goToCreateMatch,
               child: Container(
                 height: 120,
                 padding: const EdgeInsets.all(12),
@@ -449,8 +450,14 @@ class _HomeViewState extends State<HomeView> {
           ),
           const SizedBox(width: 16),
           Expanded(
+            // 👇 SAĞ KART: UYGULAMAYI PAYLAŞ (QR YERİNE) 👇
             child: GestureDetector(
-              onTap: () {},
+              onTap: () {
+                // Uygulamanın genel davet linki
+                Share.share(
+                  'Halı saha ve futsal maçlarını efsane bir şekilde organize ettiğimiz yeni uygulamamızı denedin mi? Hemen katıl: https://bizimuygulama.com/indir',
+                );
+              },
               child: Container(
                 height: 120,
                 padding: const EdgeInsets.all(12),
@@ -471,7 +478,7 @@ class _HomeViewState extends State<HomeView> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
-                        Icons.qr_code_scanner_rounded,
+                        Icons.share_outlined,
                         color: kGreen,
                         size: 20,
                       ),
@@ -481,7 +488,7 @@ class _HomeViewState extends State<HomeView> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Kod veya Link',
+                          'Bağlantı Gönder',
                           style: TextStyle(
                             color: subText,
                             fontSize: 10,
@@ -491,7 +498,7 @@ class _HomeViewState extends State<HomeView> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Bir Maça\nKatıl',
+                          'Arkadaşlarını\nDavet Et',
                           style: TextStyle(
                             color: textColor,
                             fontSize: 14,

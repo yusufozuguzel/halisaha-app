@@ -1,67 +1,62 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MatchDetailController extends GetxController {
+  // Yükleme animasyonu için
   final RxBool isLoading = true.obs;
-  final Rx<Map<String, dynamic>?> matchData = Rx<Map<String, dynamic>?>(null);
 
-  String matchId = '';
+  // Firebase'den gelecek maç verisi (Map formatında)
+  final Rxn<Map<String, dynamic>> matchData = Rxn<Map<String, dynamic>>();
 
   @override
   void onInit() {
     super.onInit();
-    // Get arguments'ten maç ID'sini alıyoruz
-    var args = Get.arguments;
-    if (args != null && args is String) {
-      matchId = args;
-      fetchMatchDetail(matchId);
+    // 1. Listeden "Get.to(..., arguments: match.id)" ile yolladığımız o ID'yi burada yakalıyoruz!
+    final String? matchId = Get.arguments as String?;
+
+    if (matchId != null) {
+      _fetchMatchDetails(matchId);
     } else {
-      // Hatalı veya eksik argüman
       isLoading.value = false;
-      matchData.value = null;
+      Get.snackbar(
+        "Hata",
+        "Maç ID'si bulunamadı!",
+        backgroundColor: Get.theme.colorScheme.error,
+      );
     }
   }
 
-  Future<void> fetchMatchDetail(String id) async {
-    try {
-      isLoading.value = true;
-
-      final docSnapshot = await FirebaseFirestore.instance
-          .collection('matches')
-          .doc(id)
-          .get();
-
-      if (docSnapshot.exists) {
-        final data = docSnapshot.data() as Map<String, dynamic>;
-        data['id'] = docSnapshot.id;
-        matchData.value = data;
-      } else {
-        matchData.value = null;
-      }
-    } catch (e) {
-      print('Maç detayı çekilirken hata oluştu: $e');
-      matchData.value = null;
-    } finally {
-      // Başta sonsuz yüklemede kalıyordu, şimdi işlem bitince try/catch fark etmeksizin duruyor.
-      isLoading.value = false;
-    }
+  // 2. Firebase'den o maça ait HER ŞEYİ canlı olarak dinliyoruz
+  void _fetchMatchDetails(String matchId) {
+    FirebaseFirestore.instance
+        .collection('matches')
+        .doc(matchId)
+        .snapshots() // snapshots() sayesinde sayfadayken biri katılırsa anında güncellenir!
+        .listen(
+          (snapshot) {
+            if (snapshot.exists) {
+              matchData.value = snapshot.data();
+            } else {
+              matchData.value = null;
+            }
+            isLoading.value = false;
+          },
+          onError: (error) {
+            print("Maç detayı çekilirken hata: $error");
+            isLoading.value = false;
+          },
+        );
   }
 
+  // 3. View'da (Arayüzde) kullandığın o "formatDate" fonksiyonu
   String formatDate(Timestamp? timestamp) {
-    if (timestamp == null) return 'Tarih Belirtilmedi';
-
-    try {
-      final DateTime date = timestamp.toDate();
-      final String day = date.day.toString().padLeft(2, '0');
-      final String month = date.month.toString().padLeft(2, '0');
-      final String year = date.year.toString();
-      final String hour = date.hour.toString().padLeft(2, '0');
-      final String minute = date.minute.toString().padLeft(2, '0');
-
-      return '$day/$month/$year $hour:$minute';
-    } catch (e) {
-      return 'Geçersiz Tarih';
-    }
+    if (timestamp == null) return "Tarih Belirtilmedi";
+    final date = timestamp.toDate();
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString();
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return "$day/$month/$year - Saat: $hour:$minute";
   }
 }

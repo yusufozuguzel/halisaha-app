@@ -423,6 +423,122 @@ class _ProfileViewState extends State<ProfileView> {
                     }
                   },
                 ),
+                const SizedBox(height: 12),
+                _pickerOption(
+                  icon: Icons.face_retouching_natural,
+                  label: 'Hazır Avatar Seç',
+                  ctx: ctx,
+                  onTap: () {
+                    Get.back(); // Önceki menüyü kapat
+                    _showAvatarSelectionSheet(); // Yeni avatar menüsünü aç
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+    );
+  }
+
+  // 👇 YENİ METOT: HAZIR AVATAR SEÇİM EKRANI 👇
+  void _showAvatarSelectionSheet() {
+    final List<IconData> defaultIcons = [
+      Icons.person,
+      Icons.sports_soccer,
+      Icons.sports_martial_arts,
+      Icons.face,
+    ];
+
+    Get.bottomSheet(
+      Builder(
+        builder: (ctx) {
+          final sheetBg = AppColors.isDark(ctx)
+              ? const Color(0xFF16221A)
+              : Colors.white;
+          return Container(
+            padding: const EdgeInsets.only(
+              top: 24,
+              bottom: 40,
+              left: 24,
+              right: 24,
+            ),
+            decoration: BoxDecoration(
+              color: sheetBg,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border(ctx),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Hazır Avatar Seç',
+                  style: TextStyle(
+                    color: AppColors.text(ctx),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                Wrap(
+                  spacing: 20,
+                  runSpacing: 20,
+                  alignment: WrapAlignment.center,
+                  children: List.generate(defaultIcons.length, (index) {
+                    return GestureDetector(
+                      onTap: () async {
+                        Get.back(); // Menüyü kapat
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user != null) {
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(user.uid)
+                              .update({
+                                'avatarType': 'icon',
+                                'avatarData': index.toString(),
+                              });
+                          Get.snackbar(
+                            'Başarılı',
+                            'Avatarın güncellendi! 😎',
+                            backgroundColor: Colors.green[100],
+                            colorText: Colors.green[900],
+                          );
+                        }
+                      },
+                      child: Container(
+                        width: 70,
+                        height: 70,
+                        decoration: BoxDecoration(
+                          color: AppColors.overlay(ctx),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF2EED7B).withOpacity(0.5),
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          defaultIcons[index],
+                          color: AppColors.text(ctx),
+                          size: 36,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
               ],
             ),
           );
@@ -453,7 +569,7 @@ class _ProfileViewState extends State<ProfileView> {
         ),
         child: Row(
           children: [
-            Icon(icon, color: _green, size: 24),
+            Icon(icon, color: const Color(0xFF2EED7B), size: 24),
             const SizedBox(width: 16),
             Text(
               label,

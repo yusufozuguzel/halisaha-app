@@ -36,13 +36,11 @@ class NotificationsController extends GetxController {
   Future<void> clearAllNotifications() async {
     final uid = _uid;
     if (uid == null) return;
-
     final snapshot = await _firestore
         .collection('users')
         .doc(uid)
         .collection('notifications')
         .get();
-
     final batch = _firestore.batch();
     for (var doc in snapshot.docs) {
       batch.delete(doc.reference);
@@ -50,14 +48,13 @@ class NotificationsController extends GetxController {
     await batch.commit();
   }
 
-  /// Yeni bildirim ekle (maç oluşturma, katılma vb. yerlerden çağrılabilir)
+  /// Yeni bildirim ekle — kendi kullanıcının bildirim kutusuna
   Future<void> addNotification({
     required String title,
     required String message,
   }) async {
     final uid = _uid;
     if (uid == null) return;
-
     await _firestore
         .collection('users')
         .doc(uid)
@@ -66,6 +63,162 @@ class NotificationsController extends GetxController {
           'title': title,
           'message': message,
           'createdAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  /// Başka bir kullanıcıya bildirim gönder (takip isteği vb.)
+  Future<void> addNotificationToUser({
+    required String targetUid,
+    required String title,
+    required String message,
+  }) async {
+    await _firestore
+        .collection('users')
+        .doc(targetUid)
+        .collection('notifications')
+        .add({
+          'title': title,
+          'message': message,
+          'createdAt': FieldValue.serverTimestamp(),
+          'fromUid': _uid ?? '',
+        });
+  }
+
+  // ── FOLLOW REQUEST — Accept ──────────────────────────────────────────────────
+
+  /// Takip isteğini kabul et:
+  /// - Receiver (ben) → followers + followersCount+1
+  /// - Sender → following + followingCount+1
+  /// - followRequests altındaki kaydı sil
+  /// - Bildirim dokümanının status'unu 'accepted' yap
+  Future<void> acceptFollowRequest({
+    required String senderUid,
+    required String notificationDocId,
+  }) async {
+    final myUid = _uid;
+    if (myUid == null) return;
+
+    final db = _firestore;
+    final batch = db.batch();
+
+    // 1. Ben'in followers/{senderUid}
+    batch.set(
+      db.collection('users').doc(myUid).collection('followers').doc(senderUid),
+      {'uid': senderUid, 'since': FieldValue.serverTimestamp()},
+    );
+
+    // 2. Ben → followersCount +1
+    batch.update(db.collection('users').doc(myUid), {
+      'followersCount': FieldValue.increment(1),
+    });
+
+    // 3. Sender'ın following/{myUid}
+    batch.set(
+      db.collection('users').doc(senderUid).collection('following').doc(myUid),
+      {'uid': myUid, 'since': FieldValue.serverTimestamp()},
+    );
+
+    // 4. Sender → followingCount +1
+    batch.update(db.collection('users').doc(senderUid), {
+      'followingCount': FieldValue.increment(1),
+    });
+
+    // 5. followRequests kaydını sil
+    batch.delete(
+      db
+          .collection('users')
+          .doc(myUid)
+          .collection('followRequests')
+          .doc(senderUid),
+    );
+
+    // 6. Bildirim kartını 'accepted' olarak işaretle
+    batch.update(
+      db
+          .collection('users')
+          .doc(myUid)
+          .collection('notifications')
+          .doc(notificationDocId),
+      {'status': 'accepted'},
+    );
+
+    await batch.commit();
+  }
+
+  // ── FOLLOW REQUEST — Reject ──────────────────────────────────────────────────
+
+  /// Takip isteğini reddet:
+  /// - followRequests kaydını sil
+  /// - Bildirim kartını 'rejected' olarak işaretle
+  Future<void> rejectFollowRequest({
+    required String senderUid,
+    required String notificationDocId,
+  }) async {
+    final myUid = _uid;
+    if (myUid == null) return;
+
+    final db = _firestore;
+    final batch = db.batch();
+
+    batch.delete(
+      db
+          .collection('users')
+          .doc(myUid)
+          .collection('followRequests')
+          .doc(senderUid),
+    );
+
+    batch.update(
+      db
+          .collection('users')
+          .doc(myUid)
+          .collection('notifications')
+          .doc(notificationDocId),
+      {'status': 'rejected'},
+    );
+
+    await batch.commit();
+  }
+
+  // ── FOLLOW BACK ──────────────────────────────────────────────────────────────
+
+  /// Karşı tarafa geri takip isteği gönder.
+  /// Aynı sendFollowRequest mantığı — bildirim 'follow_request' payload'ı ile.
+  Future<void> sendFollowBackRequest({required String targetUid}) async {
+    final myUid = _uid;
+    if (myUid == null) return;
+
+    final db = _firestore;
+
+    // followRequests'e yaz
+    await db
+        .collection('users')
+        .doc(targetUid)
+        .collection('followRequests')
+        .doc(myUid)
+        .set({
+          'from': myUid,
+          'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+    // Kendi adımızı Firestore'dan al
+    final myDoc = await db.collection('users').doc(myUid).get();
+    final myName = myDoc.data()?['fullName'] ?? myDoc.data()?['name'] ?? 'Biri';
+
+    // Karşı tarafa bildirim gönder
+    await db
+        .collection('users')
+        .doc(targetUid)
+        .collection('notifications')
+        .add({
+          'title': 'Yeni Takip İsteği 👥',
+          'message': '$myName sana takip isteği gönderdi.',
+          'type': 'follow_request',
+          'senderUid': myUid,
+          'senderName': myName,
+          'createdAt': FieldValue.serverTimestamp(),
+          'status': 'pending',
         });
   }
 }

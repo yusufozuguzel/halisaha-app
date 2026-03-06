@@ -522,7 +522,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
     );
   }
 
-  // ── Bottom Nav (Maçlarım aktif) ─────────────────────────────
+  // ── Bottom Nav (Maçlarım aktif) ────────────────────────────
   Widget _buildBottomNavigationBar(
     BuildContext context, {
     required Color navBg,
@@ -546,7 +546,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           height: 70,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -614,18 +614,18 @@ class MyMatchesView extends GetView<MyMatchesController> {
       borderRadius: BorderRadius.circular(12),
       splashColor: neonGreen.withOpacity(0.15),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 26),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),

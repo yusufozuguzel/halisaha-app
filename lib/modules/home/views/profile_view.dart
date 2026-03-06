@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -40,19 +39,13 @@ class _ProfileViewState extends State<ProfileView> {
   // Controller — permanent:true olduğu için her zaman aynı örneği döner
   late final ProfileController _ctrl;
 
-  // Radar chart verileri (değişmez, local tutulabilir)
-  final Map<String, double> _radarValues = {
-    'ŞUT': 0.78,
-    'HIZ': 0.65,
-    'DEFANS': 0.50,
-    'PAS': 0.88,
-  };
-
   @override
   void initState() {
     super.initState();
-    // Controller zaten Get.put(permanent:true) ile kaydedilmiş;
-    _ctrl = Get.put(ProfileController(), permanent: true);
+    // Her profilView açıldığında controller'ı sıfırla;
+    // böylece onInit() her seferinde doğru Get.arguments'ı okur.
+    Get.delete<ProfileController>(force: true);
+    _ctrl = Get.put(ProfileController());
   }
 
   // ── Edit Profile Bottom Sheet ──────────────────────────────
@@ -707,13 +700,35 @@ class _ProfileViewState extends State<ProfileView> {
           padding: const EdgeInsets.only(bottom: 100),
           child: Column(
             children: [
+              // Geri butonu — sadece başkasının profili açmışsa göster
+              if (!_ctrl.isOwnProfile)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 8),
+                    child: IconButton(
+                      onPressed: () => Get.back(),
+                      icon: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: AppColors.text(context),
+                        size: 22,
+                      ),
+                      tooltip: 'Geri',
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.card(context),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: AppColors.border(context)),
+                        ),
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(42, 42),
+                      ),
+                    ),
+                  ),
+                ),
               _buildProfileCard(),
-              const SizedBox(height: 16),
-              _buildRadarSection(),
-              const SizedBox(height: 16),
-              _buildStatRow(),
               const SizedBox(height: 20),
-              _buildMenuItems(),
+              if (_ctrl.isOwnProfile) _buildMenuItems(),
             ],
           ),
         ),
@@ -721,97 +736,50 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  // ── Profile Card ───────────────────────────────────────────
+  // ── Instagram-style Profile Card ───────────────────────────
   Widget _buildProfileCard() {
-    final textColor = AppColors.text(context);
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return const SizedBox.shrink();
-
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid)
+          .doc(_ctrl.targetUid)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Padding(
-            padding: EdgeInsets.all(40),
-            child: CircularProgressIndicator(color: _green),
-          );
-        }
+        final data = snapshot.hasData
+            ? (snapshot.data!.data() as Map<String, dynamic>? ?? {})
+            : <String, dynamic>{};
 
-        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-        final fullName = data['fullName'] ?? data['name'] ?? 'Lig Oyuncusu';
-        final position = data['position'] ?? 'BELİRSİZ';
+        final fullName = data['fullName'] ?? data['name'] ?? '...';
+        final pos = data['position'] ?? '';
         final avatarType = data['avatarType'] ?? 'icon';
         final avatarData = data['avatarData'] ?? '0';
 
-        // BottomSheet için yerel state'i güncelle
+        // Sync local state for bottom sheet
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
+          if (mounted)
             setState(() {
               _name = fullName;
-              _position = position;
+              _position = pos;
             });
-          }
         });
-
-        Widget avatarWidget;
-        if (avatarType == 'base64' && avatarData.toString().isNotEmpty) {
-          try {
-            avatarWidget = ClipRRect(
-              borderRadius: BorderRadius.circular(50),
-              child: Image.memory(
-                base64Decode(avatarData),
-                width: 100,
-                height: 100,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                errorBuilder: (context, error, stackTrace) =>
-                    Icon(Icons.person, color: textColor, size: 40),
-              ),
-            );
-          } catch (e) {
-            avatarWidget = Icon(Icons.person, color: textColor, size: 40);
-          }
-        } else {
-          final iconIndex = int.tryParse(avatarData.toString()) ?? 0;
-          final List<IconData> defaultIcons = [
-            Icons.person,
-            Icons.sports_soccer,
-            Icons.sports_martial_arts,
-            Icons.face,
-          ];
-          avatarWidget = Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: AppColors.overlay(context),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              defaultIcons[iconIndex % defaultIcons.length],
-              color: textColor,
-              size: 40,
-            ),
-          );
-        }
 
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-          child: Stack(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
+              // ── Row: Avatar + Stats ───────────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Avatar
                   GestureDetector(
-                    onTap: _showImagePickerSheet,
+                    onTap: _ctrl.isOwnProfile ? _showImagePickerSheet : null,
                     child: Stack(
                       children: [
                         Container(
-                          width: 100,
-                          height: 100,
+                          width: 82,
+                          height: 82,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: _card,
@@ -820,93 +788,148 @@ class _ProfileViewState extends State<ProfileView> {
                               width: 3,
                             ),
                           ),
-                          child: avatarWidget,
-                        ),
-                        Positioned(
-                          bottom: 2,
-                          right: 2,
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: _green,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: _bg, width: 2),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(41),
+                            child: _buildAvatarWidget(
+                              avatarType,
+                              avatarData,
+                              size: 82,
                             ),
-                            child: Icon(Icons.camera_alt, color: _bg, size: 14),
                           ),
                         ),
+                        if (_ctrl.isOwnProfile)
+                          Positioned(
+                            bottom: 2,
+                            right: 2,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: _green,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: _bg, width: 2),
+                              ),
+                              child: Icon(
+                                Icons.camera_alt,
+                                color: _bg,
+                                size: 12,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    fullName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _green.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _green.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: _green,
-                            shape: BoxShape.circle,
+                  const SizedBox(width: 20),
+                  // Stats row
+                  Expanded(
+                    child: Obx(
+                      () => Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _inlineStatCol(
+                            value: _ctrl.matchesCount.value.toString(),
+                            label: 'Maç',
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          position.toString().toUpperCase(),
-                          style: const TextStyle(
-                            color: _green,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.1,
-                            decoration: TextDecoration.none,
+                          _inlineStatCol(
+                            value: _ctrl.followersCount.value.toString(),
+                            label: 'Takipçi',
                           ),
-                        ),
-                      ],
+                          _inlineStatCol(
+                            value: _ctrl.followingCount.value.toString(),
+                            label: 'Takip',
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-              // Edit icon (top-right)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: InkWell(
-                  onTap: _showEditSheet,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Icon(
-                      Icons.edit_outlined,
-                      color: AppColors.subText(context),
-                      size: 20,
+              const SizedBox(height: 16),
+              // ── Name ─────────────────────────────────────
+              Text(
+                fullName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.text(context),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              if (pos.toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                // ── Position Badge ────────────────────────
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _green.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: _green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        pos.toString().toUpperCase(),
+                        style: const TextStyle(
+                          color: _green,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              // ── Action Buttons ────────────────────────────
+              _buildActionButtons(),
+
+              // ── Own profile: edit pencil inline ──────────
+              if (_ctrl.isOwnProfile)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: InkWell(
+                    onTap: _showEditSheet,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 0, 0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.edit_outlined,
+                            color: AppColors.subText(context),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Düzenle',
+                            style: TextStyle(
+                              color: AppColors.subText(context),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         );
@@ -914,181 +937,164 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  // ── Radar Section ──────────────────────────────────────────
-  Widget _buildRadarSection() {
-    final textColor = AppColors.text(context);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border(context)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'OYUNCU ÖZELLİKLERİ',
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _green.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  'Genel: 84',
-                  style: TextStyle(
-                    color: _green,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-              ),
-            ],
+  // ── Inline stat column (Maç / Takipçi / Takip) ─────────────
+  Widget _inlineStatCol({required String value, required String label}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: AppColors.text(context),
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            decoration: TextDecoration.none,
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: 220,
-            height: 220,
-            child: CustomPaint(
-              painter: _RadarPainter(
-                values: _radarValues,
-                gridColor: AppColors.border(context),
-                textColor: AppColors.subText(context),
-              ),
-            ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.subText(context),
+            fontSize: 12,
+            decoration: TextDecoration.none,
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(
-                width: 8,
-                height: 8,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: _green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Sezon 2023',
-                style: TextStyle(
-                  color: AppColors.subText(context),
-                  fontSize: 12,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // ── Stat Row ───────────────────────────────────────────────
-  Widget _buildStatRow() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: SizedBox(
-          width: double.infinity,
-          child: _statBox(
-            value: '0',
-            label: 'OYNANAN MAÇ',
-            valueFontSize: 32,
-            valueColor: AppColors.text(context),
-            labelColor: AppColors.subText(context),
+  // ── Action buttons row ─────────────────────────────────────
+  Widget _buildActionButtons() {
+    // Kendi profilimiz
+    if (_ctrl.isOwnProfile) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: _showEditSheet,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.text(context),
+            side: BorderSide(color: AppColors.border(context)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          child: const Text(
+            'Profili Düzenle',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              decoration: TextDecoration.none,
+            ),
           ),
         ),
       );
     }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('matches')
-          .where('currentPlayers', arrayContains: user.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        String matchCount = '0';
-        if (snapshot.hasData) {
-          matchCount = snapshot.data!.docs.length.toString();
-        }
+    // Başkasının profili
+    return Obx(() {
+      final following = _ctrl.isFollowing.value;
+      final reqSent = _ctrl.isRequestSent.value;
+      final loading = _ctrl.isLoading.value;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: SizedBox(
-            width: double.infinity,
-            child: _statBox(
-              value: matchCount,
-              label: 'OYNANAN MAÇ',
-              valueFontSize: 32,
-              valueColor: AppColors.text(context),
-              labelColor: AppColors.subText(context),
+      // ── Takip Et butonu ─────────────────────────────────
+      Widget followBtn;
+      if (following) {
+        followBtn = OutlinedButton(
+          onPressed: loading ? null : _ctrl.unfollow,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.text(context),
+            side: BorderSide(color: AppColors.border(context)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          child: const Text(
+            'Takip Ediliyor',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
         );
-      },
-    );
+      } else if (reqSent) {
+        followBtn = OutlinedButton(
+          onPressed: loading ? null : _ctrl.cancelFollowRequest,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.subText(context),
+            side: BorderSide(color: AppColors.border(context)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          child: const Text(
+            'İstek Gönderildi',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+        );
+      } else {
+        followBtn = ElevatedButton(
+          onPressed: loading ? null : _ctrl.sendFollowRequest,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _green,
+            foregroundColor: const Color(0xFF0F1712),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          child: const Text(
+            'Takip Et',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+        );
+      }
+
+      return SizedBox(width: double.infinity, child: followBtn);
+    });
   }
 
-  Widget _statBox({
-    required String value,
-    required String label,
-    required double valueFontSize,
-    required Color valueColor,
-    required Color labelColor,
+  /// Builds the avatar widget from Firestore avatarType/avatarData.
+  Widget _buildAvatarWidget(
+    String avatarType,
+    dynamic avatarData, {
+    double size = 82,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(context)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: valueColor,
-              fontSize: valueFontSize,
-              fontWeight: FontWeight.bold,
-              decoration: TextDecoration.none,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: labelColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-              decoration: TextDecoration.none,
-            ),
-          ),
-        ],
-      ),
-    );
+    final textColor = AppColors.text(context);
+    if (avatarType == 'base64' && avatarData.toString().isNotEmpty) {
+      try {
+        return Image.memory(
+          base64Decode(avatarData.toString()),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) =>
+              Icon(Icons.person, color: textColor, size: size * 0.4),
+        );
+      } catch (_) {
+        return Icon(Icons.person, color: textColor, size: size * 0.4);
+      }
+    } else {
+      final iconIndex = int.tryParse(avatarData.toString()) ?? 0;
+      const defaultIcons = [
+        Icons.person,
+        Icons.sports_soccer,
+        Icons.sports_martial_arts,
+        Icons.face,
+      ];
+      return Container(
+        width: size,
+        height: size,
+        color: AppColors.overlay(context),
+        child: Icon(
+          defaultIcons[iconIndex % defaultIcons.length],
+          color: textColor,
+          size: size * 0.4,
+        ),
+      );
+    }
   }
 
   // ── Menu Items ─────────────────────────────────────────────
@@ -1201,7 +1207,7 @@ class _ProfileViewState extends State<ProfileView> {
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           height: 70,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1254,18 +1260,18 @@ class _ProfileViewState extends State<ProfileView> {
       borderRadius: BorderRadius.circular(12),
       splashColor: _green.withOpacity(0.15),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 26),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 decoration: TextDecoration.none,
               ),
@@ -1282,130 +1288,4 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
   }
-}
-
-// ============================================================
-// RADAR CHART — CustomPainter
-// ============================================================
-class _RadarPainter extends CustomPainter {
-  final Map<String, double> values;
-  final Color gridColor;
-  final Color textColor;
-
-  const _RadarPainter({
-    required this.values,
-    required this.gridColor,
-    required this.textColor,
-  });
-
-  static const _labels = ['ŞUT', 'HIZ', 'DEFANS', 'PAS'];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final maxR = size.width / 2 * 0.72;
-    const sides = 4;
-    const angleStep = 2 * math.pi / sides;
-    const startAngle = -math.pi / 2;
-
-    final gridPaint = Paint()
-      ..color = gridColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    for (int ring = 1; ring <= 4; ring++) {
-      final r = maxR * ring / 4;
-      final path = Path();
-      for (int i = 0; i < sides; i++) {
-        final angle = startAngle + i * angleStep;
-        final p = Offset(
-          center.dx + r * math.cos(angle),
-          center.dy + r * math.sin(angle),
-        );
-        if (i == 0)
-          path.moveTo(p.dx, p.dy);
-        else
-          path.lineTo(p.dx, p.dy);
-      }
-      path.close();
-      canvas.drawPath(path, gridPaint);
-    }
-
-    final axisPaint = Paint()
-      ..color = gridColor
-      ..strokeWidth = 1;
-
-    for (int i = 0; i < sides; i++) {
-      final angle = startAngle + i * angleStep;
-      canvas.drawLine(
-        center,
-        Offset(
-          center.dx + maxR * math.cos(angle),
-          center.dy + maxR * math.sin(angle),
-        ),
-        axisPaint,
-      );
-    }
-
-    final dataPoints = <Offset>[];
-    for (int i = 0; i < sides; i++) {
-      final label = _labels[i];
-      final v = (values[label] ?? 0.5).clamp(0.0, 1.0);
-      final angle = startAngle + i * angleStep;
-      dataPoints.add(
-        Offset(
-          center.dx + maxR * v * math.cos(angle),
-          center.dy + maxR * v * math.sin(angle),
-        ),
-      );
-    }
-
-    final fillPaint = Paint()
-      ..color = const Color(0xFF2EED7B).withOpacity(0.22)
-      ..style = PaintingStyle.fill;
-    final strokePaint = Paint()
-      ..color = const Color(0xFF2EED7B)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    final dataPath = Path();
-    for (int i = 0; i < dataPoints.length; i++) {
-      if (i == 0)
-        dataPath.moveTo(dataPoints[i].dx, dataPoints[i].dy);
-      else
-        dataPath.lineTo(dataPoints[i].dx, dataPoints[i].dy);
-    }
-    dataPath.close();
-    canvas.drawPath(dataPath, fillPaint);
-    canvas.drawPath(dataPath, strokePaint);
-
-    final dotPaint = Paint()..color = const Color(0xFF2EED7B);
-    for (final p in dataPoints) {
-      canvas.drawCircle(p, 5, dotPaint);
-    }
-
-    final labelOffset = maxR * 1.22;
-    for (int i = 0; i < sides; i++) {
-      final angle = startAngle + i * angleStep;
-      final lp = Offset(
-        center.dx + labelOffset * math.cos(angle),
-        center.dy + labelOffset * math.sin(angle),
-      );
-      final tp = TextPainter(
-        text: TextSpan(
-          text: _labels[i],
-          style: TextStyle(
-            color: textColor,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(lp.dx - tp.width / 2, lp.dy - tp.height / 2));
-    }
-  }
-
-  @override
-  bool shouldRepaint(_RadarPainter old) => old.values != values;
 }

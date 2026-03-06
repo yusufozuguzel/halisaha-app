@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
 import '../controllers/notifications_controller.dart';
 
+const kGreen = Color(0xFF2EED7B);
+
 class NotificationsView extends StatelessWidget {
   const NotificationsView({super.key});
 
@@ -39,12 +41,20 @@ class NotificationsView extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final doc = docs[index];
                       final data = doc.data() as Map<String, dynamic>;
-                      return _buildCard(
+                      final type = data['type'] as String? ?? '';
+
+                      if (type == 'follow_request') {
+                        return _FollowRequestCard(
+                          doc: doc,
+                          data: data,
+                          controller: controller,
+                        );
+                      }
+
+                      return _GenericCard(
                         context: context,
-                        docId: doc.id,
-                        title: data['title'] ?? '',
-                        message: data['message'] ?? '',
-                        timestamp: data['createdAt'] as Timestamp?,
+                        doc: doc,
+                        data: data,
                         controller: controller,
                       );
                     },
@@ -102,7 +112,7 @@ class NotificationsView extends StatelessWidget {
               Get.snackbar(
                 'Temizlendi',
                 'Tüm bildirimler silindi.',
-                backgroundColor: AppColors.isDark(context)
+                backgroundColor: AppColors.isDark(Get.context!)
                     ? const Color(0xFF1C2B21)
                     : const Color(0xFFE8F5EC),
                 colorText: kGreen,
@@ -123,114 +133,6 @@ class NotificationsView extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ─── Bildirim Kartı ──────────────────────────────────────────────────────────
-  Widget _buildCard({
-    required BuildContext context,
-    required String docId,
-    required String title,
-    required String message,
-    required Timestamp? timestamp,
-    required NotificationsController controller,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(context)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Üst satır: ikon + başlık + zaman
-            Row(
-              children: [
-                // Bildirim İkonu
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: kGreen.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.notifications_outlined,
-                    color: kGreen,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Başlık + Mesaj
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: AppColors.text(context),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        message,
-                        style: TextStyle(
-                          color: AppColors.subText(context),
-                          fontSize: 12,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Tarih / Saat
-                Text(
-                  _formatTimestamp(timestamp),
-                  style: TextStyle(
-                    color: AppColors.subText(context),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Sil butonu
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: () => controller.deleteNotification(docId),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border(context)),
-                  ),
-                  child: Text(
-                    'Sil',
-                    style: TextStyle(
-                      color: AppColors.text(context),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -259,20 +161,130 @@ class NotificationsView extends StatelessWidget {
       ),
     );
   }
+}
 
-  // ─── Zaman Formatlama (intl paketi kullanmadan) ──────────────────────────────
-  String _formatTimestamp(Timestamp? timestamp) {
-    if (timestamp == null) return '';
+// ─── Generic Notification Card ───────────────────────────────────────────────
+class _GenericCard extends StatelessWidget {
+  final BuildContext context;
+  final QueryDocumentSnapshot doc;
+  final Map<String, dynamic> data;
+  final NotificationsController controller;
 
-    final date = timestamp.toDate();
+  const _GenericCard({
+    required this.context,
+    required this.doc,
+    required this.data,
+    required this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = data['title'] as String? ?? '';
+    final message = data['message'] as String? ?? '';
+    final timestamp = data['createdAt'] as Timestamp?;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border(context)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: kGreen.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.notifications_outlined,
+                    color: kGreen,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: AppColors.text(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: AppColors.subText(context),
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatTimestamp(timestamp),
+                  style: TextStyle(
+                    color: AppColors.subText(context),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () => controller.deleteNotification(doc.id),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border(context)),
+                  ),
+                  child: Text(
+                    'Sil',
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTimestamp(Timestamp? ts) {
+    if (ts == null) return '';
+    final date = ts.toDate();
     final now = DateTime.now();
     final diff = now.difference(date);
-
     if (diff.inMinutes < 1) return 'Az önce';
     if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
     if (diff.inHours < 24) return '${diff.inHours} saat önce';
-
-    final months = [
+    const months = [
       '',
       'Oca',
       'Şub',
@@ -287,14 +299,304 @@ class NotificationsView extends StatelessWidget {
       'Kas',
       'Ara',
     ];
+    final d = date.day.toString().padLeft(2, '0');
+    final m = months[date.month];
+    final h = date.hour.toString().padLeft(2, '0');
+    final mn = date.minute.toString().padLeft(2, '0');
+    if (diff.inDays == 1) return 'Dün, $h:$mn';
+    return '$d $m, $h:$mn';
+  }
+}
 
-    final day = date.day.toString().padLeft(2, '0');
-    final month = months[date.month];
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
+// ─── Follow Request Notification Card ────────────────────────────────────────
+class _FollowRequestCard extends StatelessWidget {
+  final QueryDocumentSnapshot doc;
+  final Map<String, dynamic> data;
+  final NotificationsController controller;
 
-    if (diff.inDays == 1) return 'Dün, $hour:$minute';
+  const _FollowRequestCard({
+    required this.doc,
+    required this.data,
+    required this.controller,
+  });
 
-    return '$day $month, $hour:$minute';
+  @override
+  Widget build(BuildContext context) {
+    final senderName = data['senderName'] as String? ?? 'Biri';
+    final senderUid = data['senderUid'] as String? ?? '';
+    final message = data['message'] as String? ?? '';
+    final timestamp = data['createdAt'] as Timestamp?;
+    final reqStatus = data['status'] as String? ?? 'pending';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border(context)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header row ──────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: kGreen.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.person_add_alt_1,
+                    color: kGreen,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Takip İsteği 👥',
+                        style: TextStyle(
+                          color: AppColors.text(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: AppColors.subText(context),
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatTimestamp(timestamp),
+                  style: TextStyle(
+                    color: AppColors.subText(context),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // ── Status branch ────────────────────────────────
+            if (reqStatus == 'pending') ...[
+              // Kabul Et / Reddet
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        await controller.acceptFollowRequest(
+                          senderUid: senderUid,
+                          notificationDocId: doc.id,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: kGreen,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Kabul Et',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF0F1712),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        await controller.rejectFollowRequest(
+                          senderUid: senderUid,
+                          notificationDocId: doc.id,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.isDark(context)
+                              ? const Color(0xFF2A2A2A)
+                              : const Color(0xFFEEEEEE),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Reddet',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.text(context),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else if (reqStatus == 'accepted') ...[
+              // Kabul edildi + Geri Takip Et
+              Row(
+                children: [
+                  // Durum etiketi
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kGreen.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: kGreen.withOpacity(0.3)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          color: kGreen,
+                          size: 14,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Kabul Edildi',
+                          style: TextStyle(
+                            color: kGreen,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Sen de Takip Et
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        await controller.sendFollowBackRequest(
+                          targetUid: senderUid,
+                        );
+                        Get.snackbar(
+                          'Takip İsteği Gönderildi',
+                          '$senderName adlı oyuncuya takip isteği gönderildi.',
+                          snackPosition: SnackPosition.BOTTOM,
+                          duration: const Duration(seconds: 2),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.card(context),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: kGreen.withOpacity(0.5)),
+                        ),
+                        child: const Text(
+                          'Sen de Takip Et',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: kGreen,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else if (reqStatus == 'rejected') ...[
+              // Reddedildi + silebilir
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: const Text(
+                      'Reddedildi',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => controller.deleteNotification(doc.id),
+                    child: Text(
+                      'Sil',
+                      style: TextStyle(
+                        color: AppColors.subText(context),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTimestamp(Timestamp? ts) {
+    if (ts == null) return '';
+    final date = ts.toDate();
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return 'Az önce';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
+    if (diff.inHours < 24) return '${diff.inHours} saat önce';
+    const months = [
+      '',
+      'Oca',
+      'Şub',
+      'Mar',
+      'Nis',
+      'May',
+      'Haz',
+      'Tem',
+      'Ağu',
+      'Eyl',
+      'Eki',
+      'Kas',
+      'Ara',
+    ];
+    final d = date.day.toString().padLeft(2, '0');
+    final m = months[date.month];
+    final h = date.hour.toString().padLeft(2, '0');
+    final mn = date.minute.toString().padLeft(2, '0');
+    if (diff.inDays == 1) return 'Dün, $h:$mn';
+    return '$d $m, $h:$mn';
   }
 }

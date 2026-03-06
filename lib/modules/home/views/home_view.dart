@@ -4,11 +4,12 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'my_matches_view.dart';
-import 'notifications_view.dart';
+import 'notifications_view.dart' hide kGreen;
 import '../controllers/home_controller.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
 import '../../../routes/app_routes.dart';
+import '../../friends/views/friends_view.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -84,7 +85,7 @@ class _HomeViewState extends State<HomeView> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2EED7B).withOpacity(0.4),
+                color: const Color(0xFF2EED7B).withValues(alpha: 0.4),
                 blurRadius: 20,
                 spreadRadius: 2,
                 offset: const Offset(0, 4),
@@ -120,7 +121,7 @@ class _HomeViewState extends State<HomeView> {
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           height: 70,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -176,20 +177,20 @@ class _HomeViewState extends State<HomeView> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: kGreen.withOpacity(0.15),
+      splashColor: kGreen.withValues(alpha: 0.15),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 26),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -287,7 +288,7 @@ class _HomeViewState extends State<HomeView> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: textColor.withOpacity(0.1),
+                        color: textColor.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
@@ -334,6 +335,29 @@ class _HomeViewState extends State<HomeView> {
                 ],
               ),
               const Spacer(),
+              // Friends icon button
+              GestureDetector(
+                onTap: () => Get.to(
+                  () => const FriendsView(),
+                  transition: Transition.fadeIn,
+                  duration: const Duration(milliseconds: 300),
+                ),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.overlay(context),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.people_alt_outlined,
+                    color: textColor,
+                    size: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Notifications icon button
               GestureDetector(
                 onTap: () => Get.to(
                   () => const NotificationsView(),
@@ -398,7 +422,7 @@ class _HomeViewState extends State<HomeView> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: kGreen.withOpacity(0.3),
+                      color: kGreen.withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 8),
                     ),
@@ -412,7 +436,7 @@ class _HomeViewState extends State<HomeView> {
                       width: 34,
                       height: 34,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.add, color: kDarkBg, size: 22),
@@ -454,8 +478,11 @@ class _HomeViewState extends State<HomeView> {
             child: GestureDetector(
               onTap: () {
                 // Uygulamanın genel davet linki
-                Share.share(
-                  'Halı saha ve futsal maçlarını efsane bir şekilde organize ettiğimiz yeni uygulamamızı denedin mi? Hemen katıl: https://bizimuygulama.com/indir',
+                SharePlus.instance.share(
+                  ShareParams(
+                    text:
+                        'Halı saha ve futsal maçlarını efsane bir şekilde organize ettiğimiz yeni uygulamamızı denedin mi? Hemen katıl: https://bizimuygulama.com/indir',
+                  ),
                 );
               },
               child: Container(
@@ -477,7 +504,7 @@ class _HomeViewState extends State<HomeView> {
                         color: AppColors.overlay(context),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.share_outlined,
                         color: kGreen,
                         size: 20,
@@ -547,7 +574,7 @@ class _HomeViewState extends State<HomeView> {
               Text(
                 'Tümü',
                 style: TextStyle(
-                  color: kGreen.withOpacity(0.8),
+                  color: kGreen.withValues(alpha: 0.8),
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   decoration: TextDecoration.none,
@@ -639,8 +666,8 @@ class _HomeViewState extends State<HomeView> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.1),
-                        Colors.black.withOpacity(0.8),
+                        Colors.black.withValues(alpha: 0.1),
+                        Colors.black.withValues(alpha: 0.8),
                       ],
                     ),
                   ),
@@ -660,10 +687,10 @@ class _HomeViewState extends State<HomeView> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.1),
+                                color: Colors.white.withValues(alpha: 0.1),
                               ),
                             ),
                             child: const Row(
@@ -701,7 +728,7 @@ class _HomeViewState extends State<HomeView> {
                               Text(
                                 dateStr,
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                   fontSize: 11,
                                   decoration: TextDecoration.none,
                                 ),
@@ -729,14 +756,14 @@ class _HomeViewState extends State<HomeView> {
                             children: [
                               Icon(
                                 Icons.people,
-                                color: Colors.white.withOpacity(0.6),
+                                color: Colors.white.withValues(alpha: 0.6),
                                 size: 14,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Kapasite: ${nextMatch.maxPlayers} Kişi',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: Colors.white.withValues(alpha: 0.6),
                                   fontSize: 13,
                                   decoration: TextDecoration.none,
                                 ),
@@ -766,7 +793,9 @@ class _HomeViewState extends State<HomeView> {
                                         width: 32,
                                         height: 32,
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.15),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.15,
+                                          ),
                                           shape: BoxShape.circle,
                                           border: Border.all(
                                             color: Colors.white,
@@ -795,7 +824,7 @@ class _HomeViewState extends State<HomeView> {
                                     vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
+                                    color: Colors.white.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: const Text(
@@ -945,7 +974,10 @@ class _HomeViewState extends State<HomeView> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withOpacity(0.9)],
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.9),
+                ],
               ),
             ),
           ),
@@ -955,7 +987,7 @@ class _HomeViewState extends State<HomeView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -996,7 +1028,7 @@ class _HomeViewState extends State<HomeView> {
                 Text(
                   location,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 12,
                     decoration: TextDecoration.none,
                   ),
@@ -1142,7 +1174,7 @@ class _HomeViewState extends State<HomeView> {
                   const SizedBox(height: 8),
                   GestureDetector(
                     onTap: () {},
-                    child: const Text(
+                    child: Text(
                       'Katıl',
                       style: TextStyle(
                         color: kGreen,

@@ -740,7 +740,7 @@ class DiscoverView extends GetView<DiscoverController> {
     );
   }
 
-  // ── Bottom Nav (Keşfet aktif) ───────────────────────────────
+  // ── Bottom Nav (Keşfet aktif) ─────────────────────────────────
   Widget _buildBottomNav(BuildContext context) {
     final navBg = AppColors.navBg(context);
     return Container(
@@ -761,7 +761,7 @@ class DiscoverView extends GetView<DiscoverController> {
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           height: 70,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -824,18 +824,18 @@ class DiscoverView extends GetView<DiscoverController> {
       borderRadius: BorderRadius.circular(12),
       splashColor: _green.withOpacity(0.15),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 26),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 decoration: TextDecoration.none,
               ),

@@ -33,9 +33,12 @@ class MyMatchesView extends GetView<MyMatchesController> {
       backgroundColor: bgColor,
       floatingActionButton: GestureDetector(
         onTap: () {
-          Get.put(MatchCreateController());
+          Get.delete<MatchCreateController>();
           Get.to(
             () => const MatchCreateView(),
+            binding: BindingsBuilder(() {
+              Get.lazyPut<MatchCreateController>(() => MatchCreateController());
+            }),
             transition: Transition.downToUp,
             duration: const Duration(milliseconds: 300),
           );
@@ -159,6 +162,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
                       priceText: '$price TL',
                       matchId: match['id']?.toString() ?? '',
                       currentPlayers: currentPlayers ?? [],
+                      matchData: match, // <-- Tüm veriyi geçiyoruz
                     );
                   },
                 );
@@ -262,6 +266,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
     required String priceText,
     required String matchId,
     required List<dynamic> currentPlayers,
+    required Map<String, dynamic> matchData,
   }) {
     final isDark = AppColors.isDark(context);
     final cardBg = AppColors.card(context);
@@ -346,123 +351,171 @@ class MyMatchesView extends GetView<MyMatchesController> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
+                    Column(
                       children: [
-                        Icon(Icons.people_outline, color: textGrey, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Kontenjan: $quotaText',
-                          style: TextStyle(color: textGrey, fontSize: 12),
-                        ),
-                        const SizedBox(width: 16),
-                        Icon(
-                          Icons.payments_outlined,
-                          color: textGrey,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          priceText,
-                          style: TextStyle(color: textGrey, fontSize: 12),
-                        ),
-                        const Spacer(),
-
-                        // 👇 DETAY BUTONUNA FİREBASE BAĞLANDI 👇
-                        GestureDetector(
-                          onTap: () {
-                            Get.to(
-                              () => const MatchDetailView(),
-                              arguments: matchId,
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 7,
+                        // 1. Satır: Kontenjan ve Fiyat (Sola dayalı)
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              color: textGrey,
+                              size: 16,
                             ),
-                            decoration: BoxDecoration(
-                              color: darkGreenBlack,
-                              border: Border.all(
-                                color: neonGreen.withOpacity(0.4),
-                              ),
-                              borderRadius: BorderRadius.circular(8),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Kontenjan: $quotaText',
+                              style: TextStyle(color: textGrey, fontSize: 12),
                             ),
-                            child: Text(
-                              'Detaylar',
-                              style: TextStyle(
-                                color: neonGreen,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            const SizedBox(width: 16),
+                            Icon(
+                              Icons.payments_outlined,
+                              color: textGrey,
+                              size: 16,
                             ),
-                          ),
+                            const SizedBox(width: 4),
+                            Text(
+                              priceText,
+                              style: TextStyle(color: textGrey, fontSize: 12),
+                            ),
+                          ],
                         ),
-
-                        // 👇 KURUCU İSE SİL, OYUNCU İSE AYRIL BUTONU 👇
-                        if (isCreator) ...[
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () => controller.cancelMatch(matchId),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: darkGreenBlack,
-                                border: Border.all(
-                                  color: Colors.red.withOpacity(0.4),
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.red,
-                                size: 16,
-                              ),
-                            ),
-                          ),
-                        ] else ...[
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () async {
-                              try {
-                                await MatchService().leaveMatch(matchId);
-                                Get.snackbar(
-                                  "Başarılı",
-                                  "Maçtan ayrıldın!",
-                                  backgroundColor: Colors.green[100],
-                                  colorText: Colors.green[900],
+                        const SizedBox(height: 12),
+                        // 2. Satır: Aksiyon Butonları (Sağa dayalı)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            // 👇 DETAY BUTONUNA FİREBASE BAĞLANDI 👇
+                            GestureDetector(
+                              onTap: () {
+                                Get.to(
+                                  () => const MatchDetailView(),
+                                  arguments: matchId,
                                 );
-                              } catch (e) {
-                                Get.snackbar(
-                                  "Hata",
-                                  "Ayrılırken bir sorun oluştu.",
-                                  backgroundColor: Colors.red[100],
-                                  colorText: Colors.red[900],
-                                );
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: darkGreenBlack,
-                                border: Border.all(
-                                  color: Colors.orange.withOpacity(0.4),
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 7,
                                 ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.exit_to_app,
-                                color: Colors.orange,
-                                size: 16,
+                                decoration: BoxDecoration(
+                                  color: darkGreenBlack,
+                                  border: Border.all(
+                                    color: neonGreen.withOpacity(0.4),
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Detaylar',
+                                  style: TextStyle(
+                                    color: neonGreen,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+
+                            // 👇 KURUCU İSE DÜZENLE VE SİL, OYUNCU İSE AYRIL BUTONU 👇
+                            if (isCreator) ...[
+                              const SizedBox(width: 8),
+                              // ✏️ DÜZENLE BUTONU
+                              GestureDetector(
+                                onTap: () {
+                                  Get.delete<MatchCreateController>();
+                                  Get.to(
+                                    () => const MatchCreateView(),
+                                    binding: BindingsBuilder(() {
+                                      Get.lazyPut<MatchCreateController>(
+                                        () => MatchCreateController(),
+                                      );
+                                    }),
+                                    arguments: matchData,
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: darkGreenBlack,
+                                    border: Border.all(
+                                      color: Colors.blueAccent.withOpacity(0.4),
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Colors.blueAccent,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => controller.cancelMatch(matchId),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: darkGreenBlack,
+                                    border: Border.all(
+                                      color: Colors.red.withOpacity(0.4),
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () async {
+                                  try {
+                                    await MatchService().leaveMatch(matchId);
+                                    Get.snackbar(
+                                      "Başarılı",
+                                      "Maçtan ayrıldın!",
+                                      backgroundColor: Colors.green[100],
+                                      colorText: Colors.green[900],
+                                    );
+                                  } catch (e) {
+                                    Get.snackbar(
+                                      "Hata",
+                                      "Ayrılırken bir sorun oluştu.",
+                                      backgroundColor: Colors.red[100],
+                                      colorText: Colors.red[900],
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: darkGreenBlack,
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.4),
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.exit_to_app,
+                                    color: Colors.orange,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
                   ],
@@ -483,9 +536,12 @@ class MyMatchesView extends GetView<MyMatchesController> {
     final textGrey = AppColors.labelColor(context);
     return GestureDetector(
       onTap: () {
-        Get.put(MatchCreateController());
+        Get.delete<MatchCreateController>();
         Get.to(
           () => const MatchCreateView(),
+          binding: BindingsBuilder(() {
+            Get.lazyPut<MatchCreateController>(() => MatchCreateController());
+          }),
           transition: Transition.downToUp,
           duration: const Duration(milliseconds: 300),
         );

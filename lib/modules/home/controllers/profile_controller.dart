@@ -18,6 +18,9 @@ class ProfileController extends GetxController {
   // ── Profil verileri ────────────────────────────────────────
   final RxString name = 'Yükleniyor...'.obs;
   final RxString position = ''.obs;
+
+  /// Dropdown seçimi için reaktif değişken — edit sheet bunu kullanır.
+  final RxString selectedPosition = ''.obs;
   final Rx<File?> avatarFile = Rx<File?>(null);
   final RxString avatarUrl = ''.obs;
 
@@ -77,6 +80,15 @@ class ProfileController extends GetxController {
       final d = snap.data() ?? {};
       name.value = d['fullName'] ?? d['name'] ?? '';
       position.value = d['position'] ?? '';
+      // Dropdown başlangıç değerini Firestore'dan senkronize et
+      const validPositions = ['Kaleci', 'Defans', 'Orta Saha', 'Forvet'];
+      final raw = (d['position'] ?? '').toString();
+      // Eski veriler büyük harfle kaydedilmiş olabilir; normalize et
+      final normalized = validPositions.firstWhere(
+        (p) => p.toUpperCase() == raw.toUpperCase(),
+        orElse: () => validPositions.first,
+      );
+      if (selectedPosition.value.isEmpty) selectedPosition.value = normalized;
       // follower/following counters
       followersCount.value = (d['followersCount'] ?? 0) as int;
       followingCount.value = (d['followingCount'] ?? 0) as int;
@@ -273,7 +285,7 @@ class ProfileController extends GetxController {
     }
   }
 
-  // ── Update Profile (existing — untouched) ─────────────────
+  // ── Update Profile ─────────────────────────────────────────
   Future<void> updateProfile({
     required String newName,
     required String newPosition,
@@ -285,8 +297,10 @@ class ProfileController extends GetxController {
     final docRef = _db.collection('users').doc(user.uid);
 
     if (newName.trim().isNotEmpty) name.value = newName.trim();
-    if (newPosition.trim().isNotEmpty)
+    if (newPosition.trim().isNotEmpty) {
       position.value = newPosition.trim().toUpperCase();
+      selectedPosition.value = newPosition.trim();
+    }
 
     final Map<String, dynamic> updates = {};
     if (newName.trim().isNotEmpty) {

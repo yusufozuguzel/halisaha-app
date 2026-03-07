@@ -491,38 +491,75 @@ class _FollowRequestCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Sen de Takip Et
+
+                  // Takip etme durumu kontrolü
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        await controller.sendFollowBackRequest(
-                          targetUid: senderUid,
+                    child: Obx(() {
+                      // Eğer bu kullanıcı için daha check yapılmadıysa veya verisi yoksa false döner
+                      final isFollowing =
+                          controller.followingStatus[senderUid]?.value ?? false;
+
+                      if (isFollowing) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.card(context),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.subText(
+                                context,
+                              ).withOpacity(0.2),
+                            ),
+                          ),
+                          child: Text(
+                            'Takip Ediyorsun',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.subText(
+                                context,
+                              ).withOpacity(0.6),
+                              fontWeight: FontWeight.w500,
+                              fontSize: 13,
+                            ),
+                          ),
                         );
-                        Get.snackbar(
-                          'Takip İsteği Gönderildi',
-                          '$senderName adlı oyuncuya takip isteği gönderildi.',
-                          snackPosition: SnackPosition.BOTTOM,
-                          duration: const Duration(seconds: 2),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.card(context),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: kGreen.withOpacity(0.5)),
-                        ),
-                        child: const Text(
-                          'Sen de Takip Et',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: kGreen,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                      }
+
+                      // Henüz takip etmiyorsa aktif buton göster
+                      return GestureDetector(
+                        onTap: () async {
+                          await controller.sendFollowBackRequest(
+                            targetUid: senderUid,
+                          );
+                          // Butona tıklandıktan sonra durumu simüle et (veya backend zaten takipçi listesine ekleyecek)
+                          controller.checkIfFollowing(senderUid);
+
+                          Get.snackbar(
+                            'Takip İsteği Gönderildi',
+                            '$senderName adlı oyuncuya takip isteği gönderildi.',
+                            snackPosition: SnackPosition.BOTTOM,
+                            duration: const Duration(seconds: 2),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.card(context),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: kGreen.withOpacity(0.5)),
+                          ),
+                          child: const Text(
+                            'Sen de Takip Et',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: kGreen,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   ),
                 ],
               ),

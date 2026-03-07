@@ -18,11 +18,15 @@ class MatchCreateController extends GetxController {
   // Step indicator (Takımın eklediği)
   var currentStep = 0.obs;
 
-  // TextEditingController variables (Senin sağlam altyapın)
+  // TextEditingController variables
   final titleController = TextEditingController();
   final venueController = TextEditingController();
   final priceController = TextEditingController();
-  final maxPlayersController = TextEditingController(text: '14');
+  final teamAController = TextEditingController();
+  final teamBController = TextEditingController();
+
+  // Maç formatı (dropdown) — değerden maxPlayers hesaplanır
+  final RxString selectedFormat = '7x7'.obs;
 
   // Reactive variables for Date and Time
   final selectedDate = Rx<DateTime?>(null);
@@ -31,12 +35,54 @@ class MatchCreateController extends GetxController {
   // Loading state
   final isLoading = false.obs;
 
+  // Edit (Güncelleme) State
+  final RxBool isEditing = false.obs;
+  String? editingMatchId;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _checkEditMode();
+  }
+
+  void _checkEditMode() {
+    final args = Get.arguments;
+    if (args != null && args is Map<String, dynamic>) {
+      isEditing.value = true;
+      editingMatchId = args['id'];
+
+      // Verileri Doldur (Pre-fill)
+      titleController.text = args['title'] ?? '';
+      venueController.text = args['venue'] ?? '';
+      priceController.text = (args['price'] ?? '').toString();
+      teamAController.text = args['teamA_name'] ?? '';
+      teamBController.text = args['teamB_name'] ?? '';
+
+      if (args['maxPlayers'] != null) {
+        final mp = args['maxPlayers'] as int;
+        // Örneğin maxPlayers 14 ise format 7x7 olur
+        final side = mp ~/ 2;
+        // Eğer desteklenmeyen bir rakamsa (örn 15 -> 7x7) en yakına yuvarlar
+        if (side >= 5 && side <= 11) {
+          selectedFormat.value = '${side}x$side';
+        }
+      }
+
+      if (args['date'] is Timestamp) {
+        final dt = (args['date'] as Timestamp).toDate();
+        selectedDate.value = dt;
+        selectedTime.value = TimeOfDay(hour: dt.hour, minute: dt.minute);
+      }
+    }
+  }
+
   @override
   void onClose() {
     titleController.dispose();
     venueController.dispose();
     priceController.dispose();
-    maxPlayersController.dispose();
+    teamAController.dispose();
+    teamBController.dispose();
     super.onClose();
   }
 
@@ -110,16 +156,14 @@ class MatchCreateController extends GetxController {
 
   // 🔥 BİRLEŞTİRİLMİŞ BACKEND VE PAYLAŞIM ENTEGRASYONU 🔥
   Future<void> createAndShareMatch() async {
-    // 1. Sıkı Doğrulama (Senin Kodun)
+    // 1. Validation
     final title = titleController.text.trim();
     final venue = venueController.text.trim();
     final priceStr = priceController.text.trim();
-    final maxPlayersStr = maxPlayersController.text.trim();
 
     if (title.isEmpty ||
         venue.isEmpty ||
         priceStr.isEmpty ||
-        maxPlayersStr.isEmpty ||
         selectedDate.value == null ||
         selectedTime.value == null) {
       Get.snackbar(
@@ -133,7 +177,9 @@ class MatchCreateController extends GetxController {
     }
 
     final price = double.tryParse(priceStr) ?? 0.0;
-    final maxPlayers = int.tryParse(maxPlayersStr) ?? 14;
+    // Format string'den oyuncu sayısını hesapla: '7x7' → 14
+    final n = int.tryParse(selectedFormat.value.split('x').first) ?? 7;
+    final maxPlayers = n * 2;
 
     try {
       isLoading.value = true;
@@ -156,7 +202,7 @@ class MatchCreateController extends GetxController {
       );
       final timestamp = Timestamp.fromDate(combinedDateTime);
 
-      // 3. Veritabanı Şemasına Uygun Kayıt (Senin kusursuz şeman)
+      // 3. Firestore'a kayıt
       final matchData = {
         'title': title,
         'venue': venue,
@@ -164,16 +210,33 @@ class MatchCreateController extends GetxController {
         'maxPlayers': maxPlayers,
         'date': timestamp,
         'createdBy': uid,
-        'currentPlayers': [uid], // Kurucuyu listeye ekle
+        'currentPlayers': [uid],
         'status': 'open',
         'createdAt': FieldValue.serverTimestamp(),
+        'teamA_name': teamAController.text.trim().isEmpty
+            ? 'A Takımı'
+            : teamAController.text.trim(),
+        'teamB_name': teamBController.text.trim().isEmpty
+            ? 'B Takımı'
+            : teamBController.text.trim(),
       };
 
-      // 4. Firestore'a ekle ve otomatik oluşan ID'yi al!
-      final docRef = await FirebaseFirestore.instance
-          .collection('matches')
-          .add(matchData);
-      final String generatedMatchId = docRef.id;
+      // 4. Firestore İşlemi (Edit vs Create)
+      String generatedMatchId;
+      if (isEditing.value && editingMatchId != null) {
+        // Güncelleme
+        await FirebaseFirestore.instance
+            .collection('matches')
+            .doc(editingMatchId)
+            .update(matchData);
+        generatedMatchId = editingMatchId!;
+      } else {
+        // Yeni Oluşturma
+        final docRef = await FirebaseFirestore.instance
+            .collection('matches')
+            .add(matchData);
+        generatedMatchId = docRef.id;
+      }
 
       // 5. Dinamik Link Hedefi Üretimi (Takımın eklediği özellik)
       final String deepLink = 'https://halisaha.app/join/$generatedMatchId';
@@ -186,8 +249,10 @@ class MatchCreateController extends GetxController {
       // 6. Başarı Mesajı ve Kapanış
       Get.back(); // Formu kapatır
       Get.snackbar(
-        'Maç Oluşturuldu! 🏆',
-        'Maç başarıyla kaydedildi ve paylaşım menüsü açıldı.',
+        isEditing.value ? 'Maç Güncellendi! ✏️' : 'Maç Oluşturuldu! 🏆',
+        isEditing.value
+            ? 'Maç detayları başarıyla güncellendi.'
+            : 'Maç başarıyla kaydedildi ve paylaşım menüsü açıldı.',
         backgroundColor: const Color(0xFF1A2E1F),
         colorText: const Color(0xFF2EED7B),
         snackPosition: SnackPosition.BOTTOM,
@@ -195,8 +260,12 @@ class MatchCreateController extends GetxController {
 
       // 7. Bildirim tetikle
       Get.find<NotificationsController>().addNotification(
-        title: 'Yeni Maç Oluşturuldu 🏆',
-        message: '"$title" maçı başarıyla kuruldu. Hadi sahaya!',
+        title: isEditing.value
+            ? 'Maç Güncellendi ✏️'
+            : 'Yeni Maç Oluşturuldu 🏆',
+        message: isEditing.value
+            ? '"$title" maçının detayları güncellendi.'
+            : '"$title" maçı başarıyla kuruldu. Hadi sahaya!',
       );
 
       // 8. Ana sayfa ve Maçlarım listelerini yenile
@@ -207,11 +276,13 @@ class MatchCreateController extends GetxController {
         Get.find<HomeController>().fetchMatches();
       }
 
-      // 9. Native Paylaşım (share_plus) Tetiklemesi
-      await Share.share(
-        '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $formattedTime\n📍 $venue\n\nMaça katılmak için hemen tıkla:\n$deepLink',
-        subject: 'Halı Saha Maç Daveti',
-      );
+      // 9. Native Paylaşım (share_plus) Tetiklemesi (Sadece yeni oluşturmada paylaş)
+      if (!isEditing.value) {
+        await Share.share(
+          '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $formattedTime\n📍 $venue\n\nMaça katılmak için hemen tıkla:\n$deepLink',
+          subject: 'Halı Saha Maç Daveti',
+        );
+      }
     } catch (e) {
       Get.snackbar(
         'Hata',

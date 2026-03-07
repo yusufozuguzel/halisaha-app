@@ -8,6 +8,31 @@ class NotificationsController extends GetxController {
 
   String? get _uid => _auth.currentUser?.uid;
 
+  // Takip durumunu tutan harita (TargetUID -> isFollowing)
+  final RxMap<String, RxBool> followingStatus = <String, RxBool>{}.obs;
+
+  /// Belirtilen kullanıcıyı takip edip etmediğimizi kontrol eder
+  void checkIfFollowing(String targetUid) {
+    if (followingStatus.containsKey(targetUid))
+      return; // Daha önce kontrol edildiyse tekrar etme
+
+    final myUid = _uid;
+    if (myUid == null) return;
+
+    // Default false olarak başlat
+    followingStatus[targetUid] = false.obs;
+
+    _firestore
+        .collection('users')
+        .doc(myUid)
+        .collection('following')
+        .doc(targetUid)
+        .get()
+        .then((doc) {
+          followingStatus[targetUid]!.value = doc.exists;
+        });
+  }
+
   /// Bildirimleri anlık dinleyen stream (en yeni en üstte)
   Stream<QuerySnapshot> get notificationsStream {
     final uid = _uid;
@@ -141,6 +166,9 @@ class NotificationsController extends GetxController {
           .doc(notificationDocId),
       {'status': 'accepted'},
     );
+
+    // 7. Kabul ettiğimiz kişiyi halihazırda takip edip etmediğimizi tetikle
+    checkIfFollowing(senderUid);
 
     await batch.commit();
   }

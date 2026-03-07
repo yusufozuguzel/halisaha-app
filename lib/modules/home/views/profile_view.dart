@@ -14,6 +14,7 @@ import '../../../routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../match/controllers/match_create_controller.dart';
 import '../../match/views/match_create_view.dart';
+import '../../friends/views/friends_view.dart';
 
 // ============================================================
 // PROFILE VIEW
@@ -32,11 +33,7 @@ class _ProfileViewState extends State<ProfileView> {
 
   static const _green = Color(0xFF2EED7B);
 
-  // Editable profile state (Yusuf'un Firebase Stream'i ile güncellenecek)
-  String _name = '...';
-  String _position = '...';
-
-  // Controller — permanent:true olduğu için her zaman aynı örneği döner
+  // Controller — permanent:true olmadığından her seferinde temizlenip yeniden oluşturulur
   late final ProfileController _ctrl;
 
   @override
@@ -50,9 +47,7 @@ class _ProfileViewState extends State<ProfileView> {
 
   // ── Edit Profile Bottom Sheet ──────────────────────────────
   void _showEditSheet() {
-    // Hem Firebase'den gelen son veriyi hem de Controller'ı kullan
-    final nameCtrl = TextEditingController(text: _name);
-    final posCtrl = TextEditingController(text: _position);
+    final nameCtrl = TextEditingController(text: _ctrl.name.value);
     File? tempAvatar = _ctrl.avatarFile.value;
 
     Get.bottomSheet(
@@ -234,12 +229,78 @@ class _ProfileViewState extends State<ProfileView> {
                     inputBg: inputBg,
                   ),
                   const SizedBox(height: 14),
-                  _editField(
-                    'Mevki',
-                    posCtrl,
-                    Icons.sports_soccer,
-                    ctx,
-                    inputBg: inputBg,
+                  // ── Mevki Dropdown ────────────────────────
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Mevki',
+                        style: TextStyle(
+                          color: AppColors.subText(ctx),
+                          fontSize: 12,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Obx(() {
+                        const positions = [
+                          'Kaleci',
+                          'Defans',
+                          'Orta Saha',
+                          'Forvet',
+                        ];
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: inputBg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border(ctx)),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: DropdownButtonFormField<String>(
+                            value:
+                                positions.contains(_ctrl.selectedPosition.value)
+                                ? _ctrl.selectedPosition.value
+                                : positions.first,
+                            dropdownColor: AppColors.isDark(ctx)
+                                ? const Color(0xFF16221A)
+                                : Colors.white,
+                            icon: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.subText(ctx),
+                            ),
+                            style: TextStyle(
+                              color: AppColors.text(ctx),
+                              fontSize: 14,
+                            ),
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(
+                                Icons.sports_soccer,
+                                color: AppColors.subText(ctx),
+                                size: 18,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 4,
+                              ),
+                            ),
+                            items: positions
+                                .map(
+                                  (p) => DropdownMenuItem(
+                                    value: p,
+                                    child: Text(p),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                _ctrl.selectedPosition.value = val;
+                              }
+                            },
+                          ),
+                        );
+                      }),
+                    ],
                   ),
                   const SizedBox(height: 28),
                   SizedBox(
@@ -249,17 +310,9 @@ class _ProfileViewState extends State<ProfileView> {
                         // Hem GetX Controller'ı hem de yerel state'i güncelle
                         await _ctrl.updateProfile(
                           newName: nameCtrl.text,
-                          newPosition: posCtrl.text,
+                          newPosition: _ctrl.selectedPosition.value,
                           newAvatarFile: tempAvatar,
                         );
-                        setState(() {
-                          _name = nameCtrl.text.trim().isEmpty
-                              ? _name
-                              : nameCtrl.text.trim();
-                          _position = posCtrl.text.trim().isEmpty
-                              ? _position
-                              : posCtrl.text.trim().toUpperCase();
-                        });
                         Get.back();
                       },
                       child: Container(
@@ -753,15 +806,6 @@ class _ProfileViewState extends State<ProfileView> {
         final avatarType = data['avatarType'] ?? 'icon';
         final avatarData = data['avatarData'] ?? '0';
 
-        // Sync local state for bottom sheet
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted)
-            setState(() {
-              _name = fullName;
-              _position = pos;
-            });
-        });
-
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
@@ -830,13 +874,19 @@ class _ProfileViewState extends State<ProfileView> {
                             value: _ctrl.matchesCount.value.toString(),
                             label: 'Maç',
                           ),
-                          _inlineStatCol(
-                            value: _ctrl.followersCount.value.toString(),
-                            label: 'Takipçi',
+                          GestureDetector(
+                            onTap: () => Get.to(() => const FriendsView()),
+                            child: _inlineStatCol(
+                              value: _ctrl.followersCount.value.toString(),
+                              label: 'Takipçi',
+                            ),
                           ),
-                          _inlineStatCol(
-                            value: _ctrl.followingCount.value.toString(),
-                            label: 'Takip',
+                          GestureDetector(
+                            onTap: () => Get.to(() => const FriendsView()),
+                            child: _inlineStatCol(
+                              value: _ctrl.followingCount.value.toString(),
+                              label: 'Takip',
+                            ),
                           ),
                         ],
                       ),
@@ -899,37 +949,6 @@ class _ProfileViewState extends State<ProfileView> {
               const SizedBox(height: 16),
               // ── Action Buttons ────────────────────────────
               _buildActionButtons(),
-
-              // ── Own profile: edit pencil inline ──────────
-              if (_ctrl.isOwnProfile)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: InkWell(
-                    onTap: _showEditSheet,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 8, 0, 0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.edit_outlined,
-                            color: AppColors.subText(context),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Düzenle',
-                            style: TextStyle(
-                              color: AppColors.subText(context),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         );

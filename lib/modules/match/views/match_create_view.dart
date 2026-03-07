@@ -37,9 +37,13 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 const SizedBox(height: 16),
                 _buildTimeLocationSection(context),
                 const SizedBox(height: 28),
-                _buildSectionHeader(Icons.group_outlined, 'TAKIMLAR', context),
+                _buildSectionHeader(
+                  Icons.shield_outlined,
+                  'TAKIM İSİMLERİ',
+                  context,
+                ),
                 const SizedBox(height: 16),
-                _buildTeamsSection(context),
+                _buildTeamNamesSection(context),
                 const SizedBox(height: 16),
               ],
             ),
@@ -72,13 +76,15 @@ class MatchCreateView extends GetView<MatchCreateController> {
           ),
         ),
       ),
-      title: Text(
-        'Yeni Maç Oluştur',
-        style: TextStyle(
-          color: AppColors.text(context),
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
+      title: Obx(
+        () => Text(
+          controller.isEditing.value ? 'Maçı Düzenle' : 'Yeni Maç Oluştur',
+          style: TextStyle(
+            color: AppColors.text(context),
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
         ),
       ),
     );
@@ -184,6 +190,59 @@ class MatchCreateView extends GetView<MatchCreateController> {
     );
   }
 
+  // ─── Team Names Section ──────────────────────────────────────────────────────
+  Widget _buildTeamNamesSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ── 1. Takım ──────────────────────────────────────
+          Expanded(
+            child: _styledTextField(
+              controller: controller.teamAController,
+              hint: '1. Takım Adı',
+              context: context,
+            ),
+          ),
+          // ── VS Badge ──────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.overlay(context),
+                border: Border.all(color: const Color(0xFF2EED7B), width: 1.5),
+              ),
+              child: const Center(
+                child: Text(
+                  'VS',
+                  style: TextStyle(
+                    color: Color(0xFF2EED7B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // ── 2. Takım ──────────────────────────────────────
+          Expanded(
+            child: _styledTextField(
+              controller: controller.teamBController,
+              hint: '2. Takım Adı',
+              context: context,
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── General Info Section ───────────────────────────────────────────────────
   Widget _buildGeneralInfoSection(BuildContext context) {
     return Padding(
@@ -201,17 +260,80 @@ class MatchCreateView extends GetView<MatchCreateController> {
           const SizedBox(height: 16),
           Row(
             children: [
+              // ── Maç Formatı Dropdown ──────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Kişi Sayısı (Max)', context),
+                    _fieldLabel('Maç Formatı', context),
                     const SizedBox(height: 8),
-                    _styledTextField(
-                      controller: controller.maxPlayersController,
-                      hint: 'Örn: 14',
-                      context: context,
-                    ),
+                    Obx(() {
+                      const formats = [
+                        '5x5',
+                        '6x6',
+                        '7x7',
+                        '8x8',
+                        '9x9',
+                        '10x10',
+                        '11x11',
+                      ];
+                      return Container(
+                        height: 52,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.card(context),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.isDark(context)
+                                ? AppColors.border(context)
+                                : Colors.black12,
+                          ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: controller.selectedFormat.value,
+                            menuMaxHeight: 300,
+                            dropdownColor: AppColors.isDark(context)
+                                ? const Color(0xFF16221A)
+                                : Colors.white,
+                            icon: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.subText(context),
+                              size: 20,
+                            ),
+                            isExpanded: true,
+                            style: TextStyle(
+                              color: AppColors.text(context),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            items: formats
+                                .map(
+                                  (f) => DropdownMenuItem(
+                                    value: f,
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.people_outline,
+                                          color: Color(0xFF2EED7B),
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(f),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                controller.selectedFormat.value = val;
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -719,73 +841,6 @@ class MatchCreateView extends GetView<MatchCreateController> {
     );
   }
 
-  // ─── Teams Section ───────────────────────────────────────────────────────────
-  Widget _buildTeamsSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _fieldLabel('KİŞİ SAYISI (MAX)', context),
-                const SizedBox(height: 8),
-                _styledTextField(
-                  controller: controller.maxPlayersController,
-                  hint: 'Örn: 14',
-                  context: context,
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4, left: 12, right: 12),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.overlay(context),
-                border: Border.all(color: const Color(0xFF2EED7B), width: 1.5),
-              ),
-              child: const Center(
-                child: Text(
-                  'VS',
-                  style: TextStyle(
-                    color: Color(0xFF2EED7B),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _fieldLabel('MAÇ ÜCRETİ', context),
-                ),
-                const SizedBox(height: 8),
-                _styledTextField(
-                  controller: controller.priceController,
-                  hint: 'Örn: 150',
-                  context: context,
-                  textAlign: TextAlign.right,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ─── Bottom Button ───────────────────────────────────────────────────────────
   Widget _buildBottomButton(BuildContext context) {
     return Positioned(
@@ -837,13 +892,15 @@ class MatchCreateView extends GetView<MatchCreateController> {
                     )
                   else ...[
                     Icon(
-                      Icons.rocket_launch_rounded,
+                      controller.isEditing.value
+                          ? Icons.edit_note_rounded
+                          : Icons.rocket_launch_rounded,
                       color: AppColors.bg(context),
                       size: 22,
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'Oluştur',
+                      controller.isEditing.value ? 'Güncelle' : 'Oluştur',
                       style: TextStyle(
                         color: AppColors.bg(context),
                         fontSize: 15,
@@ -884,7 +941,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
       height: 52,
       decoration: BoxDecoration(
         color: AppColors.card(context),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: AppColors.isDark(context)
               ? AppColors.border(context)

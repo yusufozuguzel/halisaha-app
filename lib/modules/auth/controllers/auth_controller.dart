@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,6 +29,7 @@ class AuthController extends GetxController {
       Get.offAllNamed(Routes.AUTH);
     } else {
       try {
+        if (user.uid.isEmpty) return;
         final doc = await _firestore.collection('users').doc(user.uid).get();
         if (doc.exists) {
           final data = doc.data() as Map<String, dynamic>;
@@ -149,6 +151,7 @@ class AuthController extends GetxController {
       final User? user = userCredential.user;
 
       if (user != null) {
+        if (user.uid.isEmpty) return;
         // Check if user exists in Firestore
         final DocumentSnapshot doc = await _firestore
             .collection("users")
@@ -169,6 +172,57 @@ class AuthController extends GetxController {
       }
     } catch (e) {
       Get.snackbar("Hata", "Google girişi başarısız: ${e.toString()}");
+    }
+  }
+
+  Future<void> resetPassword(String input) async {
+    try {
+      String targetEmail;
+
+      if (!input.contains('@')) {
+        String trimmedUsername = input.trim();
+        final querySnapshot = await _firestore
+            .collection('users')
+            .where('name', isEqualTo: trimmedUsername)
+            .limit(1)
+            .get();
+
+        if (querySnapshot.docs.isEmpty) {
+          Get.snackbar(
+            'Kullanıcı Bulunamadı',
+            'Bu kullanıcı adıyla eşleşen bir hesap bulunamadı.',
+            backgroundColor: Colors.red.shade600,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM,
+            margin: const EdgeInsets.all(16),
+          );
+          return;
+        }
+
+        targetEmail = querySnapshot.docs.first.data()['email'] ?? '';
+      } else {
+        targetEmail = input.trim();
+      }
+
+      await _auth.sendPasswordResetEmail(email: targetEmail);
+
+      Get.snackbar(
+        'Sıfırlama Bağlantısı Gönderildi',
+        'Lütfen e-posta kutunuzu kontrol edin.',
+        backgroundColor: Colors.greenAccent.shade700,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Hata',
+        'İşlem sırasında bir hata oluştu: $e',
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
     }
   }
 }

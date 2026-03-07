@@ -127,7 +127,54 @@ class _LoginFormState extends State<_LoginForm> {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  final resetController = TextEditingController();
+                  Get.defaultDialog(
+                    title: 'Şifreyi Sıfırla',
+                    titleStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    backgroundColor: const Color(0xFF132A1C),
+                    content: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: resetController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: "Email veya Kullanıcı Adı",
+                            hintStyle: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.05),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.email_outlined,
+                              color: Colors.white54,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    textCancel: 'İptal',
+                    cancelTextColor: Colors.white54,
+                    textConfirm: 'Gönder',
+                    confirmTextColor: Colors.black,
+                    buttonColor: const Color(0xFF2EED7B),
+                    onConfirm: () {
+                      if (resetController.text.trim().isNotEmpty) {
+                        widget.controller.resetPassword(resetController.text);
+                        Get.back();
+                      }
+                    },
+                    onCancel: () {},
+                  );
+                },
                 child: const Text(
                   "Unuttun mu?",
                   style: TextStyle(
@@ -218,7 +265,7 @@ class _LoginFormState extends State<_LoginForm> {
           ),
           const SizedBox(height: 32),
           _GoogleButton(
-            text: "Google ile Giriş Yap",
+            text: "Google ile Devam Et",
             onPressed: () => widget.controller.signInWithGoogle(),
           ),
           const SizedBox(height: 40),

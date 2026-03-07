@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class ProfileController extends GetxController {
   // ── Kimlik ────────────────────────────────────────────────
@@ -35,12 +37,38 @@ class ProfileController extends GetxController {
   final RxInt followingCount = 0.obs;
 
   // ── Upload durumu ──────────────────────────────────────────
+  // ── Upload durumu ──────────────────────────────────────────
   final RxBool isUploading = false.obs;
 
-  // ── Firestore / Auth shortcuts ─────────────────────────────
+  // ── Şifre Değiştirme Durumu ────────────────────────────────
+  final RxString currentPassword = "".obs;
+  final RxString newPassword = "".obs;
+  final RxString confirmPassword = "".obs;
+  final RxBool isCurrentObscure = true.obs;
+  final RxBool isNewObscure = true.obs;
+  final RxBool isConfirmObscure = true.obs;
+
+  // ── Hesap Silme Durumu ─────────────────────────────────────
+  final RxString deletePassword = "".obs;
+  final RxBool isDeleteObscure = true.obs;
+
+  bool get isLengthValid => newPassword.value.length >= 8;
+  bool get isComplexValid =>
+      RegExp(r'(?=.*[A-ZÇĞİÖŞÜ])(?=.*[0-9])').hasMatch(newPassword.value);
+  bool get isMatchValid =>
+      newPassword.value == confirmPassword.value &&
+      newPassword
+          .value
+          .isNotEmpty; // ── Firestore / Auth shortcuts ─────────────────────────────
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
   String? get _myUid => _auth.currentUser?.uid;
+
+  bool get isGoogleUser =>
+      FirebaseAuth.instance.currentUser?.providerData.any(
+        (info) => info.providerId == 'google.com',
+      ) ??
+      false;
 
   // ── Subscriptions ──────────────────────────────────────────
   final List<Function()> _subs = [];
@@ -73,6 +101,7 @@ class ProfileController extends GetxController {
 
   // ── Realtime profile subscription ─────────────────────────
   void _subscribeToProfile() {
+    if (targetUid.isEmpty) return;
     final sub = _db.collection('users').doc(targetUid).snapshots().listen((
       snap,
     ) {
@@ -98,6 +127,7 @@ class ProfileController extends GetxController {
 
   // ── Stats: match count ─────────────────────────────────────
   void _subscribeToStats() {
+    if (targetUid.isEmpty) return;
     final sub = _db
         .collection('matches')
         .where('currentPlayers', arrayContains: targetUid)
@@ -111,7 +141,7 @@ class ProfileController extends GetxController {
   // ── Follow state (only for other profiles) ─────────────────
   Future<void> _loadFollowState() async {
     final myUid = _myUid;
-    if (myUid == null) return;
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty) return;
 
     // Takip ediyor mu?
     final followerDoc = await _db
@@ -137,7 +167,8 @@ class ProfileController extends GetxController {
   // ── Send Follow Request ────────────────────────────────────
   Future<void> sendFollowRequest() async {
     final myUid = _myUid;
-    if (myUid == null || isLoading.value) return;
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value)
+      return;
     isLoading.value = true;
     try {
       // followRequests alt koleksiyonuna yaz
@@ -182,7 +213,8 @@ class ProfileController extends GetxController {
   // ── Cancel Follow Request ──────────────────────────────────
   Future<void> cancelFollowRequest() async {
     final myUid = _myUid;
-    if (myUid == null || isLoading.value) return;
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value)
+      return;
     isLoading.value = true;
     try {
       await _db
@@ -202,7 +234,8 @@ class ProfileController extends GetxController {
   // ── Unfollow ───────────────────────────────────────────────
   Future<void> unfollow() async {
     final myUid = _myUid;
-    if (myUid == null || isLoading.value) return;
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value)
+      return;
     isLoading.value = true;
     try {
       final batch = _db.batch();
@@ -246,7 +279,7 @@ class ProfileController extends GetxController {
   /// Bildirim ekranından veya profil sayfasından çağrılır.
   Future<void> acceptFollowRequest(String fromUid) async {
     final myUid = _myUid;
-    if (myUid == null) return;
+    if (myUid == null || myUid.isEmpty || fromUid.isEmpty) return;
     try {
       final batch = _db.batch();
 
@@ -292,7 +325,7 @@ class ProfileController extends GetxController {
     File? newAvatarFile,
   }) async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null || user.uid.isEmpty) return;
 
     final docRef = _db.collection('users').doc(user.uid);
 
@@ -348,5 +381,193 @@ class ProfileController extends GetxController {
     }
     final bytes = await file.readAsBytes();
     return base64Encode(bytes);
+  }
+
+  // ── Şifre Güncelleme ───────────────────────────────────────
+  Future<void> updateUserPassword() async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) return;
+
+    if (currentPassword.value.isEmpty ||
+        !isLengthValid ||
+        !isComplexValid ||
+        !isMatchValid) {
+      Get.snackbar(
+        'Uyarı',
+        'Lütfen tüm alanları kurallara uygun doldurduğunuzdan emin olun.',
+        backgroundColor: Colors.orange.shade600,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+
+      // 1. Mevcut şifre ile oturumu yenile (re-authenticate)
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword.value,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+
+      // 2. İşlem başarılıysa yeni şifreyi ayarla
+      await user.updatePassword(newPassword.value);
+
+      // Başarılı olursa alanları sıfırla
+      currentPassword.value = '';
+      newPassword.value = '';
+      confirmPassword.value = '';
+
+      // BottomSheet'i kapat
+      Get.back();
+
+      // Başarı mesajı
+      Get.snackbar(
+        'Başarılı',
+        'Şifreniz başarıyla güncellendi.',
+        backgroundColor: Colors.greenAccent.shade700,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } on FirebaseAuthException catch (e) {
+      // Re-auth başarısız olursa
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        Get.snackbar(
+          'Hata',
+          'Mevcut şifrenizi yanlış girdiniz.',
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.all(16),
+        );
+      } else {
+        Get.snackbar(
+          'Hata',
+          'Şifre güncellenirken bir sorun oluştu: ${e.message}',
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.all(16),
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Hata',
+        'Beklenmeyen bir hata oluştu: $e',
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // ── Hesabı Kalıcı Olarak Sil ───────────────────────────────
+  Future<void> deleteUserAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    if (!isGoogleUser && deletePassword.value.isEmpty) {
+      Get.snackbar(
+        'Uyarı',
+        'Lütfen mevcut şifrenizi girin.',
+        backgroundColor: Colors.orange.shade600,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+
+      if (isGoogleUser) {
+        // 1. Google ile oturumu yenile
+        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) {
+          isLoading.value = false;
+          return;
+        }
+
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        await user.reauthenticateWithCredential(credential);
+      } else {
+        // 1. Mevcut şifre ile oturumu yenile (Email/Password)
+        if (user.email == null) return;
+        final credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: deletePassword.value,
+        );
+
+        await user.reauthenticateWithCredential(credential);
+      }
+
+      // 2. İşlem başarılıysa Firestore'daki kullanıcı belgesini sil
+      await _db.collection('users').doc(user.uid).delete();
+
+      // 3. Firebase Auth'dan hesabı tamamen sil
+      await user.delete();
+
+      // Başarı mesajı ve yönlendirme
+      Get.snackbar(
+        'Hesap Silindi',
+        'Hesabınız kalıcı olarak silinmiştir.',
+        backgroundColor: Colors.greenAccent.shade700,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+
+      // Giriş (Login) ekranına dön
+      // Not: Uygulamanızda Routes.LOGIN tanımlı değilse, projenizdeki
+      // auth/login görünümünüze uygun Get.offAll() varyasyonunu kullanmalısınız.
+      // Şimdilik import eksikligi olmamasi için AuthView örneğini varsayarak
+      // Get.offAll(() => const AuthView()) veya AuthController logout vs yapilabilir.
+      // Kullanicinin rotası tam belirli degilse genel getOffAllNamed:
+      Get.offAllNamed('/auth');
+    } on FirebaseAuthException catch (e) {
+      // Re-auth başarısız olursa
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        Get.snackbar(
+          'Hata',
+          'Hatalı Şifre',
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.all(16),
+        );
+      } else {
+        Get.snackbar(
+          'Hata',
+          'Hesap silinirken bir sorun oluştu: ${e.message}',
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.all(16),
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Hata',
+        'Beklenmeyen bir hata oluştu: $e',
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } finally {
+      isLoading.value = false;
+    }
   }
 }

@@ -360,6 +360,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
   }
 
   // ─── Time & Location Section ─────────────────────────────────────────────────
+  // ─── Time & Location Section ─────────────────────────────────────────────────
   Widget _buildTimeLocationSection(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -419,8 +420,79 @@ class MatchCreateView extends GetView<MatchCreateController> {
           const SizedBox(height: 16),
           _fieldLabel('Saha Adı / Konum', context),
           const SizedBox(height: 8),
+
+          // 1. Arama Kutusu (Tekil)
           _locationField(context),
+
+          // 2. Otomatik Tamamlama Listesi (Autocomplete)
+          Obx(() {
+            if (controller.searchQuery.value.isEmpty ||
+                controller.selectedLat.value != null) {
+              return const SizedBox.shrink();
+            }
+
+            final results = controller.filteredLocations;
+            if (results.isEmpty) return const SizedBox.shrink();
+
+            return Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: AppColors.card(context),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF2EED7B).withOpacity(0.3),
+                ),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: results.length,
+                itemBuilder: (context, index) {
+                  final loc = results[index];
+                  return InkWell(
+                    onTap: () {
+                      controller.setLocation(
+                        loc['name'],
+                        loc['lat'],
+                        loc['lng'],
+                      );
+                      FocusScope.of(context).unfocus();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on,
+                            color: Color(0xFF2EED7B),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              loc['name'],
+                              style: TextStyle(
+                                color: AppColors.text(context),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          }),
+
           const SizedBox(height: 14),
+
+          // 3. Haritada Görüntüle Butonu (Tekil)
           _mapPlaceholder(context),
         ],
       ),
@@ -505,8 +577,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
+              onChanged: controller.onVenueSearchChanged,
+
               controller: controller.venueController,
               style: TextStyle(color: AppColors.text(context), fontSize: 14),
+              // ... (decoration kısmı aynı kalacak)
               decoration: InputDecoration(
                 hintText: 'Halı saha adını girin veya seçin',
                 hintStyle: TextStyle(
@@ -585,10 +660,10 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 ),
               ),
             ),
-            // Tıklanabilir — BottomSheet açar
+            // 🔥 YENİ: Tıklayınca direkt Google Maps'i (openMap) açar 🔥
             Center(
               child: GestureDetector(
-                onTap: () => _showLocationBottomSheet(Get.context!),
+                onTap: () => controller.openMap(),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
@@ -629,6 +704,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
     );
   }
 
+  // ─── Location BottomSheet ─────────────────────────────────────────────────────
   // ─── Location BottomSheet ─────────────────────────────────────────────────────
   void _showLocationBottomSheet(BuildContext context) {
     showModalBottomSheet(
@@ -746,58 +822,95 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            // Map area
+            const SizedBox(height: 20),
+
+            // 🔥 YENİ: SAHALAR LİSTESİ (Mock Data) 🔥
+            // 🔥 YENİ VE DÜZELTİLMİŞ: SAHALAR LİSTESİ 🔥
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CustomPaint(
-                        painter: _MapPatternPainter(
-                          cardColor: AppColors.isDark(context)
-                              ? AppColors.card(context)
-                              : Colors.white,
-                          isDark: AppColors.isDark(context),
-                        ),
-                      ),
-                      // Gradient overlay
-                      Container(
+              child: Obx(() {
+                // GetX'in hatasız çalışması için bu .value değişkenleri okumamız ŞART!
+                final currentLat = controller.selectedLat.value;
+                final currentLng = controller.selectedLng.value;
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: controller.filteredLocations.length,
+                  itemBuilder: (context, index) {
+                    final loc = controller.filteredLocations[index];
+                    // Seçili olma durumunu artık koordinatlardan anlıyoruz
+                    final isSelected =
+                        currentLat == loc['lat'] && currentLng == loc['lng'];
+
+                    return GestureDetector(
+                      onTap: () {
+                        controller.setLocation(
+                          loc['name'],
+                          loc['lat'],
+                          loc['lng'],
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              AppColors.isDark(context)
-                                  ? AppColors.bg(context).withOpacity(0.4)
-                                  : Colors.transparent,
-                            ],
+                          color: AppColors.card(context),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF2EED7B)
+                                : AppColors.border(context),
+                            width: isSelected ? 2 : 1,
                           ),
                         ),
-                      ),
-                      // Pin
-                      const Center(
-                        child: Icon(
-                          Icons.location_pin,
-                          color: Color(0xFF2EED7B),
-                          size: 40,
-                          shadows: [
-                            Shadow(color: Colors.black54, blurRadius: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF2EED7B).withOpacity(0.2)
+                                    : AppColors.overlay(context),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.location_on,
+                                color: isSelected
+                                    ? const Color(0xFF2EED7B)
+                                    : AppColors.subText(context),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                loc['name'],
+                                style: TextStyle(
+                                  color: AppColors.text(context),
+                                  fontSize: 14,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(
+                                Icons.check_circle,
+                                color: Color(0xFF2EED7B),
+                                size: 22,
+                              ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                    );
+                  },
+                );
+              }),
             ),
+
             // Confirm button
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
               child: GestureDetector(
                 onTap: () => Get.back(),
                 child: Container(

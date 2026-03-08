@@ -66,6 +66,7 @@ class HomeController extends GetxController {
             isNextMatchLoading.value = false;
           },
           onError: (e) {
+            if (FirebaseAuth.instance.currentUser == null) return;
             print('Sıradaki maç çekilirken hata: $e');
             isNextMatchLoading.value = false;
           },

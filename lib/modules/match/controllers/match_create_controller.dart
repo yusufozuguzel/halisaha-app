@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:share_plus/share_plus.dart'; // Paylaşım özelliği için eklendi 🔥
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart'; // Harita için eklendi 🔥
 
-// KENDI BACKEND DOSYALARIMIZI IMPORT EDIYORUZ
 import '../services/match_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../modules/home/controllers/notifications_controller.dart';
@@ -12,37 +12,120 @@ import '../../../modules/home/controllers/home_controller.dart';
 import 'my_matches_controller.dart';
 
 class MatchCreateController extends GetxController {
-  // Backend servisimizi çağırıyoruz (Takımın eklediği)
   final MatchService _matchService = MatchService();
-
-  // Step indicator (Takımın eklediği)
   var currentStep = 0.obs;
 
-  // TextEditingController variables
   final titleController = TextEditingController();
   final venueController = TextEditingController();
   final priceController = TextEditingController();
   final teamAController = TextEditingController();
   final teamBController = TextEditingController();
 
-  // Maç formatı (dropdown) — değerden maxPlayers hesaplanır
   final RxString selectedFormat = '7x7'.obs;
-
-  // Reactive variables for Date and Time
   final selectedDate = Rx<DateTime?>(null);
   final selectedTime = Rx<TimeOfDay?>(null);
 
-  // Loading state
-  final isLoading = false.obs;
+  // 🔥 HARİTA İÇİN YENİ DEĞİŞKENLER 🔥
+  final Rx<double?> selectedLat = Rx<double?>(null);
+  final Rx<double?> selectedLng = Rx<double?>(null);
 
-  // Edit (Güncelleme) State
+  final isLoading = false.obs;
+  final RxString searchQuery = ''.obs; // Arama kutusuna yazılan metin
   final RxBool isEditing = false.obs;
   String? editingMatchId;
+
+  // Test için örnek sahalar
+  final List<Map<String, dynamic>> mockLocations = [
+    {'name': 'Şampiyonlar Halı Saha, Serdivan', 'lat': 40.7654, 'lng': 30.3712},
+    {'name': 'Erenler Spor Kompleksi, Sakarya', 'lat': 40.7589, 'lng': 30.4156},
+    {'name': 'Olimpiyat Halı Saha', 'lat': 40.7731, 'lng': 30.3948},
+  ];
+
+  // Firebase'den gelecek canlı saha listesi
+  final RxList<Map<String, dynamic>> allVenues = <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
     super.onInit();
-    _checkEditMode();
+    _checkEditMode(); // Eskiden olan edit kontrolü
+    fetchVenues(); // 🔥 YENİ: Uygulama açılınca sahaları Firebase'den çek
+  }
+
+  // Arama metnine göre filtrelenmiş sahalar
+  // 🔥 1. FİREBASE'DEN SAHALARI İNDİR 🔥
+  Future<void> fetchVenues() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('venues')
+          .get();
+
+      // Veritabanındaki sahaları alıp listemize dolduruyoruz
+      final venues = snapshot.docs
+          .map(
+            (doc) => {
+              'id': doc.id,
+              'name': doc['name'],
+              'lat': doc['lat'],
+              'lng': doc['lng'],
+            },
+          )
+          .toList();
+
+      allVenues.value = venues;
+    } catch (e) {
+      print("Sahalar çekilirken hata oluştu: $e");
+      allVenues.value =
+          mockLocations; // Hata olursa yedek olarak mock verileri kullan
+    }
+  }
+
+  // 🔥 2. FİLTRELEME (ARTIK CANLI VERİDEN) 🔥
+  List<Map<String, dynamic>> get filteredLocations {
+    // Arama kutusu boşsa tüm Firebase sahalarını göster
+    if (searchQuery.value.isEmpty) return allVenues;
+
+    // Doluysa adına göre filtrele
+    return allVenues
+        .where(
+          (loc) => loc['name'].toString().toLowerCase().contains(
+            searchQuery.value.toLowerCase(),
+          ),
+        )
+        .toList();
+  }
+
+  // 🔥 3. TEK SEFERLİK SAHA YÜKLEME ARACI 🔥
+  Future<void> uploadInitialVenues() async {
+    final db = FirebaseFirestore.instance;
+    isLoading.value = true;
+    try {
+      for (var loc in mockLocations) {
+        await db.collection('venues').add({
+          'name': loc['name'],
+          'lat': loc['lat'],
+          'lng': loc['lng'],
+          'city': 'Sakarya', // Şimdilik memleketi sabit verelim
+          'isActive': true,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      Get.snackbar(
+        'Başarılı',
+        'Sahalar Firebase\'e yüklendi!',
+        backgroundColor: Colors.green[800],
+        colorText: Colors.white,
+      );
+      await fetchVenues(); // Yükledikten sonra listeyi yenile
+    } catch (e) {
+      Get.snackbar(
+        'Hata',
+        'Yüklenemedi: $e',
+        backgroundColor: Colors.red[900],
+        colorText: Colors.white,
+      );
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   void _checkEditMode() {
@@ -51,18 +134,19 @@ class MatchCreateController extends GetxController {
       isEditing.value = true;
       editingMatchId = args['id'];
 
-      // Verileri Doldur (Pre-fill)
       titleController.text = args['title'] ?? '';
       venueController.text = args['venue'] ?? '';
       priceController.text = (args['price'] ?? '').toString();
       teamAController.text = args['teamA_name'] ?? '';
       teamBController.text = args['teamB_name'] ?? '';
 
+      // Varsa koordinatları da çek
+      selectedLat.value = args['latitude'];
+      selectedLng.value = args['longitude'];
+
       if (args['maxPlayers'] != null) {
         final mp = args['maxPlayers'] as int;
-        // Örneğin maxPlayers 14 ise format 7x7 olur
         final side = mp ~/ 2;
-        // Eğer desteklenmeyen bir rakamsa (örn 15 -> 7x7) en yakına yuvarlar
         if (side >= 5 && side <= 11) {
           selectedFormat.value = '${side}x$side';
         }
@@ -86,27 +170,84 @@ class MatchCreateController extends GetxController {
     super.onClose();
   }
 
-  // Pick Date Function
+  // 🔥 YENİ: KONUM SEÇME METODU 🔥
+  void setLocation(String name, double lat, double lng) {
+    venueController.text = name;
+    selectedLat.value = lat;
+    selectedLng.value = lng;
+    searchQuery.value = ''; // Konum seçilince aramayı temizle
+  }
+
+  // 🔥 YENİ: Ana ekrandaki kutudan arama yapıldığında çalışır
+  void onVenueSearchChanged(String value) {
+    searchQuery.value = value;
+    // Kullanıcı elle yeni bir şey yazmaya başladığında eski seçili koordinatı sıfırlıyoruz ki harita kafası karışmasın
+    selectedLat.value = null;
+    selectedLng.value = null;
+  }
+
+  // 🔥 YENİ: HARİTAYI AÇMA METODU 🔥
+  // 🔥 YENİ VE GÜVENLİ: HARİTAYI AÇMA METODU 🔥
+  Future<void> openMap() async {
+    final lat = selectedLat.value;
+    final lng = selectedLng.value;
+    final venue = venueController.text.trim();
+
+    String urlString;
+
+    if (lat != null && lng != null) {
+      // Resmi Google Maps arama URL'si (Koordinat ile)
+      urlString = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    } else if (venue.isNotEmpty) {
+      // Resmi Google Maps arama URL'si (İsim ile)
+      final encodedVenue = Uri.encodeComponent(venue);
+      urlString =
+          'https://www.google.com/maps/search/?api=1&query=$encodedVenue';
+    } else {
+      Get.snackbar(
+        'Konum Bulunamadı',
+        'Lütfen önce bir saha adı girin veya konum seçin.',
+        backgroundColor: Colors.red[900],
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final Uri url = Uri.parse(urlString);
+
+    // Uygulama dışına (Google Maps uygulamasına veya Tarayıcıya) atar
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      Get.snackbar(
+        'Hata',
+        'Harita uygulaması açılamadı.',
+        backgroundColor: Colors.red[900],
+        colorText: Colors.white,
+      );
+    }
+  }
+
   Future<void> pickDate(BuildContext context) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: selectedDate.value ?? now,
-      firstDate: now, // Geçmişe maç açılamaz
+      firstDate: now,
       lastDate: DateTime(now.year + 2),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: AppColors.isDark(context)
               ? const ColorScheme.dark(
-                  primary: Color(0xFF2EED7B), // Neon yeşil
+                  primary: Color(0xFF2EED7B),
                   onPrimary: Colors.black,
-                  surface: Color(0xFF162318), // AppColors.card(context) Dark
+                  surface: Color(0xFF162318),
                   onSurface: Colors.white,
                 )
               : const ColorScheme.light(
-                  primary: Color(0xFF2EED7B), // Neon yeşil
+                  primary: Color(0xFF2EED7B),
                   onPrimary: Colors.white,
-                  surface: Color(0xFFFFFFFF), // AppColors.card(context) Light
+                  surface: Color(0xFFFFFFFF),
                   onSurface: Colors.black,
                 ),
           dialogBackgroundColor: AppColors.card(context),
@@ -119,26 +260,24 @@ class MatchCreateController extends GetxController {
     }
   }
 
-  // Pick Time Function
   Future<void> pickTime(BuildContext context) async {
     final picked = await showTimePicker(
       context: context,
       initialTime: selectedTime.value ?? TimeOfDay.now(),
-      initialEntryMode:
-          TimePickerEntryMode.input, // Doğrudan klavye girişi açılsın
+      initialEntryMode: TimePickerEntryMode.input,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: AppColors.isDark(context)
               ? const ColorScheme.dark(
-                  primary: Color(0xFF2EED7B), // Neon yeşil
+                  primary: Color(0xFF2EED7B),
                   onPrimary: Colors.black,
-                  surface: Color(0xFF162318), // AppColors.card(context) Dark
+                  surface: Color(0xFF162318),
                   onSurface: Colors.white,
                 )
               : const ColorScheme.light(
-                  primary: Color(0xFF2EED7B), // Neon yeşil
+                  primary: Color(0xFF2EED7B),
                   onPrimary: Colors.white,
-                  surface: Color(0xFFFFFFFF), // AppColors.card(context) Light
+                  surface: Color(0xFFFFFFFF),
                   onSurface: Colors.black,
                 ),
           dialogBackgroundColor: AppColors.card(context),
@@ -154,9 +293,7 @@ class MatchCreateController extends GetxController {
     }
   }
 
-  // 🔥 BİRLEŞTİRİLMİŞ BACKEND VE PAYLAŞIM ENTEGRASYONU 🔥
   Future<void> createAndShareMatch() async {
-    // 1. Validation
     final title = titleController.text.trim();
     final venue = venueController.text.trim();
     final priceStr = priceController.text.trim();
@@ -177,7 +314,6 @@ class MatchCreateController extends GetxController {
     }
 
     final price = double.tryParse(priceStr) ?? 0.0;
-    // Format string'den oyuncu sayısını hesapla: '7x7' → 14
     final n = int.tryParse(selectedFormat.value.split('x').first) ?? 7;
     final maxPlayers = n * 2;
 
@@ -190,7 +326,6 @@ class MatchCreateController extends GetxController {
       }
       final uid = user.uid;
 
-      // 2. Zaman Dönüşümü
       final date = selectedDate.value!;
       final time = selectedTime.value!;
       final combinedDateTime = DateTime(
@@ -202,10 +337,11 @@ class MatchCreateController extends GetxController {
       );
       final timestamp = Timestamp.fromDate(combinedDateTime);
 
-      // 3. Firestore'a kayıt
       final matchData = {
         'title': title,
         'venue': venue,
+        'latitude': selectedLat.value, // 🔥 KOORDİNATLAR EKLENDİ
+        'longitude': selectedLng.value, // 🔥 KOORDİNATLAR EKLENDİ
         'price': price,
         'maxPlayers': maxPlayers,
         'date': timestamp,
@@ -221,48 +357,39 @@ class MatchCreateController extends GetxController {
             : teamBController.text.trim(),
       };
 
-      // 4. Firestore İşlemi (Edit vs Create)
       String generatedMatchId;
       if (isEditing.value && editingMatchId != null) {
-        // Güncelleme
         await FirebaseFirestore.instance
             .collection('matches')
             .doc(editingMatchId)
             .update(matchData);
         generatedMatchId = editingMatchId!;
       } else {
-        // Yeni Oluşturma
         final docRef = await FirebaseFirestore.instance
             .collection('matches')
             .add(matchData);
         generatedMatchId = docRef.id;
       }
 
-      // 5. Dinamik Link Hedefi Üretimi (Takımın eklediği özellik)
       final String deepLink = 'https://halisaha.app/join/$generatedMatchId';
-
-      // Paylaşım metni için tarih formatlama
       final String formattedDate = "${date.day}/${date.month}/${date.year}";
       final String formattedTime =
           "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
 
-      // 6. Başarı Mesajı ve Kapanış
-      Get.back(); // Formu kapatır
+      Get.back();
       Get.snackbar(
         isEditing.value ? 'Maç Güncellendi! ✏️' : 'Maç Oluşturuldu! 🏆',
         isEditing.value
             ? 'Maç detayları başarıyla güncellendi.'
-            : 'Maç başarıyla kaydedildi ve paylaşım menüsü açıldı.',
+            : 'Maç başarıyla kaydedildi.',
         backgroundColor: const Color(0xFF1A2E1F),
         colorText: const Color(0xFF2EED7B),
         snackPosition: SnackPosition.BOTTOM,
       );
 
-      // 7. Bildirim tetikle (Controller yoksa anında oluştur)
       final notifCtrl = Get.isRegistered<NotificationsController>()
           ? Get.find<NotificationsController>()
           : Get.put(NotificationsController());
-
       notifCtrl.addNotification(
         title: isEditing.value
             ? 'Maç Güncellendi ✏️'
@@ -272,7 +399,6 @@ class MatchCreateController extends GetxController {
             : '"$title" maçı başarıyla kuruldu. Hadi sahaya!',
       );
 
-      // 8. Ana sayfa ve Maçlarım listelerini yenile
       if (Get.isRegistered<MyMatchesController>()) {
         Get.find<MyMatchesController>().fetchMyMatches();
       }
@@ -280,7 +406,6 @@ class MatchCreateController extends GetxController {
         Get.find<HomeController>().fetchMatches();
       }
 
-      // 9. Native Paylaşım (share_plus) Tetiklemesi (Sadece yeni oluşturmada paylaş)
       if (!isEditing.value) {
         await Share.share(
           '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $formattedTime\n📍 $venue\n\nMaça katılmak için hemen tıkla:\n$deepLink',

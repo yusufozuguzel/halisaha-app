@@ -258,8 +258,12 @@ class MatchCreateController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
 
-      // 7. Bildirim tetikle
-      Get.find<NotificationsController>().addNotification(
+      // 7. Bildirim tetikle (Controller yoksa anında oluştur)
+      final notifCtrl = Get.isRegistered<NotificationsController>()
+          ? Get.find<NotificationsController>()
+          : Get.put(NotificationsController());
+
+      notifCtrl.addNotification(
         title: isEditing.value
             ? 'Maç Güncellendi ✏️'
             : 'Yeni Maç Oluşturuldu 🏆',

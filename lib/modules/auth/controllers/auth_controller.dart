@@ -5,6 +5,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:get_storage/get_storage.dart';
 import '../../../routes/app_routes.dart';
+import '../../home/controllers/home_controller.dart';
+import '../../home/controllers/profile_controller.dart';
+import '../../home/controllers/discover_controller.dart';
+import '../../home/controllers/notifications_controller.dart';
+import '../../match/controllers/match_controller.dart';
+import '../../match/controllers/my_matches_controller.dart';
+import '../../match/controllers/match_detail_controller.dart';
+import '../../match/controllers/match_create_controller.dart';
+import '../../friends/controllers/friends_controller.dart';
+import '../../settings/controllers/settings_controller.dart';
 
 class AuthController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -122,8 +132,21 @@ class AuthController extends GetxController {
   Future<void> logout() async {
     try {
       await _auth.signOut();
+
+      // Belirli veri dinleyicilerini (Stream) ve controller'ları sıfırla
+      Get.delete<HomeController>(force: true);
+      Get.delete<ProfileController>(force: true);
+      Get.delete<DiscoverController>(force: true);
+      Get.delete<NotificationsController>(force: true);
+      Get.delete<MatchController>(force: true);
+      Get.delete<MyMatchesController>(force: true);
+      Get.delete<MatchDetailController>(force: true);
+      Get.delete<MatchCreateController>(force: true);
+      Get.delete<FriendsController>(force: true);
+      Get.delete<SettingsController>(force: true);
+
       isLogin.value = true;
-      // Notice: we don't need any manual routing here either
+      Get.offAllNamed(Routes.AUTH);
     } catch (e) {
       Get.snackbar("Hata", "Çıkış yapılırken bir hata oluştu: ${e.toString()}");
     }

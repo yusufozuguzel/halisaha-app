@@ -52,6 +52,7 @@ class MyMatchesController extends GetxController {
         return data;
       }).toList();
     } catch (e) {
+      if (FirebaseAuth.instance.currentUser == null) return;
       Get.snackbar(
         'Hata',
         'Maçlarınız yüklenirken bir sorun oluştu: $e',
@@ -84,6 +85,7 @@ class MyMatchesController extends GetxController {
       // Arayüz listelerini yeniden eşitle
       await fetchMyMatches();
     } catch (e) {
+      if (FirebaseAuth.instance.currentUser == null) return;
       Get.snackbar(
         'Silme Hatası',
         'Maç iptal edilirken bir sorun oluştu: $e',

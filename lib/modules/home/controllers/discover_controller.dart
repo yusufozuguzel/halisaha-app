@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 class DiscoverController extends GetxController {
   final RxList<Map<String, dynamic>> openMatches = <Map<String, dynamic>>[].obs;
   final RxBool isLoading = true.obs;
+  StreamSubscription<QuerySnapshot>? _matchSubscription;
+
+  @override
+  void onClose() {
+    _matchSubscription?.cancel();
+    super.onClose();
+  }
 
   @override
   void onInit() {
@@ -16,7 +24,7 @@ class DiscoverController extends GetxController {
   void fetchOpenMatches() {
     isLoading.value = true;
 
-    FirebaseFirestore.instance
+    _matchSubscription = FirebaseFirestore.instance
         .collection('matches')
         .where('status', isEqualTo: 'open')
         .where('date', isGreaterThan: Timestamp.now())
@@ -36,6 +44,10 @@ class DiscoverController extends GetxController {
           onError: (e) {
             print('Arama (Keşfet) maçları dinlenirken hata oluştu: $e');
             isLoading.value = false;
+
+            if (FirebaseAuth.instance.currentUser == null) {
+              return;
+            }
 
             Get.snackbar(
               'Hata',
@@ -57,7 +69,13 @@ class DiscoverController extends GetxController {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        throw Exception('Kullanıcı oturumu bulunamadı.');
+        Get.snackbar(
+          'Oturum Hatası',
+          'İşlem yapabilmek için lütfen tekrar giriş yapın',
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+        );
+        return;
       }
 
       final uid = user.uid;
@@ -119,7 +137,13 @@ class DiscoverController extends GetxController {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        throw Exception('Kullanıcı oturumu bulunamadı.');
+        Get.snackbar(
+          'Oturum Hatası',
+          'İşlem yapabilmek için lütfen tekrar giriş yapın',
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+        );
+        return;
       }
 
       final uid = user.uid;

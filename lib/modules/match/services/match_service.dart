@@ -37,7 +37,7 @@ class MatchService {
       });
     } catch (e) {
       print("Maçtan ayrılırken hata: $e");
-      throw e;
+      rethrow;
     }
   }
 }

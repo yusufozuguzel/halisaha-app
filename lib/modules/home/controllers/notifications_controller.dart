@@ -13,8 +13,9 @@ class NotificationsController extends GetxController {
 
   /// Belirtilen kullanıcıyı takip edip etmediğimizi kontrol eder
   void checkIfFollowing(String targetUid) {
-    if (followingStatus.containsKey(targetUid))
+    if (followingStatus.containsKey(targetUid)) {
       return; // Daha önce kontrol edildiyse tekrar etme
+    }
 
     final myUid = _uid;
     if (myUid == null) return;

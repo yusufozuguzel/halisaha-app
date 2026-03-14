@@ -97,8 +97,9 @@ class _ProfileViewState extends State<ProfileView> {
                         builder: (_) {
                           // Edit sheet'teki avatar: Firestore stream'inden okunan veriyi kullan
                           final user = FirebaseAuth.instance.currentUser;
-                          if (user == null)
+                          if (user == null) {
                             return const SizedBox(width: 52, height: 52);
+                          }
                           return StreamBuilder<DocumentSnapshot>(
                             stream: FirebaseFirestore.instance
                                 .collection('users')
@@ -123,7 +124,7 @@ class _ProfileViewState extends State<ProfileView> {
                                         width: 52,
                                         height: 52,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Icon(
+                                        errorBuilder: (_, _, _) => Icon(
                                           Icons.person,
                                           color: AppColors.text(ctx),
                                           size: 24,
@@ -257,7 +258,7 @@ class _ProfileViewState extends State<ProfileView> {
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: DropdownButtonFormField<String>(
-                            value:
+                            initialValue:
                                 positions.contains(_ctrl.selectedPosition.value)
                                 ? _ctrl.selectedPosition.value
                                 : positions.first,
@@ -1089,7 +1090,7 @@ class _ProfileViewState extends State<ProfileView> {
           height: size,
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          errorBuilder: (_, __, ___) =>
+          errorBuilder: (_, _, _) =>
               Icon(Icons.person, color: textColor, size: size * 0.4),
         );
       } catch (_) {

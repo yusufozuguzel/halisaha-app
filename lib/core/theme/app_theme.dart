@@ -19,10 +19,8 @@ final darkTheme = ThemeData(
     primary: kGreen,
     secondary: kGreen,
     surface: kDarkCard,
-    background: kDarkBg,
     onPrimary: kDarkBg,
     onSurface: Colors.white,
-    onBackground: Colors.white,
   ),
   appBarTheme: const AppBarTheme(
     backgroundColor: kDarkCard,
@@ -30,11 +28,11 @@ final darkTheme = ThemeData(
     elevation: 0,
   ),
   switchTheme: SwitchThemeData(
-    thumbColor: MaterialStateProperty.resolveWith(
-      (s) => s.contains(MaterialState.selected) ? kGreen : Colors.white54,
+    thumbColor: WidgetStateProperty.resolveWith(
+      (s) => s.contains(WidgetState.selected) ? kGreen : Colors.white54,
     ),
-    trackColor: MaterialStateProperty.resolveWith(
-      (s) => s.contains(MaterialState.selected)
+    trackColor: WidgetStateProperty.resolveWith(
+      (s) => s.contains(WidgetState.selected)
           ? kGreen.withOpacity(0.3)
           : Colors.white12,
     ),
@@ -55,10 +53,8 @@ final lightTheme = ThemeData(
     primary: kGreen,
     secondary: kGreen,
     surface: const Color(0xFFF0F4F1),
-    background: Colors.white,
     onPrimary: Colors.white,
     onSurface: Colors.black87,
-    onBackground: Colors.black87,
   ),
   appBarTheme: const AppBarTheme(
     backgroundColor: Colors.white,
@@ -67,11 +63,11 @@ final lightTheme = ThemeData(
     shadowColor: Colors.black12,
   ),
   switchTheme: SwitchThemeData(
-    thumbColor: MaterialStateProperty.resolveWith(
-      (s) => s.contains(MaterialState.selected) ? kGreen : Colors.grey,
+    thumbColor: WidgetStateProperty.resolveWith(
+      (s) => s.contains(WidgetState.selected) ? kGreen : Colors.grey,
     ),
-    trackColor: MaterialStateProperty.resolveWith(
-      (s) => s.contains(MaterialState.selected)
+    trackColor: WidgetStateProperty.resolveWith(
+      (s) => s.contains(WidgetState.selected)
           ? kGreen.withOpacity(0.3)
           : Colors.grey.withOpacity(0.2),
     ),

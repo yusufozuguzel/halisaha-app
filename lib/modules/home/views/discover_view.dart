@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'home_view.dart';
 import 'my_matches_view.dart';
 import 'profile_view.dart';
+import '../../match/views/match_formation_view.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../match/controllers/my_matches_controller.dart';
 import '../../match/controllers/match_create_controller.dart';
 import '../../match/views/match_create_view.dart';
 import '../controllers/discover_controller.dart';
@@ -513,7 +513,7 @@ class DiscoverView extends GetView<DiscoverController> {
         ),
         const SizedBox(height: 14),
         SizedBox(
-          height: 178,
+          height: 220,
           child: Obx(() {
             if (controller.isLoading.value) {
               return const Center(
@@ -590,8 +590,7 @@ class DiscoverView extends GetView<DiscoverController> {
     final List<dynamic> currentPlayers = matchData['currentPlayers'] ?? [];
 
     final bool isUserJoined = currentPlayers.contains(currentUserId);
-    final bool isCreator =
-        currentPlayers.isNotEmpty && currentPlayers.first == currentUserId;
+    final bool isCreator = matchData['createdBy'] == currentUserId;
 
     return Container(
       width: 260,
@@ -669,7 +668,8 @@ class DiscoverView extends GetView<DiscoverController> {
               decoration: TextDecoration.none,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 8),
+          // Alt satır: oyuncu sayısı
           Row(
             children: [
               Icon(Icons.people_outline, color: subText, size: 14),
@@ -682,57 +682,103 @@ class DiscoverView extends GetView<DiscoverController> {
                   decoration: TextDecoration.none,
                 ),
               ),
-              const Spacer(),
-              InkWell(
-                onTap: () {
-                  if (isCreator) {
-                    controller.cancelMatch(matchData['id']);
-                  } else if (isUserJoined) {
-                    controller.leaveMatch(matchData['id'], currentPlayers);
-                  } else {
-                    controller.joinMatch(
-                      matchData['id'],
-                      currentPlayers,
-                      matchData['maxPlayers'] ?? 14,
-                    );
-                  }
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F1712), // Koyu arka plan
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Butonlar satırı (kurucu ise ikisi yan yana)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (isCreator) ...[
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Get.to(() => const MatchFormationView(), arguments: matchData['id']);
+                    },
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isCreator
-                          ? Colors.red
-                          : isUserJoined
-                          ? Colors.orangeAccent.shade700
-                          : _green.withOpacity(0.5),
-                    ),
-                  ),
-                  child: Text(
-                    isCreator
-                        ? 'Maçı İptal Et'
-                        : isUserJoined
-                        ? 'Maçtan Ayrıl'
-                        : 'Maça Katıl',
-                    style: TextStyle(
-                      color: isCreator
-                          ? Colors.red
-                          : isUserJoined
-                          ? Colors.orangeAccent.shade700
-                          : _green,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      decoration: TextDecoration.none,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F1712),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.5)),
+                      ),
+                      child: const Text(
+                        'Kadroyu Düzenle',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.blueAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => controller.cancelMatch(matchData['id']),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F1712),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.7)),
+                      ),
+                      child: const Text(
+                        'İptal Et',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ] else
+                InkWell(
+                  onTap: () {
+                    if (isUserJoined) {
+                      controller.leaveMatch(matchData['id'], currentPlayers);
+                    } else {
+                      controller.joinMatch(
+                        matchData['id'],
+                        currentPlayers,
+                        matchData['maxPlayers'] ?? 14,
+                      ).then((_) {
+                        Get.to(() => const MatchFormationView(), arguments: matchData['id']);
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F1712),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isUserJoined
+                            ? Colors.orangeAccent.shade700
+                            : _green.withOpacity(0.5),
+                      ),
+                    ),
+                    child: Text(
+                      isUserJoined ? 'Maçtan Ayrıl' : 'Maça Katıl',
+                      style: TextStyle(
+                        color: isUserJoined ? Colors.orangeAccent.shade700 : _green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ],

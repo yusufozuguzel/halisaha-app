@@ -95,7 +95,9 @@ class ProfileController extends GetxController {
 
   @override
   void onClose() {
-    for (final cancel in _subs) cancel();
+    for (final cancel in _subs) {
+      cancel();
+    }
     super.onClose();
   }
 
@@ -167,8 +169,9 @@ class ProfileController extends GetxController {
   // ── Send Follow Request ────────────────────────────────────
   Future<void> sendFollowRequest() async {
     final myUid = _myUid;
-    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value)
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value) {
       return;
+    }
     isLoading.value = true;
     try {
       // followRequests alt koleksiyonuna yaz
@@ -213,8 +216,9 @@ class ProfileController extends GetxController {
   // ── Cancel Follow Request ──────────────────────────────────
   Future<void> cancelFollowRequest() async {
     final myUid = _myUid;
-    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value)
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value) {
       return;
+    }
     isLoading.value = true;
     try {
       await _db
@@ -234,8 +238,9 @@ class ProfileController extends GetxController {
   // ── Unfollow ───────────────────────────────────────────────
   Future<void> unfollow() async {
     final myUid = _myUid;
-    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value)
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value) {
       return;
+    }
     isLoading.value = true;
     try {
       final batch = _db.batch();

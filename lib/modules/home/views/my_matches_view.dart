@@ -275,8 +275,8 @@ class MyMatchesView extends GetView<MyMatchesController> {
     final darkGreenBlack = const Color(0xFF0F1712);
 
     final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    final bool isCreator =
-        currentPlayers.isNotEmpty && currentPlayers[0] == currentUserId;
+    // Kullanıcının ID'si ile maçın kurucusunun ID'sini (createdBy) karşılaştır
+    final bool isCreator = matchData['createdBy'] == currentUserId;
 
     return Container(
       decoration: BoxDecoration(

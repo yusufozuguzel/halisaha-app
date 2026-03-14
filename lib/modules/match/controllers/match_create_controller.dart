@@ -347,6 +347,9 @@ class MatchCreateController extends GetxController {
         'date': timestamp,
         'createdBy': uid,
         'currentPlayers': [uid],
+        'positions': {
+          (maxPlayers ~/ 4).toString(): uid // Kaptanı (Kuran Kişiyi) takımın merkez slotuna yerleştir (Örn: 14 max -> 7 takım boyu -> 3. index vs)
+        },
         'status': 'open',
         'createdAt': FieldValue.serverTimestamp(),
         'teamA_name': teamAController.text.trim().isEmpty
@@ -359,10 +362,23 @@ class MatchCreateController extends GetxController {
 
       String generatedMatchId;
       if (isEditing.value && editingMatchId != null) {
+        // SADEYCE DÜZENLENEBİLİR ALANLARI GÜNCELLE
+        // currentPlayers, positions, createdBy gibi verileri ASLA EZME!
+        final updateData = {
+          'title': title,
+          'venue': venue,
+          'latitude': selectedLat.value,
+          'longitude': selectedLng.value,
+          'price': price,
+          'maxPlayers': maxPlayers,
+          'date': timestamp,
+          'teamA_name': teamAController.text.trim().isEmpty ? 'A Takımı' : teamAController.text.trim(),
+          'teamB_name': teamBController.text.trim().isEmpty ? 'B Takımı' : teamBController.text.trim(),
+        };
         await FirebaseFirestore.instance
             .collection('matches')
             .doc(editingMatchId)
-            .update(matchData);
+            .update(updateData);
         generatedMatchId = editingMatchId!;
       } else {
         final docRef = await FirebaseFirestore.instance

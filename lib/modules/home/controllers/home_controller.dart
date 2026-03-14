@@ -58,7 +58,7 @@ class HomeController extends GetxController {
               final doc = snapshot.docs.first;
               nextMatch.value = MatchModel.fromMap(
                 doc.id,
-                doc.data() as Map<String, dynamic>,
+                doc.data(),
               );
             } else {
               nextMatch.value = null;

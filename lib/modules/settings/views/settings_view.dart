@@ -158,7 +158,7 @@ class SettingsView extends GetView<SettingsController> {
                   child: Switch(
                     value: darkMode,
                     onChanged: controller.toggleDarkMode,
-                    activeColor: _green,
+                    activeThumbColor: _green,
                     activeTrackColor: _green.withOpacity(0.25),
                     inactiveThumbColor: Colors.orange,
                     inactiveTrackColor: Colors.orange.withOpacity(0.15),

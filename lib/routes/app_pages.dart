@@ -1,6 +1,5 @@
 import 'package:get/get.dart';
 import 'package:halisaha_app/modules/home/views/home_view.dart';
-import 'package:halisaha_app/modules/match/views/match_list_view.dart';
 import 'package:halisaha_app/modules/match/views/match_detail_view.dart';
 import '../modules/auth/views/auth_view.dart';
 import '../modules/auth/views/profile_setup_view.dart';

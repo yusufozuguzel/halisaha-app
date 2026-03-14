@@ -171,8 +171,9 @@ class FriendsView extends StatelessWidget {
               ),
             ),
             Obx(() {
-              if (ctrl.searchQuery.value.isEmpty)
+              if (ctrl.searchQuery.value.isEmpty) {
                 return const SizedBox.shrink();
+              }
               return IconButton(
                 icon: Icon(Icons.clear, color: subText, size: 18),
                 onPressed: () {
@@ -368,7 +369,7 @@ class _SearchResultsLayer extends StatelessWidget {
       return ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
         itemCount: results.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (_, _) =>
             Divider(color: AppColors.border(context), height: 1),
         itemBuilder: (ctx, i) =>
             _UserTile(user: results[i], ctrl: ctrl, showInviteBtn: false),
@@ -434,7 +435,7 @@ class _FollowingTab extends StatelessWidget {
       return ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
         itemCount: list.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (_, _) =>
             Divider(color: AppColors.border(context), height: 1),
         itemBuilder: (ctx, i) =>
             _UserTile(user: list[i], ctrl: ctrl, showInviteBtn: true),
@@ -480,7 +481,7 @@ class _RequestsTab extends StatelessWidget {
       return ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
         itemCount: list.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (_, _) =>
             Divider(color: AppColors.border(context), height: 1),
         itemBuilder: (ctx, i) => _RequestTile(user: list[i], ctrl: ctrl),
       );
@@ -748,7 +749,7 @@ class _AvatarWidget extends StatelessWidget {
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _defaultIcon(context),
+            errorBuilder: (_, _, _) => _defaultIcon(context),
           ),
         );
       } catch (_) {

@@ -66,7 +66,9 @@ class FriendsController extends GetxController {
 
   @override
   void onClose() {
-    for (final c in _subs) c();
+    for (final c in _subs) {
+      c();
+    }
     super.onClose();
   }
 

@@ -3,20 +3,19 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart'; // Harita için eklendi 🔥
+import 'package:url_launcher/url_launcher.dart'; 
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+// dotenv kütüphanesini bilerek devredışı bırakmıyorum, diğer yerlerde lazım olabilir ama bu dosyada kullanmayacağız.
+import 'package:flutter_dotenv/flutter_dotenv.dart'; 
 
-import '../services/match_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../modules/home/controllers/notifications_controller.dart';
 import '../../../modules/home/controllers/home_controller.dart';
 import 'my_matches_controller.dart';
 
 class MatchCreateController extends GetxController {
-  final MatchService _matchService = MatchService();
   var currentStep = 0.obs;
 
   final titleController = TextEditingController();
@@ -29,50 +28,49 @@ class MatchCreateController extends GetxController {
   final selectedDate = Rx<DateTime?>(null);
   final selectedTime = Rx<TimeOfDay?>(null);
 
-  // 🔥 HARİTA İÇİN YENİ DEĞİŞKENLER 🔥
   final Rx<double?> selectedLat = Rx<double?>(null);
   final Rx<double?> selectedLng = Rx<double?>(null);
-  final RxString selectedVenueId = ''.obs; // Seçilen sahanın bellek ID'si
-  final RxString selectedVenueCity = ''.obs; // Seçilen sahanın adresi/şehri
+  final RxString selectedVenueId = ''.obs; 
+  final RxString selectedVenueCity = ''.obs; 
 
   final isLoading = false.obs;
-  final RxString searchQuery = ''.obs; // Arama kutusuna yazılan metin
+  final RxString searchQuery = ''.obs; 
   final RxBool isEditing = false.obs;
   String? editingMatchId;
 
-  // Test için örnek sahalar
   final List<Map<String, dynamic>> mockLocations = [
     {'name': 'Şampiyonlar Halı Saha, Serdivan', 'lat': 40.7654, 'lng': 30.3712},
     {'name': 'Erenler Spor Kompleksi, Sakarya', 'lat': 40.7589, 'lng': 30.4156},
     {'name': 'Olimpiyat Halı Saha', 'lat': 40.7731, 'lng': 30.3948},
   ];
 
-  // Firebase'den gelecek canlı saha listesi
   final RxList<Map<String, dynamic>> allVenues = <Map<String, dynamic>>[].obs;
   final RxList<Map<String, dynamic>> hybridVenues = <Map<String, dynamic>>[].obs;
   
-  // Google Places API Anahtarı (Gizli)
-  final String _googlePlacesApiKey = dotenv.env['GOOGLE_API_KEY'] ?? '';
+// .env'den okuyoruz ama sonuna .trim() ekleyerek Onur'un bilgisayarındaki o gizli Windows boşluklarını YOK EDİYORUZ!
+  final String _googlePlacesApiKey = (dotenv.env['GOOGLE_API_KEY'] ?? '').trim();
 
-  // Debounce Timer'ı
   Timer? _debounce;
 
   @override
   void onInit() {
     super.onInit();
-    _checkEditMode(); // Eskiden olan edit kontrolü
-    fetchVenues(); // 🔥 YENİ: Uygulama açılınca sahaları Firebase'den çek
+    
+    print("-----------------------------------------");
+    print("🚨 BALYOZ MODU AKTİF 🚨");
+    print("DEBUG: API ANAHTARI ZORLA KODA GÖMÜLDÜ -> '$_googlePlacesApiKey'");
+    print("-----------------------------------------");
+
+    _checkEditMode(); 
+    fetchVenues(); 
   }
 
-  // Arama metnine göre filtrelenmiş sahalar
-  // 🔥 1. FİREBASE'DEN SAHALARI İNDİR 🔥
   Future<void> fetchVenues() async {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('venues')
           .get();
 
-      // Veritabanındaki sahaları alıp listemize dolduruyoruz
       final venues = snapshot.docs
           .map(
             (doc) => {
@@ -101,14 +99,12 @@ class MatchCreateController extends GetxController {
     }
   }
 
-  // 🔥 2. HİBRİT FİLTRELEME (FİREBASE + GOOGLE) 🔥
   List<Map<String, dynamic>> get filteredLocations {
     return hybridVenues;
   }
 
-  // Google Places API'den saha arama
   Future<void> searchGooglePlaces(String query) async {
-    if (query.length < 3) return; // En az 3 harf bekle
+    if (query.length < 3) return; 
 
     try {
       final encodedQuery = Uri.encodeComponent('$query halı saha OR stadyum OR spor tesisi');
@@ -116,13 +112,18 @@ class MatchCreateController extends GetxController {
         'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&key=$_googlePlacesApiKey'
       );
 
+      print("🕵️ DEBUG: GOOGLE'A İSTEK ATILIYOR... (Aranan: $query)");
+
       final response = await http.get(url);
+      print("🕵️ DEBUG: HTTP CEVAP KODU -> ${response.statusCode}");
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print("🕵️ DEBUG: GOOGLE'IN YANITI -> ${data['status']}");
+
         if (data['status'] == 'OK') {
           final results = data['results'] as List;
 
-          // 🔥 YASAKLI MEKAN TİPLERİ (Çöplüğü engellemek için)
           final excludedTypes = [
             'cafe', 'restaurant', 'bar', 'bakery', 'meal_delivery', 'meal_takeaway', 'food',
             'store', 'clothing_store', 'grocery_or_supermarket', 'supermarket', 'pharmacy',
@@ -132,7 +133,6 @@ class MatchCreateController extends GetxController {
           
           final filteredResults = results.where((place) {
             final types = List<String>.from(place['types'] ?? []);
-            // Eğer mekanın tiplerinden herhangi biri yasaklı listedeyse false döndür (ele)
             if (types.any((type) => excludedTypes.contains(type))) {
               return false;
             }
@@ -144,30 +144,31 @@ class MatchCreateController extends GetxController {
             'name': place['name'] ?? place['formatted_address'],
             'lat': place['geometry']['location']['lat'],
             'lng': place['geometry']['location']['lng'],
-            'source': 'google', // Kaynağı belirtiyoruz (Firebase'den ayırt etmek için)
+            'source': 'google', 
             'address': place['formatted_address'],
           }).toList();
 
-          // Firebase'deki mevcut sahalarla Google sonuçlarını birleştir
           final localMatches = allVenues.where(
             (loc) => loc['name'].toString().toLowerCase().contains(query.toLowerCase())
           ).toList();
 
-          // Aynı sahayı iki kez göstermemek için isim bazlı filtreleme
           final Set<String> localNames = localMatches.map((v) => (v['name'] as String).toLowerCase()).toSet();
           final filteredGoogleVenues = googleVenues.where((v) => !localNames.contains((v['name'] as String).toLowerCase())).toList();
 
           Future.microtask(() {
             hybridVenues.value = [...localMatches, ...filteredGoogleVenues];
           });
+        } else {
+          print("🚨🚨 DEBUG KIZIL ALARM: GOOGLE BİZİ REDDETTİ! SEBEP: ${data['error_message']} 🚨🚨");
         }
+      } else {
+        print("🚨 DEBUG: SUNUCU ÇÖKTÜ VEYA İNTERNET YOK! HTTP KODU: ${response.statusCode}");
       }
     } catch (e) {
       print("Google Places arama hatası: $e");
     }
   }
 
-  // 🔥 3. TEK SEFERLİK SAHA YÜKLEME ARACI 🔥
   Future<void> uploadInitialVenues() async {
     final db = FirebaseFirestore.instance;
     isLoading.value = true;
@@ -177,25 +178,15 @@ class MatchCreateController extends GetxController {
           'name': loc['name'],
           'lat': loc['lat'],
           'lng': loc['lng'],
-          'city': 'Sakarya', // Şimdilik memleketi sabit verelim
+          'city': 'Sakarya', 
           'isActive': true,
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
-      Get.snackbar(
-        'Başarılı',
-        'Sahalar Firebase\'e yüklendi!',
-        backgroundColor: Colors.green[800],
-        colorText: Colors.white,
-      );
-      await fetchVenues(); // Yükledikten sonra listeyi yenile
+      Get.snackbar('Başarılı', 'Sahalar Firebase\'e yüklendi!', backgroundColor: Colors.green[800], colorText: Colors.white);
+      await fetchVenues(); 
     } catch (e) {
-      Get.snackbar(
-        'Hata',
-        'Yüklenemedi: $e',
-        backgroundColor: Colors.red[900],
-        colorText: Colors.white,
-      );
+      Get.snackbar('Hata', 'Yüklenemedi: $e', backgroundColor: Colors.red[900], colorText: Colors.white);
     } finally {
       isLoading.value = false;
     }
@@ -213,10 +204,9 @@ class MatchCreateController extends GetxController {
       teamAController.text = args['teamA_name'] ?? '';
       teamBController.text = args['teamB_name'] ?? '';
 
-      // Varsa koordinatları da çek
       selectedLat.value = args['latitude'];
       selectedLng.value = args['longitude'];
-      selectedVenueId.value = args['venueId'] ?? ''; // Maçı düzenlerken id'yi de aktaralım
+      selectedVenueId.value = args['venueId'] ?? ''; 
 
       if (args['maxPlayers'] != null) {
         final mp = args['maxPlayers'] as int;
@@ -244,34 +234,30 @@ class MatchCreateController extends GetxController {
     super.onClose();
   }
 
-  // 🔥 YENİ: KONUM SEÇME METODU (FİREBASE KAYDI OLUŞTURMAZ) 🔥
   Future<void> setLocation(String name, double lat, double lng, {String? source, String? id, String? address}) async {
     venueController.text = name;
     
     Future.microtask(() {
       selectedLat.value = lat;
       selectedLng.value = lng;
-      selectedVenueId.value = id ?? ''; // Firebase'den geliyorsa ID var, Google'dan geliyorsa yok veya place_id olabilir
+      selectedVenueId.value = id ?? ''; 
       selectedVenueCity.value = address ?? '';
-      searchQuery.value = ''; // Konum seçilince aramayı temizle
-      hybridVenues.value = allVenues; // Seçim bitince listeyi varsayılana döndür
+      searchQuery.value = ''; 
+      hybridVenues.value = allVenues; 
     });
   }
 
-  // 🔥 YENİ: Ana ekrandaki kutudan arama yapıldığında çalışır
   void onVenueSearchChanged(String value) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
     Future.microtask(() {
       searchQuery.value = value;
-      // Kullanıcı elle yeni bir şey yazmaya başladığında eski seçili koordinatı sıfırlıyoruz ki harita kafası karışmasın
       selectedLat.value = null;
       selectedLng.value = null;
 
       if (value.isEmpty) {
         hybridVenues.value = allVenues;
       } else {
-        // Önce yerel (Firebase) filtrelemeyi yapıp hemen gösterelim
         final localMatches = allVenues.where(
           (loc) => loc['name'].toString().toLowerCase().contains(value.toLowerCase())
         ).toList();
@@ -281,14 +267,11 @@ class MatchCreateController extends GetxController {
 
     if (value.isNotEmpty) {
       _debounce = Timer(const Duration(milliseconds: 500), () {
-        // Arkadan Google API'ye istek atıp sonuçları güncelleyelim
         searchGooglePlaces(value);
       });
     }
   }
 
-  // 🔥 YENİ: HARİTAYI AÇMA METODU 🔥
-  // 🔥 YENİ VE GÜVENLİ: HARİTAYI AÇMA METODU 🔥
   Future<void> openMap() async {
     final lat = selectedLat.value;
     final lng = selectedLng.value;
@@ -297,35 +280,21 @@ class MatchCreateController extends GetxController {
     String urlString;
 
     if (lat != null && lng != null) {
-      // Resmi Google Maps arama URL'si (Koordinat ile)
       urlString = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
     } else if (venue.isNotEmpty) {
-      // Resmi Google Maps arama URL'si (İsim ile)
       final encodedVenue = Uri.encodeComponent(venue);
-      urlString =
-          'https://www.google.com/maps/search/?api=1&query=$encodedVenue';
+      urlString = 'https://www.google.com/maps/search/?api=1&query=$encodedVenue';
     } else {
-      Get.snackbar(
-        'Konum Bulunamadı',
-        'Lütfen önce bir saha adı girin veya konum seçin.',
-        backgroundColor: Colors.red[900],
-        colorText: Colors.white,
-      );
+      Get.snackbar('Konum Bulunamadı', 'Lütfen önce bir saha adı girin veya konum seçin.', backgroundColor: Colors.red[900], colorText: Colors.white);
       return;
     }
 
     final Uri url = Uri.parse(urlString);
 
-    // Uygulama dışına (Google Maps uygulamasına veya Tarayıcıya) atar
     try {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } catch (e) {
-      Get.snackbar(
-        'Hata',
-        'Harita uygulaması açılamadı.',
-        backgroundColor: Colors.red[900],
-        colorText: Colors.white,
-      );
+      Get.snackbar('Hata', 'Harita uygulaması açılamadı.', backgroundColor: Colors.red[900], colorText: Colors.white);
     }
   }
 
@@ -339,26 +308,14 @@ class MatchCreateController extends GetxController {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: AppColors.isDark(context)
-              ? const ColorScheme.dark(
-                  primary: Color(0xFF2EED7B),
-                  onPrimary: Colors.black,
-                  surface: Color(0xFF162318),
-                  onSurface: Colors.white,
-                )
-              : const ColorScheme.light(
-                  primary: Color(0xFF2EED7B),
-                  onPrimary: Colors.white,
-                  surface: Color(0xFFFFFFFF),
-                  onSurface: Colors.black,
-                ),
+              ? const ColorScheme.dark(primary: Color(0xFF2EED7B), onPrimary: Colors.black, surface: Color(0xFF162318), onSurface: Colors.white)
+              : const ColorScheme.light(primary: Color(0xFF2EED7B), onPrimary: Colors.white, surface: Color(0xFFFFFFFF), onSurface: Colors.black),
           dialogBackgroundColor: AppColors.card(context),
         ),
         child: child!,
       ),
     );
-    if (picked != null) {
-      selectedDate.value = picked;
-    }
+    if (picked != null) selectedDate.value = picked;
   }
 
   Future<void> pickTime(BuildContext context) async {
@@ -369,29 +326,14 @@ class MatchCreateController extends GetxController {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: AppColors.isDark(context)
-              ? const ColorScheme.dark(
-                  primary: Color(0xFF2EED7B),
-                  onPrimary: Colors.black,
-                  surface: Color(0xFF162318),
-                  onSurface: Colors.white,
-                )
-              : const ColorScheme.light(
-                  primary: Color(0xFF2EED7B),
-                  onPrimary: Colors.white,
-                  surface: Color(0xFFFFFFFF),
-                  onSurface: Colors.black,
-                ),
+              ? const ColorScheme.dark(primary: Color(0xFF2EED7B), onPrimary: Colors.black, surface: Color(0xFF162318), onSurface: Colors.white)
+              : const ColorScheme.light(primary: Color(0xFF2EED7B), onPrimary: Colors.white, surface: Color(0xFFFFFFFF), onSurface: Colors.black),
           dialogBackgroundColor: AppColors.card(context),
         ),
-        child: MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        ),
+        child: MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true), child: child!),
       ),
     );
-    if (picked != null) {
-      selectedTime.value = picked;
-    }
+    if (picked != null) selectedTime.value = picked;
   }
 
   Future<void> createAndShareMatch() async {
@@ -399,18 +341,8 @@ class MatchCreateController extends GetxController {
     final venue = venueController.text.trim();
     final priceStr = priceController.text.trim();
 
-    if (title.isEmpty ||
-        venue.isEmpty ||
-        priceStr.isEmpty ||
-        selectedDate.value == null ||
-        selectedTime.value == null) {
-      Get.snackbar(
-        'Eksik Bilgi',
-        'Lütfen tüm alanları doldurun ve tarih/saat seçin.',
-        backgroundColor: Colors.red[900],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+    if (title.isEmpty || venue.isEmpty || priceStr.isEmpty || selectedDate.value == null || selectedTime.value == null) {
+      Get.snackbar('Eksik Bilgi', 'Lütfen tüm alanları doldurun ve tarih/saat seçin.', backgroundColor: Colors.red[900], colorText: Colors.white, snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
@@ -422,24 +354,19 @@ class MatchCreateController extends GetxController {
       isLoading.value = true;
 
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('Oturum açmış kullanıcı bulunamadı.');
-      }
+      if (user == null) throw Exception('Oturum açmış kullanıcı bulunamadı.');
       final uid = user.uid;
 
-      // 🔥 YENİ: Firebase 'venues' koleksiyonunda bu saha var mı kontrol et, yoksa kaydet
-      // Eğer seçilen sahanın ID'si Firebase'de yoksa (veya Google'dan gelmişse)
       final bool isFirebaseVenue = allVenues.any((v) => v['id'] == selectedVenueId.value);
       
       if (!isFirebaseVenue) {
         try {
-          // Eğer Google Place ID gibi bir ID varsa onu kullan (doc), yoksa Firebase kendi ID'sini üretsin
           final docRef = selectedVenueId.value.isNotEmpty 
               ? FirebaseFirestore.instance.collection('venues').doc(selectedVenueId.value)
-              : FirebaseFirestore.instance.collection('venues').doc(); // Rastgele ID üret
+              : FirebaseFirestore.instance.collection('venues').doc(); 
               
           await docRef.set({
-            'name': venue, // Sahanın adı
+            'name': venue, 
             'lat': selectedLat.value,
             'lng': selectedLng.value,
             'city': selectedVenueCity.value.isNotEmpty ? selectedVenueCity.value : 'Bilinmiyor',
@@ -447,10 +374,7 @@ class MatchCreateController extends GetxController {
             'createdAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
           
-          // Yeni oluşturulan veya kullanılan Firebase ID'sini maç verisine eklemek için güncelle
           selectedVenueId.value = docRef.id; 
-          
-          // Ekledikten sonra listeyi arka planda güncelle
           fetchVenues();
         } catch (e) {
           print("Saha Firebase'e kaydedilirken hata oluştu: $e");
@@ -459,117 +383,68 @@ class MatchCreateController extends GetxController {
 
       final date = selectedDate.value!;
       final time = selectedTime.value!;
-      final combinedDateTime = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
+      final combinedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
       final timestamp = Timestamp.fromDate(combinedDateTime);
 
       final matchData = {
         'title': title,
         'venue': venue,
-        'venueId': selectedVenueId.value, // 🔥 SAHA ID'Sİ EKLENDİ
-        'latitude': selectedLat.value, // 🔥 KOORDİNATLAR EKLENDİ
-        'longitude': selectedLng.value, // 🔥 KOORDİNATLAR EKLENDİ
+        'venueId': selectedVenueId.value,
+        'latitude': selectedLat.value, 
+        'longitude': selectedLng.value, 
         'price': price,
         'maxPlayers': maxPlayers,
         'date': timestamp,
         'createdBy': uid,
-        'creatorId': uid, // 🔥 KURAL İHLALİNİ ÖNLEMEK İÇİN EKLENDİ
+        'creatorId': uid, 
         'currentPlayers': [uid],
-        'positions': {
-          (maxPlayers ~/ 4).toString(): uid // Kaptanı (Kuran Kişiyi) takımın merkez slotuna yerleştir (Örn: 14 max -> 7 takım boyu -> 3. index vs)
-        },
+        'positions': { (maxPlayers ~/ 4).toString(): uid },
         'status': 'open',
         'createdAt': FieldValue.serverTimestamp(),
-        'teamA_name': teamAController.text.trim().isEmpty
-            ? 'A Takımı'
-            : teamAController.text.trim(),
-        'teamB_name': teamBController.text.trim().isEmpty
-            ? 'B Takımı'
-            : teamBController.text.trim(),
+        'teamA_name': teamAController.text.trim().isEmpty ? 'A Takımı' : teamAController.text.trim(),
+        'teamB_name': teamBController.text.trim().isEmpty ? 'B Takımı' : teamBController.text.trim(),
       };
 
       String generatedMatchId;
       if (isEditing.value && editingMatchId != null) {
-        // SADEYCE DÜZENLENEBİLİR ALANLARI GÜNCELLE
-        // currentPlayers, positions, createdBy gibi verileri ASLA EZME!
         final updateData = {
-          'title': title,
-          'venue': venue,
-          'venueId': selectedVenueId.value,
-          'latitude': selectedLat.value,
-          'longitude': selectedLng.value,
-          'price': price,
-          'maxPlayers': maxPlayers,
-          'date': timestamp,
+          'title': title, 'venue': venue, 'venueId': selectedVenueId.value, 'latitude': selectedLat.value, 'longitude': selectedLng.value,
+          'price': price, 'maxPlayers': maxPlayers, 'date': timestamp,
           'teamA_name': teamAController.text.trim().isEmpty ? 'A Takımı' : teamAController.text.trim(),
           'teamB_name': teamBController.text.trim().isEmpty ? 'B Takımı' : teamBController.text.trim(),
         };
-        await FirebaseFirestore.instance
-            .collection('matches')
-            .doc(editingMatchId)
-            .update(updateData);
+        await FirebaseFirestore.instance.collection('matches').doc(editingMatchId).update(updateData);
         generatedMatchId = editingMatchId!;
       } else {
-        final docRef = await FirebaseFirestore.instance
-            .collection('matches')
-            .add(matchData);
+        final docRef = await FirebaseFirestore.instance.collection('matches').add(matchData);
         generatedMatchId = docRef.id;
       }
 
       final String deepLink = 'https://halisaha.app/join/$generatedMatchId';
       final String formattedDate = "${date.day}/${date.month}/${date.year}";
-      final String formattedTime =
-          "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+      final String formattedTime = "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
 
       Get.back();
       Get.snackbar(
         isEditing.value ? 'Maç Güncellendi! ✏️' : 'Maç Oluşturuldu! 🏆',
-        isEditing.value
-            ? 'Maç detayları başarıyla güncellendi.'
-            : 'Maç başarıyla kaydedildi.',
-        backgroundColor: const Color(0xFF1A2E1F),
-        colorText: const Color(0xFF2EED7B),
-        snackPosition: SnackPosition.BOTTOM,
+        isEditing.value ? 'Maç detayları başarıyla güncellendi.' : 'Maç başarıyla kaydedildi.',
+        backgroundColor: const Color(0xFF1A2E1F), colorText: const Color(0xFF2EED7B), snackPosition: SnackPosition.BOTTOM,
       );
 
-      final notifCtrl = Get.isRegistered<NotificationsController>()
-          ? Get.find<NotificationsController>()
-          : Get.put(NotificationsController());
+      final notifCtrl = Get.isRegistered<NotificationsController>() ? Get.find<NotificationsController>() : Get.put(NotificationsController());
       notifCtrl.addNotification(
-        title: isEditing.value
-            ? 'Maç Güncellendi ✏️'
-            : 'Yeni Maç Oluşturuldu 🏆',
-        message: isEditing.value
-            ? '"$title" maçının detayları güncellendi.'
-            : '"$title" maçı başarıyla kuruldu. Hadi sahaya!',
+        title: isEditing.value ? 'Maç Güncellendi ✏️' : 'Yeni Maç Oluşturuldu 🏆',
+        message: isEditing.value ? '"$title" maçının detayları güncellendi.' : '"$title" maçı başarıyla kuruldu. Hadi sahaya!',
       );
 
-      if (Get.isRegistered<MyMatchesController>()) {
-        Get.find<MyMatchesController>().fetchMyMatches();
-      }
-      if (Get.isRegistered<HomeController>()) {
-        Get.find<HomeController>().fetchMatches();
-      }
+      if (Get.isRegistered<MyMatchesController>()) Get.find<MyMatchesController>().fetchMyMatches();
+      if (Get.isRegistered<HomeController>()) Get.find<HomeController>().fetchMatches();
 
       if (!isEditing.value) {
-        await Share.share(
-          '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $formattedTime\n📍 $venue\n\nMaça katılmak için hemen tıkla:\n$deepLink',
-          subject: 'Halı Saha Maç Daveti',
-        );
+        await Share.share('⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $formattedTime\n📍 $venue\n\nMaça katılmak için hemen tıkla:\n$deepLink', subject: 'Halı Saha Maç Daveti');
       }
     } catch (e) {
-      Get.snackbar(
-        'Hata',
-        'Maç oluşturulamadı: $e',
-        backgroundColor: Colors.red[900],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Get.snackbar('Hata', 'Maç oluşturulamadı: $e', backgroundColor: Colors.red[900], colorText: Colors.white, snackPosition: SnackPosition.BOTTOM);
     } finally {
       isLoading.value = false;
     }

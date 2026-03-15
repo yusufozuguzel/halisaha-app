@@ -1,10 +1,10 @@
-import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../../../routes/app_routes.dart';
 
 class ProfileSetupController extends GetxController {
@@ -14,8 +14,8 @@ class ProfileSetupController extends GetxController {
   // Selected default icon index
   final RxInt selectedIconIndex = 0.obs;
 
-  // Base64 encoded Image if picked from gallery
-  final RxString base64ImageData = ''.obs;
+  // avatarUrl if picked from gallery
+  final RxString avatarUrl = ''.obs;
 
   // Form Fields
   final fullNameController = TextEditingController();
@@ -77,7 +77,7 @@ class ProfileSetupController extends GetxController {
   void selectIcon(int index) {
     selectedIconIndex.value = index;
     // Clear custom image if icon selected
-    base64ImageData.value = '';
+    avatarUrl.value = '';
   }
 
   Future<void> pickImageFromGallery() async {
@@ -91,23 +91,30 @@ class ProfileSetupController extends GetxController {
       );
 
       if (image == null) return;
+      
+      final user = _auth.currentUser;
+      if (user == null) {
+        Get.snackbar("Hata", "Kullanıcı oturumu bulunamadı.");
+        return;
+      }
 
-      final bytes = await image.readAsBytes();
+      isLoading.value = true;
+      final File imageFile = File(image.path);
+      
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_images/${user.uid}.jpg');
+          
+      await storageRef.putFile(imageFile);
+      final downloadUrl = await storageRef.getDownloadURL();
 
-      // HEAVY COMPRESSION LOGIC
-      final compressedBytes = await FlutterImageCompress.compressWithList(
-        bytes,
-        minWidth: 250,
-        minHeight: 250,
-        quality: 60,
-      );
-
-      // Convert to Base64
-      base64ImageData.value = base64Encode(compressedBytes);
+      avatarUrl.value = downloadUrl;
       Get.snackbar("Başarılı", "Fotoğraf eklendi.");
     } catch (e) {
       Get.snackbar("Hata", "Fotoğraf seçilemedi: ${e.toString()}");
-      base64ImageData.value = '';
+      avatarUrl.value = '';
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -130,23 +137,29 @@ class ProfileSetupController extends GetxController {
 
     try {
       isLoading.value = true;
-      String avatarType = 'icon';
-      String avatarData = selectedIconIndex.value.toString();
-
-      if (base64ImageData.value.isNotEmpty) {
-        avatarType = 'base64';
-        avatarData = base64ImageData.value;
-      }
-
-      await _firestore.collection('users').doc(user.uid).set({
+      
+      Map<String, dynamic> updates = {
         'fullName': fullNameController.text.trim(),
         'position': selectedPosition.value,
         'preferredFoot': selectedFoot.value,
         'city': cityController.text.trim(),
-        'avatarType': avatarType,
-        'avatarData': avatarData,
         'isProfileComplete': true,
-      }, SetOptions(merge: true));
+      };
+
+      if (avatarUrl.value.isNotEmpty) {
+        updates['avatarUrl'] = avatarUrl.value;
+        updates['avatarData'] = FieldValue.delete();
+        updates['avatarType'] = FieldValue.delete();
+      } else {
+        updates['avatarType'] = 'icon';
+        updates['avatarData'] = selectedIconIndex.value.toString();
+        updates['avatarUrl'] = FieldValue.delete();
+      }
+
+      await _firestore.collection('users').doc(user.uid).set(
+        updates, 
+        SetOptions(merge: true)
+      );
 
       Get.offAllNamed(Routes.HOME);
     } catch (e) {

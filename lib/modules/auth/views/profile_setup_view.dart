@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../controllers/profile_setup_controller.dart';
 
 class ProfileSetupView extends GetView<ProfileSetupController> {
@@ -172,9 +172,9 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
               scrollDirection: Axis.horizontal,
               itemCount:
                   controller.defaultIcons.length +
-                  (controller.base64ImageData.value.isNotEmpty ? 1 : 0),
+                  (controller.avatarUrl.value.isNotEmpty ? 1 : 0),
               itemBuilder: (context, index) {
-                if (controller.base64ImageData.value.isNotEmpty && index == 0) {
+                if (controller.avatarUrl.value.isNotEmpty && index == 0) {
                   // The Custom Avatar is selected and sits at front
                   return _buildCustomAvatarCard();
                 }
@@ -182,12 +182,12 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
                 return Obx(() {
                   // Offset for icons list if custom avatar is present
                   final int iconIndex =
-                      controller.base64ImageData.value.isNotEmpty
+                      controller.avatarUrl.value.isNotEmpty
                       ? index - 1
                       : index;
 
                   final isSelected =
-                      controller.base64ImageData.value.isEmpty &&
+                      controller.avatarUrl.value.isEmpty &&
                       controller.selectedIconIndex.value == iconIndex;
 
                   return Material(
@@ -262,9 +262,12 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
-        child: Image.memory(
-          base64Decode(controller.base64ImageData.value),
+        child: CachedNetworkImage(
+          imageUrl: controller.avatarUrl.value,
           fit: BoxFit.cover,
+          placeholder: (context, url) =>
+              const Center(child: CircularProgressIndicator()),
+          errorWidget: (context, url, error) => const Icon(Icons.error),
         ),
       ),
     );

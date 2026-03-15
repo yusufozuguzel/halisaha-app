@@ -10,15 +10,15 @@ class UserModel {
   final String uid;
   final String name;
   final String position;
-  final String avatarType;
   final String avatarData;
+  final String avatarUrl;
 
   const UserModel({
     required this.uid,
     required this.name,
     required this.position,
-    required this.avatarType,
     required this.avatarData,
+    required this.avatarUrl,
   });
 
   factory UserModel.fromFirestore(String uid, Map<String, dynamic> d) {
@@ -26,8 +26,8 @@ class UserModel {
       uid: uid,
       name: d['fullName'] ?? d['name'] ?? 'İsimsiz Oyuncu',
       position: d['position'] ?? '',
-      avatarType: d['avatarType'] ?? 'icon',
       avatarData: d['avatarData'] ?? '0',
+      avatarUrl: d['avatarUrl'] ?? '',
     );
   }
 }
@@ -313,7 +313,9 @@ class _MatchInviteSheet extends StatelessWidget {
 
     // Notif gönder
     try {
-      final notifCtrl = Get.find<NotificationsController>();
+      final notifCtrl = Get.isRegistered<NotificationsController>()
+          ? Get.find<NotificationsController>()
+          : Get.put(NotificationsController());
       await notifCtrl.addNotificationToUser(
         targetUid: targetUid,
         title: 'Maç Daveti ⚽',

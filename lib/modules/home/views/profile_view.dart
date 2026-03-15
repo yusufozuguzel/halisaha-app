@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../controllers/profile_controller.dart';
 import 'home_view.dart';
@@ -112,32 +112,23 @@ class _ProfileViewState extends State<ProfileView> {
                                     snap.data!.data()
                                         as Map<String, dynamic>? ??
                                     {};
-                                final aType = d['avatarType'] ?? 'icon';
                                 final aData = d['avatarData'] ?? '0';
-                                if (aType == 'base64' &&
-                                    aData.toString().isNotEmpty) {
-                                  try {
-                                    innerAvatar = ClipRRect(
-                                      borderRadius: BorderRadius.circular(26),
-                                      child: Image.memory(
-                                        base64Decode(aData),
-                                        width: 52,
-                                        height: 52,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => Icon(
-                                          Icons.person,
-                                          color: AppColors.text(ctx),
-                                          size: 24,
-                                        ),
+                                final aUrl = d['avatarUrl'] ?? '';
+                                if (aUrl.isNotEmpty) {
+                                  innerAvatar = ClipRRect(
+                                    borderRadius: BorderRadius.circular(26),
+                                    child: CachedNetworkImage(
+                                      imageUrl: aUrl,
+                                      width: 52,
+                                      height: 52,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, _, _) => Icon(
+                                        Icons.person,
+                                        color: AppColors.text(ctx),
+                                        size: 24,
                                       ),
-                                    );
-                                  } catch (_) {
-                                    innerAvatar = Icon(
-                                      Icons.person,
-                                      color: AppColors.text(ctx),
-                                      size: 24,
-                                    );
-                                  }
+                                    ),
+                                  );
                                 } else {
                                   final iconIdx =
                                       int.tryParse(aData.toString()) ?? 0;
@@ -804,8 +795,8 @@ class _ProfileViewState extends State<ProfileView> {
 
         final fullName = data['fullName'] ?? data['name'] ?? '...';
         final pos = data['position'] ?? '';
-        final avatarType = data['avatarType'] ?? 'icon';
         final avatarData = data['avatarData'] ?? '0';
+        final avatarUrl = data['avatarUrl'] ?? '';
 
         return Container(
           width: double.infinity,
@@ -836,8 +827,8 @@ class _ProfileViewState extends State<ProfileView> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(41),
                             child: _buildAvatarWidget(
-                              avatarType,
                               avatarData,
+                              avatarUrl,
                               size: 82,
                             ),
                           ),
@@ -1075,27 +1066,22 @@ class _ProfileViewState extends State<ProfileView> {
     });
   }
 
-  /// Builds the avatar widget from Firestore avatarType/avatarData.
+  /// Builds the avatar widget from Firestore avatarType/avatarData/avatarUrl.
   Widget _buildAvatarWidget(
-    String avatarType,
-    dynamic avatarData, {
+    dynamic avatarData,
+    String? avatarUrl, {
     double size = 82,
   }) {
     final textColor = AppColors.text(context);
-    if (avatarType == 'base64' && avatarData.toString().isNotEmpty) {
-      try {
-        return Image.memory(
-          base64Decode(avatarData.toString()),
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          errorBuilder: (_, _, _) =>
-              Icon(Icons.person, color: textColor, size: size * 0.4),
-        );
-      } catch (_) {
-        return Icon(Icons.person, color: textColor, size: size * 0.4);
-      }
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: avatarUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorWidget: (_, _, _) =>
+            Icon(Icons.person, color: textColor, size: size * 0.4),
+      );
     } else {
       final iconIndex = int.tryParse(avatarData.toString()) ?? 0;
       const defaultIcons = [

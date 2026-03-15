@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../controllers/friends_controller.dart';
 import '../../home/views/home_view.dart';
 import '../../home/views/my_matches_view.dart';
@@ -740,21 +740,14 @@ class _AvatarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget child;
-    if (user.avatarType == 'base64' && user.avatarData.isNotEmpty) {
-      try {
-        child = ClipRRect(
-          borderRadius: BorderRadius.circular(size / 2),
-          child: Image.memory(
-            base64Decode(user.avatarData),
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _defaultIcon(context),
-          ),
-        );
-      } catch (_) {
-        child = _defaultIcon(context);
-      }
+    if (user.avatarUrl.isNotEmpty) {
+      child = CachedNetworkImage(
+        imageUrl: user.avatarUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorWidget: (_, _, _) => _defaultIcon(context),
+      );
     } else {
       child = _defaultIcon(context);
     }

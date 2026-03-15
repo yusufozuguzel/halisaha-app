@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class ProfileController extends GetxController {
@@ -353,15 +351,20 @@ class ProfileController extends GetxController {
       isUploading.value = true;
       avatarFile.value = newAvatarFile;
       try {
-        final base64Str = await _compressAndEncode(newAvatarFile);
-        updates['avatarType'] = 'base64';
-        updates['avatarData'] = base64Str;
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('profile_images/${user.uid}.jpg');
+            
+        await storageRef.putFile(newAvatarFile);
+        final downloadUrl = await storageRef.getDownloadURL();
+        
+        updates['avatarUrl'] = downloadUrl;
+        updates['avatarData'] = FieldValue.delete();
+        updates['avatarType'] = FieldValue.delete();
+        
+        avatarUrl.value = downloadUrl;
       } catch (e) {
-        try {
-          final bytes = await newAvatarFile.readAsBytes();
-          updates['avatarType'] = 'base64';
-          updates['avatarData'] = base64Encode(bytes);
-        } catch (_) {}
+        Get.snackbar('Hata', 'Fotoğraf yüklenemedi: $e');
       } finally {
         isUploading.value = false;
       }
@@ -370,22 +373,6 @@ class ProfileController extends GetxController {
     if (updates.isNotEmpty) {
       await docRef.set(updates, SetOptions(merge: true));
     }
-  }
-
-  // ── Image compress helper (existing — untouched) ───────────
-  Future<String> _compressAndEncode(File file) async {
-    final Uint8List? compressed = await FlutterImageCompress.compressWithFile(
-      file.absolute.path,
-      minWidth: 300,
-      minHeight: 300,
-      quality: 70,
-      format: CompressFormat.jpeg,
-    );
-    if (compressed != null && compressed.isNotEmpty) {
-      return base64Encode(compressed);
-    }
-    final bytes = await file.readAsBytes();
-    return base64Encode(bytes);
   }
 
   // ── Şifre Güncelleme ───────────────────────────────────────
@@ -490,8 +477,8 @@ class ProfileController extends GetxController {
     try {
       isLoading.value = true;
 
+      // 1. Re-authenticate user
       if (isGoogleUser) {
-        // 1. Google ile oturumu yenile
         final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
         if (googleUser == null) {
           isLoading.value = false;
@@ -508,38 +495,53 @@ class ProfileController extends GetxController {
 
         await user.reauthenticateWithCredential(credential);
       } else {
-        // 1. Mevcut şifre ile oturumu yenile (Email/Password)
         if (user.email == null) return;
         final credential = EmailAuthProvider.credential(
           email: user.email!,
           password: deletePassword.value,
         );
-
         await user.reauthenticateWithCredential(credential);
       }
 
-      // 2. İşlem başarılıysa Firestore'daki kullanıcı belgesini sil
+      // 2. Kullanıcının kurduğu tüm maçları sil (createdBy == uid)
+      final matchesSnap = await _db
+          .collection('matches')
+          .where('createdBy', isEqualTo: user.uid)
+          .get();
+
+      if (matchesSnap.docs.isNotEmpty) {
+        final matchBatch = _db.batch();
+        for (final doc in matchesSnap.docs) {
+          matchBatch.delete(doc.reference);
+        }
+        await matchBatch.commit();
+      }
+
+      // 3. Firebase Storage'dan profil fotoğrafını sil
+      try {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('profile_images/${user.uid}.jpg');
+        await storageRef.delete();
+      } catch (_) {
+        // Fotoğraf yoksa sessizce geç
+      }
+
+      // 4. Firestore'daki kullanıcı belgesini sil
       await _db.collection('users').doc(user.uid).delete();
 
-      // 3. Firebase Auth'dan hesabı tamamen sil
+      // 5. Firebase Auth'dan hesabı tamamen sil
       await user.delete();
 
-      // Başarı mesajı ve yönlendirme
       Get.snackbar(
         'Hesap Silindi',
-        'Hesabınız kalıcı olarak silinmiştir.',
+        'Hesabınız ve tüm verileriniz kalıcı olarak silinmiştir.',
         backgroundColor: Colors.greenAccent.shade700,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
       );
 
-      // Giriş (Login) ekranına dön
-      // Not: Uygulamanızda Routes.LOGIN tanımlı değilse, projenizdeki
-      // auth/login görünümünüze uygun Get.offAll() varyasyonunu kullanmalısınız.
-      // Şimdilik import eksikligi olmamasi için AuthView örneğini varsayarak
-      // Get.offAll(() => const AuthView()) veya AuthController logout vs yapilabilir.
-      // Kullanicinin rotası tam belirli degilse genel getOffAllNamed:
       Get.offAllNamed('/auth');
     } on FirebaseAuthException catch (e) {
       // Re-auth başarısız olursa

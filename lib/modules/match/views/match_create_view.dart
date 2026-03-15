@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../controllers/match_create_controller.dart';
 import '../../../core/theme/app_theme.dart';
@@ -348,6 +349,8 @@ class MatchCreateView extends GetView<MatchCreateController> {
                       controller: controller.priceController,
                       hint: 'Örn: 1500',
                       context: context,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
                   ],
                 ),
@@ -456,6 +459,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
                         loc['name'],
                         loc['lat'],
                         loc['lng'],
+                        source: loc['source'],
+                        id: loc['id'],
+                        address: loc['address'],
                       );
                       FocusScope.of(context).unfocus();
                     },
@@ -466,19 +472,34 @@ class MatchCreateView extends GetView<MatchCreateController> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.location_on,
-                            color: Color(0xFF2EED7B),
+                            color: loc['source'] == 'google' ? Colors.blueAccent : const Color(0xFF2EED7B),
                             size: 16,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              loc['name'],
-                              style: TextStyle(
-                                color: AppColors.text(context),
-                                fontSize: 13,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  loc['name'],
+                                  style: TextStyle(
+                                    color: AppColors.text(context),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                if (loc['source'] == 'google' && loc['address'] != null)
+                                  Text(
+                                    loc['address'],
+                                    style: TextStyle(
+                                      color: AppColors.subText(context),
+                                      fontSize: 10,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
                             ),
                           ),
                         ],
@@ -802,6 +823,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
+                        onChanged: controller.onVenueSearchChanged,
                         style: TextStyle(
                           color: AppColors.text(context),
                           fontSize: 14,
@@ -842,12 +864,16 @@ class MatchCreateView extends GetView<MatchCreateController> {
                         currentLat == loc['lat'] && currentLng == loc['lng'];
 
                     return GestureDetector(
-                      onTap: () {
-                        controller.setLocation(
+                      onTap: () async {
+                        await controller.setLocation(
                           loc['name'],
                           loc['lat'],
                           loc['lng'],
+                          source: loc['source'],
+                          id: loc['id'],
+                          address: loc['address'],
                         );
+                        Get.back(); // Seçim sonrası pencereyi kapat
                       },
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -873,24 +899,39 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                Icons.location_on,
+                                loc['source'] == 'google' ? Icons.public : Icons.location_on,
                                 color: isSelected
                                     ? const Color(0xFF2EED7B)
-                                    : AppColors.subText(context),
+                                    : (loc['source'] == 'google' ? Colors.blueAccent : AppColors.subText(context)),
                                 size: 20,
                               ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
-                              child: Text(
-                                loc['name'],
-                                style: TextStyle(
-                                  color: AppColors.text(context),
-                                  fontSize: 14,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    loc['name'],
+                                    style: TextStyle(
+                                      color: AppColors.text(context),
+                                      fontSize: 14,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                  if (loc['source'] == 'google' && loc['address'] != null)
+                                    Text(
+                                      loc['address'],
+                                      style: TextStyle(
+                                        color: AppColors.subText(context),
+                                        fontSize: 11,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
                               ),
                             ),
                             if (isSelected)
@@ -1049,6 +1090,8 @@ class MatchCreateView extends GetView<MatchCreateController> {
     required String hint,
     required BuildContext context,
     TextAlign textAlign = TextAlign.start,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       height: 52,
@@ -1067,6 +1110,8 @@ class MatchCreateView extends GetView<MatchCreateController> {
         child: TextField(
           controller: controller,
           textAlign: textAlign,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: TextStyle(color: AppColors.text(context), fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,

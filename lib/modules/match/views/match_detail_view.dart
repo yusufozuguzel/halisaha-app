@@ -3,9 +3,9 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme/app_theme.dart';
 import '../controllers/match_detail_controller.dart';
-import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MatchDetailView extends StatelessWidget {
   const MatchDetailView({super.key});
@@ -259,7 +259,7 @@ class MatchDetailView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               // Oyuncu Listesi
-              Obx(() {
+              Builder(builder: (context) {
                 final currentPlayers = (match['currentPlayers'] as List<dynamic>?) ?? [];
                 if (currentPlayers.isEmpty) return const SizedBox.shrink();
 
@@ -273,99 +273,100 @@ class MatchDetailView extends StatelessWidget {
                   separatorBuilder: (context, index) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final uid = currentPlayers[index].toString();
-                    final playerInfo = controller.participantDetails[uid];
 
-                    if (playerInfo == null) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Center(
-                            child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2EED7B)))),
-                      );
-                    }
+                    // Her satır kendi Obx'i içinde RxMap'ten veriyi okur.
+                    // Böylece GetX sadece bu satır için güncelleme yapar,
+                    // "improper use" hatası fırlatmaz.
+                    return Obx(() {
+                      final playerInfo = controller.participantDetails[uid];
 
-                    // Avatar
-                    final ppData = playerInfo['avatarData'];
-                    final ppUrl = playerInfo['profileImageUrl'] ?? playerInfo['photoUrl'] ?? playerInfo['avatar'] ?? playerInfo['image'];
-                    final fallbackName = playerInfo['name']?.toString() ?? 'Bilinmiyor';
-                    final initial = fallbackName.isNotEmpty ? fallbackName[0].toUpperCase() : '?';
+                      if (playerInfo == null) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Center(
+                              child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2EED7B)))),
+                        );
+                      }
 
-                    ImageProvider? avatarImage;
-                    if (ppUrl != null && ppUrl.toString().isNotEmpty) {
-                      avatarImage = NetworkImage(ppUrl.toString());
-                    } else if (ppData != null && ppData.toString().isNotEmpty) {
-                      try {
-                        avatarImage = MemoryImage(base64Decode(ppData.toString()));
-                      } catch (_) {}
-                    }
+                      // Avatar
+                      final ppUrl = playerInfo['avatarUrl'] ?? playerInfo['profileImageUrl'] ?? playerInfo['photoUrl'] ?? playerInfo['avatar'] ?? playerInfo['image'];
+                      final fallbackName = playerInfo['name']?.toString() ?? 'Bilinmiyor';
+                      final initial = fallbackName.isNotEmpty ? fallbackName[0].toUpperCase() : '?';
 
-                    final bool isMe = currentUserUid == uid;
-                    final bool isMatchCreator = match['createdBy'] == uid;
+                      ImageProvider? avatarImage;
+                      if (ppUrl != null && ppUrl.toString().isNotEmpty) {
+                        avatarImage = CachedNetworkImageProvider(ppUrl.toString());
+                      }
 
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.card(context).withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border(context).withValues(alpha: 0.5)),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: const Color(0xFF2EED7B).withValues(alpha: 0.2),
-                            backgroundImage: avatarImage,
-                            child: avatarImage == null
-                                ? Text(initial,
-                                    style: const TextStyle(color: Color(0xFF2EED7B), fontWeight: FontWeight.bold))
-                                : null,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Text(
-                                  isMe ? 'Sen' : fallbackName,
-                                  style: TextStyle(
-                                    color: isMe ? const Color(0xFF2EED7B) : AppColors.text(context),
-                                    fontSize: 16,
-                                    fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
+                      final bool isMe = currentUserUid == uid;
+                      final bool isMatchCreator = match['createdBy'] == uid;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.card(context).withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border(context).withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: const Color(0xFF2EED7B).withValues(alpha: 0.2),
+                              backgroundImage: avatarImage,
+                              child: avatarImage == null
+                                  ? Text(initial,
+                                      style: const TextStyle(color: Color(0xFF2EED7B), fontWeight: FontWeight.bold))
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Text(
+                                    isMe ? 'Sen' : fallbackName,
+                                    style: TextStyle(
+                                      color: isMe ? const Color(0xFF2EED7B) : AppColors.text(context),
+                                      fontSize: 16,
+                                      fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                                if (isMatchCreator) ...[
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.star, color: Colors.amber, size: 16),
+                                  if (isMatchCreator) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.star, color: Colors.amber, size: 16),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                          if (isCreator && !isMe)
-                            IconButton(
-                              icon: const Icon(Icons.person_remove, color: Colors.redAccent),
-                              tooltip: 'Oyuncuyu Çıkar',
-                              onPressed: () {
-                                Get.defaultDialog(
-                                  title: 'Oyuncuyu Çıkar',
-                                  middleText: '\n$fallbackName adlı oyuncuyu maçtan çıkarmak istediğinize emin misiniz?',
-                                  titleStyle: TextStyle(color: AppColors.text(context), fontWeight: FontWeight.bold),
-                                  middleTextStyle: TextStyle(color: AppColors.text(context)),
-                                  backgroundColor: AppColors.card(context),
-                                  textCancel: 'İptal',
-                                  textConfirm: 'Çıkar',
-                                  confirmTextColor: Colors.white,
-                                  buttonColor: Colors.redAccent,
-                                  cancelTextColor: AppColors.text(context),
-                                  onConfirm: () {
-                                    Get.back(); // Dialogu kapat
-                                    controller.kickPlayer(uid);
-                                  },
-                                );
-                              },
-                            ),
-                        ],
-                      ),
-                    );
+                            if (isCreator && !isMe)
+                              IconButton(
+                                icon: const Icon(Icons.person_remove, color: Colors.redAccent),
+                                tooltip: 'Oyuncuyu Çıkar',
+                                onPressed: () {
+                                  Get.defaultDialog(
+                                    title: 'Oyuncuyu Çıkar',
+                                    middleText: '\n$fallbackName adlı oyuncuyu maçtan çıkarmak istediğinize emin misiniz?',
+                                    titleStyle: TextStyle(color: AppColors.text(context), fontWeight: FontWeight.bold),
+                                    middleTextStyle: TextStyle(color: AppColors.text(context)),
+                                    backgroundColor: AppColors.card(context),
+                                    textCancel: 'İptal',
+                                    textConfirm: 'Çıkar',
+                                    confirmTextColor: Colors.white,
+                                    buttonColor: Colors.redAccent,
+                                    cancelTextColor: AppColors.text(context),
+                                    onConfirm: () {
+                                      Get.back();
+                                      controller.kickPlayer(uid);
+                                    },
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      );
+                    });
                   },
                 );
               }),

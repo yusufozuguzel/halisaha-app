@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'my_matches_view.dart';
 import 'notifications_view.dart' hide kGreen;
 import '../controllers/home_controller.dart';
@@ -233,26 +233,22 @@ class _HomeViewState extends State<HomeView> {
 
         final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
         final fullName = data['fullName'] ?? data['name'] ?? widget.userName;
-        final avatarType = data['avatarType'] ?? 'icon';
         final avatarData = data['avatarData'] ?? '0';
+        final avatarUrl = data['avatarUrl'] ?? '';
 
         Widget avatarWidget;
-        if (avatarType == 'base64' && avatarData.toString().isNotEmpty) {
-          try {
-            avatarWidget = ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Image.memory(
-                base64Decode(avatarData),
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    Icon(Icons.person, color: textColor, size: 24),
-              ),
-            );
-          } catch (e) {
-            avatarWidget = Icon(Icons.person, color: textColor, size: 24);
-          }
+        if (avatarUrl.isNotEmpty) {
+          avatarWidget = ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: CachedNetworkImage(
+              imageUrl: avatarUrl,
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+              errorWidget: (context, error, stackTrace) =>
+                  Icon(Icons.person, color: textColor, size: 24),
+            ),
+          );
         } else {
           final iconIndex = int.tryParse(avatarData.toString()) ?? 0;
           final List<IconData> defaultIcons = [

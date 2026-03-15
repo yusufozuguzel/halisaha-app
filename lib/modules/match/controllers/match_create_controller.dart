@@ -4,6 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart'; // Harita için eklendi 🔥
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../services/match_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -28,6 +32,8 @@ class MatchCreateController extends GetxController {
   // 🔥 HARİTA İÇİN YENİ DEĞİŞKENLER 🔥
   final Rx<double?> selectedLat = Rx<double?>(null);
   final Rx<double?> selectedLng = Rx<double?>(null);
+  final RxString selectedVenueId = ''.obs; // Seçilen sahanın bellek ID'si
+  final RxString selectedVenueCity = ''.obs; // Seçilen sahanın adresi/şehri
 
   final isLoading = false.obs;
   final RxString searchQuery = ''.obs; // Arama kutusuna yazılan metin
@@ -43,6 +49,13 @@ class MatchCreateController extends GetxController {
 
   // Firebase'den gelecek canlı saha listesi
   final RxList<Map<String, dynamic>> allVenues = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> hybridVenues = <Map<String, dynamic>>[].obs;
+  
+  // Google Places API Anahtarı (Gizli)
+  final String _googlePlacesApiKey = dotenv.env['GOOGLE_API_KEY'] ?? '';
+
+  // Debounce Timer'ı
+  Timer? _debounce;
 
   @override
   void onInit() {
@@ -71,27 +84,87 @@ class MatchCreateController extends GetxController {
           )
           .toList();
 
-      allVenues.value = venues;
+      Future.microtask(() {
+        allVenues.value = venues;
+        if (searchQuery.value.isEmpty) {
+          hybridVenues.value = venues;
+        }
+      });
     } catch (e) {
       print("Sahalar çekilirken hata oluştu: $e");
-      allVenues.value =
-          mockLocations; // Hata olursa yedek olarak mock verileri kullan
+      Future.microtask(() {
+        allVenues.value = mockLocations;
+        if (searchQuery.value.isEmpty) {
+          hybridVenues.value = mockLocations;
+        }
+      });
     }
   }
 
-  // 🔥 2. FİLTRELEME (ARTIK CANLI VERİDEN) 🔥
+  // 🔥 2. HİBRİT FİLTRELEME (FİREBASE + GOOGLE) 🔥
   List<Map<String, dynamic>> get filteredLocations {
-    // Arama kutusu boşsa tüm Firebase sahalarını göster
-    if (searchQuery.value.isEmpty) return allVenues;
+    return hybridVenues;
+  }
 
-    // Doluysa adına göre filtrele
-    return allVenues
-        .where(
-          (loc) => loc['name'].toString().toLowerCase().contains(
-            searchQuery.value.toLowerCase(),
-          ),
-        )
-        .toList();
+  // Google Places API'den saha arama
+  Future<void> searchGooglePlaces(String query) async {
+    if (query.length < 3) return; // En az 3 harf bekle
+
+    try {
+      final encodedQuery = Uri.encodeComponent('$query halı saha OR stadyum OR spor tesisi');
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&key=$_googlePlacesApiKey'
+      );
+
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK') {
+          final results = data['results'] as List;
+
+          // 🔥 YASAKLI MEKAN TİPLERİ (Çöplüğü engellemek için)
+          final excludedTypes = [
+            'cafe', 'restaurant', 'bar', 'bakery', 'meal_delivery', 'meal_takeaway', 'food',
+            'store', 'clothing_store', 'grocery_or_supermarket', 'supermarket', 'pharmacy',
+            'hospital', 'health', 'doctor', 'dentist',
+            'lodging', 'hotel', 'spa', 'beauty_salon', 'hair_care'
+          ];
+          
+          final filteredResults = results.where((place) {
+            final types = List<String>.from(place['types'] ?? []);
+            // Eğer mekanın tiplerinden herhangi biri yasaklı listedeyse false döndür (ele)
+            if (types.any((type) => excludedTypes.contains(type))) {
+              return false;
+            }
+            return true;
+          }).toList();
+          
+          List<Map<String, dynamic>> googleVenues = filteredResults.map((place) => {
+            'id': place['place_id'],
+            'name': place['name'] ?? place['formatted_address'],
+            'lat': place['geometry']['location']['lat'],
+            'lng': place['geometry']['location']['lng'],
+            'source': 'google', // Kaynağı belirtiyoruz (Firebase'den ayırt etmek için)
+            'address': place['formatted_address'],
+          }).toList();
+
+          // Firebase'deki mevcut sahalarla Google sonuçlarını birleştir
+          final localMatches = allVenues.where(
+            (loc) => loc['name'].toString().toLowerCase().contains(query.toLowerCase())
+          ).toList();
+
+          // Aynı sahayı iki kez göstermemek için isim bazlı filtreleme
+          final Set<String> localNames = localMatches.map((v) => (v['name'] as String).toLowerCase()).toSet();
+          final filteredGoogleVenues = googleVenues.where((v) => !localNames.contains((v['name'] as String).toLowerCase())).toList();
+
+          Future.microtask(() {
+            hybridVenues.value = [...localMatches, ...filteredGoogleVenues];
+          });
+        }
+      }
+    } catch (e) {
+      print("Google Places arama hatası: $e");
+    }
   }
 
   // 🔥 3. TEK SEFERLİK SAHA YÜKLEME ARACI 🔥
@@ -143,6 +216,7 @@ class MatchCreateController extends GetxController {
       // Varsa koordinatları da çek
       selectedLat.value = args['latitude'];
       selectedLng.value = args['longitude'];
+      selectedVenueId.value = args['venueId'] ?? ''; // Maçı düzenlerken id'yi de aktaralım
 
       if (args['maxPlayers'] != null) {
         final mp = args['maxPlayers'] as int;
@@ -170,20 +244,47 @@ class MatchCreateController extends GetxController {
     super.onClose();
   }
 
-  // 🔥 YENİ: KONUM SEÇME METODU 🔥
-  void setLocation(String name, double lat, double lng) {
+  // 🔥 YENİ: KONUM SEÇME METODU (FİREBASE KAYDI OLUŞTURMAZ) 🔥
+  Future<void> setLocation(String name, double lat, double lng, {String? source, String? id, String? address}) async {
     venueController.text = name;
-    selectedLat.value = lat;
-    selectedLng.value = lng;
-    searchQuery.value = ''; // Konum seçilince aramayı temizle
+    
+    Future.microtask(() {
+      selectedLat.value = lat;
+      selectedLng.value = lng;
+      selectedVenueId.value = id ?? ''; // Firebase'den geliyorsa ID var, Google'dan geliyorsa yok veya place_id olabilir
+      selectedVenueCity.value = address ?? '';
+      searchQuery.value = ''; // Konum seçilince aramayı temizle
+      hybridVenues.value = allVenues; // Seçim bitince listeyi varsayılana döndür
+    });
   }
 
   // 🔥 YENİ: Ana ekrandaki kutudan arama yapıldığında çalışır
   void onVenueSearchChanged(String value) {
-    searchQuery.value = value;
-    // Kullanıcı elle yeni bir şey yazmaya başladığında eski seçili koordinatı sıfırlıyoruz ki harita kafası karışmasın
-    selectedLat.value = null;
-    selectedLng.value = null;
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    Future.microtask(() {
+      searchQuery.value = value;
+      // Kullanıcı elle yeni bir şey yazmaya başladığında eski seçili koordinatı sıfırlıyoruz ki harita kafası karışmasın
+      selectedLat.value = null;
+      selectedLng.value = null;
+
+      if (value.isEmpty) {
+        hybridVenues.value = allVenues;
+      } else {
+        // Önce yerel (Firebase) filtrelemeyi yapıp hemen gösterelim
+        final localMatches = allVenues.where(
+          (loc) => loc['name'].toString().toLowerCase().contains(value.toLowerCase())
+        ).toList();
+        hybridVenues.value = localMatches;
+      }
+    });
+
+    if (value.isNotEmpty) {
+      _debounce = Timer(const Duration(milliseconds: 500), () {
+        // Arkadan Google API'ye istek atıp sonuçları güncelleyelim
+        searchGooglePlaces(value);
+      });
+    }
   }
 
   // 🔥 YENİ: HARİTAYI AÇMA METODU 🔥
@@ -326,6 +427,36 @@ class MatchCreateController extends GetxController {
       }
       final uid = user.uid;
 
+      // 🔥 YENİ: Firebase 'venues' koleksiyonunda bu saha var mı kontrol et, yoksa kaydet
+      // Eğer seçilen sahanın ID'si Firebase'de yoksa (veya Google'dan gelmişse)
+      final bool isFirebaseVenue = allVenues.any((v) => v['id'] == selectedVenueId.value);
+      
+      if (!isFirebaseVenue) {
+        try {
+          // Eğer Google Place ID gibi bir ID varsa onu kullan (doc), yoksa Firebase kendi ID'sini üretsin
+          final docRef = selectedVenueId.value.isNotEmpty 
+              ? FirebaseFirestore.instance.collection('venues').doc(selectedVenueId.value)
+              : FirebaseFirestore.instance.collection('venues').doc(); // Rastgele ID üret
+              
+          await docRef.set({
+            'name': venue, // Sahanın adı
+            'lat': selectedLat.value,
+            'lng': selectedLng.value,
+            'city': selectedVenueCity.value.isNotEmpty ? selectedVenueCity.value : 'Bilinmiyor',
+            'isActive': true,
+            'createdAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          
+          // Yeni oluşturulan veya kullanılan Firebase ID'sini maç verisine eklemek için güncelle
+          selectedVenueId.value = docRef.id; 
+          
+          // Ekledikten sonra listeyi arka planda güncelle
+          fetchVenues();
+        } catch (e) {
+          print("Saha Firebase'e kaydedilirken hata oluştu: $e");
+        }
+      }
+
       final date = selectedDate.value!;
       final time = selectedTime.value!;
       final combinedDateTime = DateTime(
@@ -340,12 +471,14 @@ class MatchCreateController extends GetxController {
       final matchData = {
         'title': title,
         'venue': venue,
+        'venueId': selectedVenueId.value, // 🔥 SAHA ID'Sİ EKLENDİ
         'latitude': selectedLat.value, // 🔥 KOORDİNATLAR EKLENDİ
         'longitude': selectedLng.value, // 🔥 KOORDİNATLAR EKLENDİ
         'price': price,
         'maxPlayers': maxPlayers,
         'date': timestamp,
         'createdBy': uid,
+        'creatorId': uid, // 🔥 KURAL İHLALİNİ ÖNLEMEK İÇİN EKLENDİ
         'currentPlayers': [uid],
         'positions': {
           (maxPlayers ~/ 4).toString(): uid // Kaptanı (Kuran Kişiyi) takımın merkez slotuna yerleştir (Örn: 14 max -> 7 takım boyu -> 3. index vs)
@@ -367,6 +500,7 @@ class MatchCreateController extends GetxController {
         final updateData = {
           'title': title,
           'venue': venue,
+          'venueId': selectedVenueId.value,
           'latitude': selectedLat.value,
           'longitude': selectedLng.value,
           'price': price,

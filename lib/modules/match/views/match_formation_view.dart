@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../controllers/match_formation_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -237,17 +237,12 @@ class _MatchFormationViewState extends State<MatchFormationView> {
     final bool isCaptainProfile = assignedUid == controller.matchData.value?['createdBy'];
 
     // Avatarlar için geçerli URL olup olmadığını kontrol et
-    final String? photoUrl = playerInfo?['profileImageUrl'] ?? playerInfo?['photoUrl'] ?? playerInfo?['avatar'] ?? playerInfo?['image'];
+    final String? photoUrl = playerInfo?['avatarUrl'] ?? playerInfo?['profileImageUrl'] ?? playerInfo?['photoUrl'] ?? playerInfo?['avatar'] ?? playerInfo?['image'];
     final bool hasValidUrl = photoUrl != null && photoUrl.trim().isNotEmpty && photoUrl.startsWith('http');
-    final String? avatarType = playerInfo?['avatarType'];
-    final dynamic avatarData = playerInfo?['avatarData'];
-    final bool hasBase64 = avatarType == 'base64' && avatarData != null && avatarData.toString().isNotEmpty;
-
+    
     ImageProvider? imageProvider;
     if (hasValidUrl) {
-      imageProvider = NetworkImage(photoUrl.trim());
-    } else if (hasBase64) {
-      imageProvider = MemoryImage(base64Decode(avatarData.toString()));
+      imageProvider = CachedNetworkImageProvider(photoUrl.trim());
     }
 
     final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;

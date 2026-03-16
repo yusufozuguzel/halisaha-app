@@ -730,28 +730,136 @@ class _ProfileViewState extends State<ProfileView> {
           child: Column(
             children: [
               if (!_ctrl.isOwnProfile)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 8),
-                    child: IconButton(
-                      onPressed: () => Get.back(),
-                      icon: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: AppColors.text(context),
-                        size: 22,
-                      ),
-                      tooltip: 'Geri',
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.card(context),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: AppColors.border(context)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Geri butonu
+                      IconButton(
+                        onPressed: () => Get.back(),
+                        icon: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: AppColors.text(context),
+                          size: 22,
                         ),
-                        padding: const EdgeInsets.all(8),
-                        minimumSize: const Size(42, 42),
+                        tooltip: 'Geri',
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.card(context),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: AppColors.border(context)),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          minimumSize: const Size(42, 42),
+                        ),
                       ),
-                    ),
+                      // Engelle menüsü
+                      Obx(() => _ctrl.isBlocked.value
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.withOpacity(0.4)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.block, color: Colors.redAccent, size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Engellendi',
+                                  style: TextStyle(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : PopupMenuButton<String>(
+                            icon: Icon(Icons.more_vert, color: AppColors.text(context)),
+                            color: AppColors.card(context),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            onSelected: (value) {
+                              if (value == 'block') {
+                                Get.defaultDialog(
+                                  title: 'Kullanıcıyı Engelle',
+                                  titleStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                  ),
+                                  middleText: 'Bu kullanıcıyı engellemek istediğinize emin misiniz?',
+                                  middleTextStyle: TextStyle(
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontSize: 14,
+                                  ),
+                                  backgroundColor: const Color(0xFF16221A),
+                                  radius: 16,
+                                  barrierDismissible: true,
+                                  cancel: TextButton(
+                                    onPressed: () => Get.back(),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        'İptal',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.7),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  confirm: TextButton(
+                                    onPressed: () async {
+                                      Get.back(); // dialog kapat
+                                      await _ctrl.blockUser();
+                                      Get.back(); // profile sayfasından çık
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.red.withOpacity(0.4)),
+                                      ),
+                                      child: const Text(
+                                        'Engelle',
+                                        style: TextStyle(
+                                          color: Colors.redAccent,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            itemBuilder: (ctx) => [
+                              PopupMenuItem<String>(
+                                value: 'block',
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.block, color: Colors.redAccent, size: 18),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      'Kullanıcıyı Engelle',
+                                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                      ),
+                    ],
                   ),
                 ),
               _buildProfileCard(),
@@ -763,6 +871,7 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
   }
+
 
   Widget _buildProfileCard() {
     return StreamBuilder<DocumentSnapshot>(
@@ -977,9 +1086,37 @@ class _ProfileViewState extends State<ProfileView> {
     }
 
     return Obx(() {
+      final blocked = _ctrl.isBlocked.value;
       final following = _ctrl.isFollowing.value;
       final reqSent = _ctrl.isRequestSent.value;
       final loading = _ctrl.isLoading.value;
+
+      // Engelliyse sadece 'Engeli Kaldır' göster — takip butonları hiç çıkmasın
+      if (blocked) {
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: loading ? null : _ctrl.unblockUser,
+            icon: const Icon(Icons.block, size: 16, color: Colors.redAccent),
+            label: const Text(
+              'Engeli Kaldır',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: const BorderSide(color: Colors.redAccent),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+          ),
+        );
+      }
 
       Widget followBtn;
       if (following) {
@@ -1036,6 +1173,7 @@ class _ProfileViewState extends State<ProfileView> {
       return SizedBox(width: double.infinity, child: followBtn);
     });
   }
+
 
   Widget _buildAvatarWidget(
     dynamic avatarData,

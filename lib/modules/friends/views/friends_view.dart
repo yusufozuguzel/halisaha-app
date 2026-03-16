@@ -393,6 +393,45 @@ class _FollowingTab extends StatelessWidget {
           child: CircularProgressIndicator(color: _green, strokeWidth: 2),
         );
       }
+      // Hata varsa UI'da göster (permission-denied vb.)
+      if (ctrl.errorMessage.value.isNotEmpty) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 60,
+                  color: Colors.redAccent.withOpacity(0.7),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  ctrl.errorMessage.value,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.text(context),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Lütfen Yusuf\'un Firebase kurallarını güncellemesini isteyin.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.subText(context),
+                    fontSize: 12,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       final list = ctrl.filteredFollowing;
       if (list.isEmpty) {
         return Center(

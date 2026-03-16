@@ -155,10 +155,14 @@ class MatchFormationController extends GetxController {
 
     if (madeChanges) {
         positions.value = updatedPositions;
-        // İlk atamaları arkadan firestore'a yollayabiliriz.
-        _firestore.collection('matches').doc(matchId).update({
-            'positions': updatedPositions
+        // Sadece değişen slotları dot-notation ile güncelle (güvenlik kurallarına takılmaz)
+        final Map<String, dynamic> dotUpdates = {};
+        updatedPositions.forEach((slot, uid) {
+          dotUpdates['positions.$slot'] = uid;
         });
+        if (dotUpdates.isNotEmpty) {
+          _firestore.collection('matches').doc(matchId).update(dotUpdates);
+        }
     }
   }
 
@@ -212,20 +216,30 @@ class MatchFormationController extends GetxController {
          return;
       }
 
-      updatedPositions.removeWhere((key, value) => value == uid);
+      // Kullanıcının eski slotunu bul
+      String? oldSlot;
+      updatedPositions.forEach((key, value) {
+        if (value == uid) oldSlot = key;
+      });
+
+      // Lokalde güncelle
+      if (oldSlot != null) updatedPositions.remove(oldSlot);
       updatedPositions[newPositionKey] = uid;
-      
-      // Önce lokalde güncelle ki kullanıcı hemen görsün
       positions.value = updatedPositions;
 
-      // Sonra Firestore'a yaz (Anında Senkronizasyon)
+      // Firestore: sadece değişen iki alanı dot-notation ile yaz
+      // (Tüm map'i ezmek yerine sadece kendi slotlarını güncelle)
       try {
-          await _firestore.collection('matches').doc(matchId).update({
-              'positions': updatedPositions
-          });
+          final Map<String, dynamic> updates = {
+            'positions.$newPositionKey': uid,
+          };
+          if (oldSlot != null) {
+            updates['positions.$oldSlot'] = FieldValue.delete();
+          }
+          await _firestore.collection('matches').doc(matchId).update(updates);
       } catch (e) {
           print("Pozisyon güncellenirken hata: $e");
-          Get.snackbar('Hata', 'Konum değişikliği kaydedilemedi', snackPosition: SnackPosition.BOTTOM);
+          Get.snackbar('Hata', 'Konum değişikliği kaydedilemedi: $e', snackPosition: SnackPosition.BOTTOM);
       }
   }
 

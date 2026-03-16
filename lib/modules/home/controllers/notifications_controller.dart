@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class NotificationsController extends GetxController {
@@ -110,13 +111,13 @@ class NotificationsController extends GetxController {
         });
   }
 
-  // ── FOLLOW REQUEST — Accept ──────────────────────────────────────────────────
+  // ── FOLLOW REQUEST — Accept ────────────────────────────────────────────
 
-  /// Takip isteğini kabul et:
-  /// - Receiver (ben) → followers + followersCount+1
-  /// - Sender → following + followingCount+1
-  /// - followRequests altındaki kaydı sil
-  /// - Bildirim dokümanının status'unu 'accepted' yap
+  /// SADECE SADECE ŞU 4 İŞLEMİ YAPAR:
+  /// 1. users/{currentUser}/followers/{senderUid} set
+  /// 2. users/{senderUid}/following/{currentUser} set
+  /// 3. users/{currentUser}/followRequests/{senderUid} delete
+  /// 4. users/{currentUser}/notifications/{notificationDocId} update
   Future<void> acceptFollowRequest({
     required String senderUid,
     required String notificationDocId,
@@ -125,53 +126,44 @@ class NotificationsController extends GetxController {
     if (myUid == null) return;
 
     final db = _firestore;
-    final batch = db.batch();
+    try {
+      final batch = db.batch();
 
-    // 1. Ben'in followers/{senderUid}
-    batch.set(
-      db.collection('users').doc(myUid).collection('followers').doc(senderUid),
-      {'uid': senderUid, 'since': FieldValue.serverTimestamp()},
-    );
+      // 1. users/{currentUser}/followers/{senderUid} dökümanını set et.
+      batch.set(
+        db.collection('users').doc(myUid).collection('followers').doc(senderUid),
+        {'uid': senderUid, 'since': FieldValue.serverTimestamp()},
+      );
 
-    // 2. Ben → followersCount +1
-    batch.update(db.collection('users').doc(myUid), {
-      'followersCount': FieldValue.increment(1),
-    });
+      // 2. users/{senderUid}/following/{currentUser} dökümanını set et.
+      batch.set(
+        db.collection('users').doc(senderUid).collection('following').doc(myUid),
+        {'uid': myUid, 'since': FieldValue.serverTimestamp()},
+      );
 
-    // 3. Sender'ın following/{myUid}
-    batch.set(
-      db.collection('users').doc(senderUid).collection('following').doc(myUid),
-      {'uid': myUid, 'since': FieldValue.serverTimestamp()},
-    );
+      // 3. users/{currentUser}/followRequests/{senderUid} dökümanını delete et.
+      batch.delete(
+        db.collection('users').doc(myUid).collection('followRequests').doc(senderUid),
+      );
 
-    // 4. Sender → followingCount +1
-    batch.update(db.collection('users').doc(senderUid), {
-      'followingCount': FieldValue.increment(1),
-    });
+      // 4. Mevcut kullanıcının users/{currentUser}/notifications/{notificationId} dökümanını update et.
+      batch.update(
+        db.collection('users').doc(myUid).collection('notifications').doc(notificationDocId),
+        {'status': 'accepted'},
+      );
 
-    // 5. followRequests kaydını sil
-    batch.delete(
-      db
-          .collection('users')
-          .doc(myUid)
-          .collection('followRequests')
-          .doc(senderUid),
-    );
-
-    // 6. Bildirim kartını 'accepted' olarak işaretle
-    batch.update(
-      db
-          .collection('users')
-          .doc(myUid)
-          .collection('notifications')
-          .doc(notificationDocId),
-      {'status': 'accepted'},
-    );
-
-    // 7. Kabul ettiğimiz kişiyi halihazırda takip edip etmediğimizi tetikle
-    checkIfFollowing(senderUid);
-
-    await batch.commit();
+      await batch.commit();
+      
+      checkIfFollowing(senderUid); // UI'ı güncelle
+    } catch (e) {
+      print('FIREBASE KABUL ETME HATASI: $e');
+      Get.snackbar(
+        'Hata', 
+        'İstek kabul edilemedi, yetki reddedildi: $e',
+        backgroundColor: Colors.red.shade900,
+        colorText: Colors.white,
+      );
+    }
   }
 
   // ── FOLLOW REQUEST — Reject ──────────────────────────────────────────────────

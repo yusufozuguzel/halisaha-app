@@ -461,14 +461,30 @@ class MatchCreateController extends GetxController {
   }
 
   void _updateTime(TimeOfDay picked, bool isStart) {
+    // 🔥 Sadece tam (00) ve buçuk (30) saatlere yuvarla
+    int snappedMinute = (picked.minute < 15)
+        ? 0
+        : (picked.minute < 45)
+            ? 30
+            : 0;
+            
+    // Eğer 45'ten büyükse saati 1 ileri atıp dakikayı 00 yapıyoruz
+    int snappedHour = picked.hour;
+    if (picked.minute >= 45) {
+      snappedHour = (snappedHour + 1) % 24;
+    }
+
+    final snappedTime = TimeOfDay(hour: snappedHour, minute: snappedMinute);
+
     if (isStart) {
-      selectedStartTime.value = picked;
+      selectedStartTime.value = snappedTime;
+      // 🔥 Otomatik 1 saat ileri atma: Başlangıç seçildiği ANDA bitişi 1 saat sonrasına kur
       selectedEndTime.value = TimeOfDay(
-        hour: (picked.hour + 1) % 24,
-        minute: picked.minute,
+        hour: (snappedHour + 1) % 24,
+        minute: snappedMinute,
       );
     } else {
-      selectedEndTime.value = picked;
+      selectedEndTime.value = snappedTime;
     }
   }
 
@@ -536,13 +552,11 @@ class MatchCreateController extends GetxController {
       eTime.minute,
     );
 
-    // 🔥 KONTROL 1: GEÇMİŞ ZAMAN KONTROLÜ (15 Dakika Toleranslı) 🔥
-    if (combinedStartDateTime.isBefore(
-      DateTime.now().subtract(const Duration(minutes: 15)),
-    )) {
+    // 🔥 KONTROL 1: GEÇMİŞ ZAMAN KONTROLÜ 🔥
+    if (combinedStartDateTime.isBefore(DateTime.now())) {
       Get.snackbar(
         'Geçersiz Saat',
-        'Maç saati geçmişte olamaz! Lütfen ileri bir saat seçin.',
+        'Geçmiş tarihe veya saate maç kurulamaz!',
         backgroundColor: Colors.red[900],
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
@@ -550,9 +564,17 @@ class MatchCreateController extends GetxController {
       return;
     }
 
-    // 🔥 KONTROL 2: Gece Yarısı Geçişi (Örn: 23:00 - 00:00)
-    if (combinedEndDateTime.isBefore(combinedStartDateTime)) {
-      combinedEndDateTime = combinedEndDateTime.add(const Duration(days: 1));
+    // 🔥 KONTROL 2: BİTİŞ SAATİ VE MİNİMUM SÜRE KONTROLÜ 🔥
+    final difference = combinedEndDateTime.difference(combinedStartDateTime);
+    if (!combinedEndDateTime.isAfter(combinedStartDateTime) || difference.inMinutes < 30) {
+      Get.snackbar(
+        'Geçersiz Saat',
+        'Hata: Bitiş saati, başlama saatinden önce veya aynı olamaz!',
+        backgroundColor: Colors.red[900],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
     }
 
     final price = double.tryParse(priceStr) ?? 0.0;

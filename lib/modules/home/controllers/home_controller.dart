@@ -19,6 +19,10 @@ class HomeController extends GetxController {
   final Rx<MatchModel?> nextMatch = Rx<MatchModel?>(null);
   final RxBool isNextMatchLoading = true.obs;
 
+  // --- Günün Sahaları ---
+  final RxList<Map<String, dynamic>> dailyVenues = <Map<String, dynamic>>[].obs;
+  final RxBool isVenuesLoading = true.obs;
+
   // --- Arkadaşların Neler Yapıyor? (Social Feed) ---
   final RxList<ActivityModel> friendActivities = <ActivityModel>[].obs;
   final RxBool isActivitiesLoading = true.obs;
@@ -31,6 +35,31 @@ class HomeController extends GetxController {
     fetchMatches();
     fetchNextMatch();
     fetchFriendActivities();
+    fetchDailyVenues();
+  }
+
+  Future<void> fetchDailyVenues() async {
+    try {
+      isVenuesLoading.value = true;
+      final snapshot = await FirebaseFirestore.instance.collection('venues').get();
+      final venues = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['name'] ?? 'Bilinmiyor',
+          'lat': data['lat'],
+          'lng': data['lng'],
+          'city': data['city'] ?? 'Bilinmiyor',
+        };
+      }).toList();
+
+      venues.shuffle();
+      dailyVenues.value = venues.take(5).toList();
+    } catch (e) {
+      print('Günün sahaları yüklenirken hata: $e');
+    } finally {
+      isVenuesLoading.value = false;
+    }
   }
 
   void fetchMatches() {

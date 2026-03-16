@@ -192,12 +192,17 @@ class MatchDetailView extends StatelessWidget {
                           size: 20,
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          match['venue'] ?? 'Mekan Belirtilmedi',
-                          style: TextStyle(
-                            color: AppColors.text(context),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Text(
+                              match['venue'] ?? 'Mekan Belirtilmedi',
+                              style: TextStyle(
+                                color: AppColors.text(context),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ),
                       ],

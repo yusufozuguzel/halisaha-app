@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
 import 'package:get_storage/get_storage.dart';
+import '../../../core/utils/validators.dart';
 
 class AuthView extends GetView<AuthController> {
   const AuthView({super.key});
@@ -328,9 +329,11 @@ class _RegisterFormState extends State<_RegisterForm> {
     return SingleChildScrollView(
       key: const ValueKey('register'),
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: Form(
+        key: widget.controller.registerFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           Row(
             children: [
               GestureDetector(
@@ -381,6 +384,10 @@ class _RegisterFormState extends State<_RegisterForm> {
             controller: fullNameController,
             hintText: "Ahmet Yılmaz",
             prefixIcon: Icons.person_outline,
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) return 'Ad Soyad alanı boş bırakılamaz.';
+              return null;
+            },
           ),
           const SizedBox(height: 20),
           const Text(
@@ -397,6 +404,11 @@ class _RegisterFormState extends State<_RegisterForm> {
             hintText: "ornek@email.com",
             prefixIcon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) return 'Email adresi boş bırakılamaz.';
+              if (!val.contains('@')) return 'Geçerli bir email adresi girin.';
+              return null;
+            },
           ),
           const SizedBox(height: 20),
           const Text(
@@ -413,6 +425,9 @@ class _RegisterFormState extends State<_RegisterForm> {
             hintText: "••••••••",
             prefixIcon: Icons.lock_outline,
             obscureText: obscureText,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            helperText: "En az 8 karakter, 1 büyük harf ve 1 özel karakter",
+            validator: AppValidators.passwordValidator,
             suffixIcon: IconButton(
               icon: Icon(
                 obscureText
@@ -564,6 +579,7 @@ class _RegisterFormState extends State<_RegisterForm> {
           const SizedBox(height: 20),
         ],
       ),
+      ),
     );
   }
 }
@@ -610,6 +626,9 @@ class _CustomTextField extends StatelessWidget {
   final bool obscureText;
   final Widget? suffixIcon;
   final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+  final AutovalidateMode? autovalidateMode; // Added this line
+  final String? helperText;
 
   const _CustomTextField({
     required this.controller,
@@ -618,17 +637,27 @@ class _CustomTextField extends StatelessWidget {
     this.obscureText = false,
     this.suffixIcon,
     this.keyboardType,
+    this.validator,
+    this.autovalidateMode, // Added this line
+    this.helperText,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return TextFormField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      validator: validator,
+      autovalidateMode: autovalidateMode,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: hintText,
+        helperText: helperText,
+        helperStyle: TextStyle(
+          color: Colors.white.withOpacity(0.4),
+          fontSize: 12,
+        ),
         hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
         prefixIcon: Icon(prefixIcon, color: Colors.white.withOpacity(0.4)),
         suffixIcon: suffixIcon,

@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../modules/home/controllers/notifications_controller.dart';
 import '../../../modules/home/controllers/home_controller.dart';
@@ -51,6 +52,9 @@ class MatchCreateController extends GetxController {
   final RxList<Map<String, dynamic>> hybridVenues =
       <Map<String, dynamic>>[].obs;
 
+  // 📍 GPS mesafe sıralaması
+  final RxBool isLocationLoading = false.obs;
+
   final String _googlePlacesApiKey = (dotenv.env['GOOGLE_API_KEY'] ?? '')
       .trim();
   Timer? _debounce;
@@ -79,20 +83,95 @@ class MatchCreateController extends GetxController {
               'name': doc['name'],
               'lat': doc['lat'],
               'lng': doc['lng'],
+              'city': doc.data().containsKey('city') ? doc['city'] : 'Bilinmiyor',
             },
           )
           .toList();
 
       Future.microtask(() {
         allVenues.value = venues;
-        if (searchQuery.value.isEmpty) hybridVenues.value = venues;
+        if (searchQuery.value.isEmpty) {
+          hybridVenues.value = venues;
+        } else {
+          applyFilters();
+        }
       });
     } catch (e) {
       print("Sahalar çekilirken hata oluştu: $e");
       Future.microtask(() {
         allVenues.value = mockLocations;
-        if (searchQuery.value.isEmpty) hybridVenues.value = mockLocations;
+        if (searchQuery.value.isEmpty) {
+          hybridVenues.value = mockLocations;
+        } else {
+          applyFilters();
+        }
       });
+    }
+  }
+
+  void applyFilters() {
+    List<Map<String, dynamic>> result = List.from(allVenues);
+
+    // Arama filtresi
+    if (searchQuery.value.isNotEmpty) {
+      result = result
+          .where((v) => v['name']
+              .toString()
+              .toLowerCase()
+              .contains(searchQuery.value.toLowerCase()))
+          .toList();
+    }
+
+    hybridVenues.value = result;
+  }
+
+  Future<void> sortByDistance() async {
+    try {
+      isLocationLoading.value = true;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          Get.snackbar('Konum İzni', 'Konum izni verilmedi.',
+              backgroundColor: Colors.red[900], colorText: Colors.white);
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        Get.snackbar('Konum İzni',
+            'Konum izni kalıcı olarak reddedildi. Ayarlardan açınız.',
+            backgroundColor: Colors.red[900], colorText: Colors.white);
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      final sorted = hybridVenues.map((v) {
+        final distMeters = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          (v['lat'] as num).toDouble(),
+          (v['lng'] as num).toDouble(),
+        );
+        return {...v, 'distanceInMeters': distMeters};
+      }).toList();
+
+      sorted.sort((a, b) =>
+          (a['distanceInMeters'] as double)
+              .compareTo(b['distanceInMeters'] as double));
+
+      hybridVenues.value = sorted;
+    } catch (e) {
+      print('Konum hatası: $e');
+      Get.snackbar('Hata', 'Konum alınamadı: $e',
+          backgroundColor: Colors.red[900], colorText: Colors.white);
+    } finally {
+      isLocationLoading.value = false;
     }
   }
 
@@ -262,18 +341,7 @@ class MatchCreateController extends GetxController {
       searchQuery.value = value;
       selectedLat.value = null;
       selectedLng.value = null;
-      if (value.isEmpty) {
-        hybridVenues.value = allVenues;
-      } else {
-        final localMatches = allVenues
-            .where(
-              (loc) => loc['name'].toString().toLowerCase().contains(
-                value.toLowerCase(),
-              ),
-            )
-            .toList();
-        hybridVenues.value = localMatches;
-      }
+      applyFilters();
     });
 
     if (value.isNotEmpty) {

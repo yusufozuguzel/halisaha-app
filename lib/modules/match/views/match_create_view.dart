@@ -175,7 +175,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          Icon(icon, color: Color(0xFF2EED7B), size: 16),
+          Icon(icon, color: const Color(0xFF2EED7B), size: 16),
           const SizedBox(width: 8),
           Text(
             title,
@@ -363,31 +363,50 @@ class MatchCreateView extends GetView<MatchCreateController> {
   }
 
   // ─── Time & Location Section ─────────────────────────────────────────────────
-  // ─── Time & Location Section ─────────────────────────────────────────────────
   Widget _buildTimeLocationSection(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 🔥 1. SATIR: TARİH (Tek parça geniş)
+          _fieldLabel('Tarih', context),
+          const SizedBox(height: 8),
+          Obx(() {
+            final date = controller.selectedDate.value;
+            final label = date != null
+                ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
+                : 'Maç Tarihini Seçin';
+            return _pickerButton(
+              icon: Icons.calendar_today_outlined,
+              label: label,
+              onTap: () => controller.pickDate(context),
+              isSet: date != null,
+              context: context,
+            );
+          }),
+          const SizedBox(height: 16),
+
+          // 🔥 2. SATIR: BAŞLANGIÇ VE BİTİŞ SAATLERİ YAN YANA
           Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Tarih', context),
+                    _fieldLabel('Başlama Saati', context),
                     const SizedBox(height: 8),
                     Obx(() {
-                      final date = controller.selectedDate.value;
-                      final label = date != null
-                          ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
-                          : 'mm/dd/yy';
+                      final time = controller.selectedStartTime.value;
+                      final label = time != null
+                          ? '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'
+                          : '--:--';
                       return _pickerButton(
-                        icon: Icons.calendar_today_outlined,
+                        icon: Icons.access_time_rounded,
                         label: label,
-                        onTap: () => controller.pickDate(context),
-                        isSet: date != null,
+                        onTap: () =>
+                            controller.pickTime(context, isStart: true),
+                        isSet: time != null,
                         context: context,
                       );
                     }),
@@ -399,20 +418,20 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _fieldLabel('Saat', context),
+                    _fieldLabel('Bitiş Saati', context),
                     const SizedBox(height: 8),
                     Obx(() {
-                      final time = controller.selectedTime.value;
+                      final time = controller.selectedEndTime.value;
                       final label = time != null
                           ? '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'
                           : '--:--';
                       return _pickerButton(
-                        icon: Icons.access_time_rounded,
+                        icon: Icons.watch_later_outlined,
                         label: label,
-                        onTap: () => controller.pickTime(context),
+                        onTap: () =>
+                            controller.pickTime(context, isStart: false),
                         isSet: time != null,
                         context: context,
-                        trailingIcon: Icons.watch_later_outlined,
                       );
                     }),
                   ],
@@ -420,6 +439,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
               ),
             ],
           ),
+
           const SizedBox(height: 16),
           _fieldLabel('Saha Adı / Konum', context),
           const SizedBox(height: 8),
@@ -474,7 +494,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
                         children: [
                           Icon(
                             Icons.location_on,
-                            color: loc['source'] == 'google' ? Colors.blueAccent : const Color(0xFF2EED7B),
+                            color: loc['source'] == 'google'
+                                ? Colors.blueAccent
+                                : const Color(0xFF2EED7B),
                             size: 16,
                           ),
                           const SizedBox(width: 8),
@@ -489,7 +511,8 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                     fontSize: 13,
                                   ),
                                 ),
-                                if (loc['source'] == 'google' && loc['address'] != null)
+                                if (loc['source'] == 'google' &&
+                                    loc['address'] != null)
                                   Text(
                                     loc['address'],
                                     style: TextStyle(
@@ -513,7 +536,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
 
           const SizedBox(height: 14),
 
-          // 3. Haritada Görüntüle Butonu (Tekil)
+          // 3. Haritada Görüntüle Butonu
           _mapPlaceholder(context),
         ],
       ),
@@ -599,10 +622,8 @@ class MatchCreateView extends GetView<MatchCreateController> {
           Expanded(
             child: TextField(
               onChanged: controller.onVenueSearchChanged,
-
               controller: controller.venueController,
               style: TextStyle(color: AppColors.text(context), fontSize: 14),
-              // ... (decoration kısmı aynı kalacak)
               decoration: InputDecoration(
                 hintText: 'Halı saha adını girin veya seçin',
                 hintStyle: TextStyle(
@@ -681,7 +702,6 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 ),
               ),
             ),
-            // 🔥 YENİ: Tıklayınca direkt Google Maps'i (openMap) açar 🔥
             Center(
               child: GestureDetector(
                 onTap: () => controller.openMap(),
@@ -725,7 +745,6 @@ class MatchCreateView extends GetView<MatchCreateController> {
     );
   }
 
-  // ─── Location BottomSheet ─────────────────────────────────────────────────────
   // ─── Location BottomSheet ─────────────────────────────────────────────────────
   void _showLocationBottomSheet(BuildContext context) {
     showModalBottomSheet(
@@ -846,11 +865,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
             ),
             const SizedBox(height: 20),
 
-            // 🔥 YENİ: SAHALAR LİSTESİ (Mock Data) 🔥
             // 🔥 YENİ VE DÜZELTİLMİŞ: SAHALAR LİSTESİ 🔥
             Expanded(
               child: Obx(() {
-                // GetX'in hatasız çalışması için bu .value değişkenleri okumamız ŞART!
                 final currentLat = controller.selectedLat.value;
                 final currentLng = controller.selectedLng.value;
 
@@ -859,7 +876,6 @@ class MatchCreateView extends GetView<MatchCreateController> {
                   itemCount: controller.filteredLocations.length,
                   itemBuilder: (context, index) {
                     final loc = controller.filteredLocations[index];
-                    // Seçili olma durumunu artık koordinatlardan anlıyoruz
                     final isSelected =
                         currentLat == loc['lat'] && currentLng == loc['lng'];
 
@@ -899,10 +915,14 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                loc['source'] == 'google' ? Icons.public : Icons.location_on,
+                                loc['source'] == 'google'
+                                    ? Icons.public
+                                    : Icons.location_on,
                                 color: isSelected
                                     ? const Color(0xFF2EED7B)
-                                    : (loc['source'] == 'google' ? Colors.blueAccent : AppColors.subText(context)),
+                                    : (loc['source'] == 'google'
+                                          ? Colors.blueAccent
+                                          : AppColors.subText(context)),
                                 size: 20,
                               ),
                             ),
@@ -921,7 +941,8 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                           : FontWeight.w500,
                                     ),
                                   ),
-                                  if (loc['source'] == 'google' && loc['address'] != null)
+                                  if (loc['source'] == 'google' &&
+                                      loc['address'] != null)
                                     Text(
                                       loc['address'],
                                       style: TextStyle(
@@ -1141,7 +1162,6 @@ class _MapPatternPainter extends CustomPainter {
     final bgPaint = Paint()..color = isDark ? cardColor : Colors.white;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    // Draw a football pitch outline
     final linePaint = Paint()
       ..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.18 : 0.7)
       ..strokeWidth = 1.2
@@ -1150,17 +1170,13 @@ class _MapPatternPainter extends CustomPainter {
     final cx = size.width / 2;
     final cy = size.height / 2;
 
-    // Outer boundary
     final outerRect = Rect.fromLTRB(16, 10, size.width - 16, size.height - 10);
     canvas.drawRRect(
       RRect.fromRectAndRadius(outerRect, const Radius.circular(4)),
       linePaint,
     );
 
-    // Centre line
     canvas.drawLine(Offset(cx, 10), Offset(cx, size.height - 10), linePaint);
-
-    // Centre circle
     canvas.drawCircle(Offset(cx, cy), 24, linePaint);
     canvas.drawCircle(
       Offset(cx, cy),
@@ -1168,15 +1184,12 @@ class _MapPatternPainter extends CustomPainter {
       Paint()..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.25 : 0.8),
     );
 
-    // Goal areas
     final goalW = 44.0;
     final goalH = 22.0;
-    // Left goal area
     canvas.drawRect(
       Rect.fromLTRB(16, cy - goalH / 2, 16 + goalW, cy + goalH / 2),
       linePaint,
     );
-    // Right goal area
     canvas.drawRect(
       Rect.fromLTRB(
         size.width - 16 - goalW,
@@ -1187,7 +1200,6 @@ class _MapPatternPainter extends CustomPainter {
       linePaint,
     );
 
-    // Grid dots
     final dotPaint = Paint()
       ..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.07 : 0.5);
     for (double x = 20; x < size.width; x += 18) {

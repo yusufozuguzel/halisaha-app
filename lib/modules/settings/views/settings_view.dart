@@ -170,37 +170,6 @@ class SettingsView extends GetView<SettingsController> {
                 onTap: () => controller.toggleDarkMode(!darkMode),
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // ── Açıklama Notu ────────────────────────────────
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? _green.withOpacity(0.05)
-                    : _green.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _green.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, color: _green, size: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Tema değişikliği anında uygulanır.',
-                      style: TextStyle(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.6)
-                            : Colors.black54,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       );

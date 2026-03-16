@@ -28,6 +28,7 @@ class ProfileController extends GetxController {
   final RxBool isFollowing = false.obs;
   final RxBool isRequestSent = false.obs;
   final RxBool isLoading = false.obs;
+  final RxBool isBlocked = false.obs;
 
   // ── İstatistikler ──────────────────────────────────────────
   final RxInt matchesCount = 0.obs;
@@ -143,6 +144,16 @@ class ProfileController extends GetxController {
     final myUid = _myUid;
     if (myUid == null || myUid.isEmpty || targetUid.isEmpty) return;
 
+    // Engelledi mi? (Engel varsa takip bilgisi gerekmez)
+    final myDoc = await _db.collection('users').doc(myUid).get();
+    if (myDoc.exists) {
+      final blockedList = List<String>.from(myDoc.data()?['blockedUsers'] ?? []);
+      isBlocked.value = blockedList.contains(targetUid);
+    }
+
+    // Engellenmişse takip durumunu kontrol etmeye gerek yok
+    if (isBlocked.value) return;
+
     // Takip ediyor mu?
     final followerDoc = await _db
         .collection('users')
@@ -161,6 +172,86 @@ class ProfileController extends GetxController {
           .doc(myUid)
           .get();
       isRequestSent.value = reqDoc.exists;
+    }
+  }
+
+  // ── Block User (Instagram-style) ──────────────────────────────
+  Future<void> blockUser() async {
+    final myUid = _myUid;
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty) return;
+    try {
+      isLoading.value = true;
+      final batch = _db.batch();
+
+      // 1. Benım followersCount'u güncelle (āeger hedef beni takip ediyorsa)
+      final targetFollowsMe = await _db
+          .collection('users').doc(myUid).collection('followers').doc(targetUid).get();
+      if (targetFollowsMe.exists) {
+        batch.delete(_db.collection('users').doc(myUid).collection('followers').doc(targetUid));
+        batch.delete(_db.collection('users').doc(targetUid).collection('following').doc(myUid));
+        // NOT: followersCount / followingCount Cloud Function'a bırakıldı
+      }
+
+      // 2. Ben hedefi takip ediyorsam
+      final iFollowTarget = await _db
+          .collection('users').doc(targetUid).collection('followers').doc(myUid).get();
+      if (iFollowTarget.exists) {
+        batch.delete(_db.collection('users').doc(targetUid).collection('followers').doc(myUid));
+        batch.delete(_db.collection('users').doc(myUid).collection('following').doc(targetUid));
+        // NOT: followersCount / followingCount Cloud Function'a bırakıldı
+      }
+
+      // 3. Bekleyen followRequest'leri sil (her iki yön)
+      batch.delete(_db.collection('users').doc(myUid).collection('followRequests').doc(targetUid));
+      batch.delete(_db.collection('users').doc(targetUid).collection('followRequests').doc(myUid));
+
+      // 4. Engelle: kendi dokümanıma hedefin UID'sini ekle
+      batch.update(_db.collection('users').doc(myUid), {
+        'blockedUsers': FieldValue.arrayUnion([targetUid]),
+      });
+
+      await batch.commit();
+
+      // Lokal state güncelle
+      isBlocked.value = true;
+      isFollowing.value = false;
+      isRequestSent.value = false;
+
+      Get.snackbar(
+        'Engellendi',
+        'Kullanıcı engellendi ve tüm bağlar koparıldı.',
+        backgroundColor: const Color(0xFF1E2A22),
+        colorText: const Color(0xFF2EED7B),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar('Hata', 'Engelleme işlemi başarısız: $e',
+          backgroundColor: Colors.red.shade700, colorText: Colors.white);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // ── Unblock User ────────────────────────────────────────────
+  Future<void> unblockUser() async {
+    final myUid = _myUid;
+    if (myUid == null || myUid.isEmpty || targetUid.isEmpty) return;
+    try {
+      isLoading.value = true;
+      await _db.collection('users').doc(myUid).update({
+        'blockedUsers': FieldValue.arrayRemove([targetUid]),
+      });
+      isBlocked.value = false;
+      Get.snackbar(
+        'Engel Kaldırıldı',
+        'Kullanıcının engeli kaldırıldı.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar('Hata', 'Engel kaldırılamadı: $e',
+          backgroundColor: Colors.red.shade700, colorText: Colors.white);
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -243,7 +334,7 @@ class ProfileController extends GetxController {
     try {
       final batch = _db.batch();
 
-      // target.followers/{myUid}
+      // target.followers/{myUid} — hedefin alt koleksiyonu (OK)
       batch.delete(
         _db
             .collection('users')
@@ -252,7 +343,7 @@ class ProfileController extends GetxController {
             .doc(myUid),
       );
 
-      // my.following/{targetUid}
+      // my.following/{targetUid} — benim alt koleksiyonum (OK)
       batch.delete(
         _db
             .collection('users')
@@ -261,13 +352,7 @@ class ProfileController extends GetxController {
             .doc(targetUid),
       );
 
-      // Sayaçları azalt
-      batch.update(_db.collection('users').doc(targetUid), {
-        'followersCount': FieldValue.increment(-1),
-      });
-      batch.update(_db.collection('users').doc(myUid), {
-        'followingCount': FieldValue.increment(-1),
-      });
+      // NOT: followersCount / followingCount sayıçları Cloud Function'a bırakıldı.
 
       await batch.commit();
       isFollowing.value = false;
@@ -278,46 +363,48 @@ class ProfileController extends GetxController {
     }
   }
 
-  // ── Accept Follow Request (gelen istek kabul) ──────────────
-  /// Bildirim ekranından veya profil sayfasından çağrılır.
+  // ── Accept Follow Request (gelen istek kabul) ──────────────────
+  /// SADECE SADECE ŞU 3 İŞLEMİ YAPAR:
+  /// 1. users/{currentUser}/followers/{fromUid} set
+  /// 2. users/{fromUid}/following/{currentUser} set
+  /// 3. users/{currentUser}/followRequests/{fromUid} delete
   Future<void> acceptFollowRequest(String fromUid) async {
     final myUid = _myUid;
     if (myUid == null || myUid.isEmpty || fromUid.isEmpty) return;
+    
     try {
       final batch = _db.batch();
 
-      // my.followers/{fromUid}
+      // 1. users/{currentUser}/followers/{senderUid} dökümanını set et
       batch.set(
         _db.collection('users').doc(myUid).collection('followers').doc(fromUid),
         {'uid': fromUid, 'since': FieldValue.serverTimestamp()},
       );
 
-      // from.following/{myUid}
+      // 2. users/{senderUid}/following/{currentUser} dökümanını set et
       batch.set(
         _db.collection('users').doc(fromUid).collection('following').doc(myUid),
         {'uid': myUid, 'since': FieldValue.serverTimestamp()},
       );
 
-      // Sayaçları artır
-      batch.update(_db.collection('users').doc(myUid), {
-        'followersCount': FieldValue.increment(1),
-      });
-      batch.update(_db.collection('users').doc(fromUid), {
-        'followingCount': FieldValue.increment(1),
-      });
-
-      // Bekleyen isteği sil
+      // 3. users/{currentUser}/followRequests/{senderUid} dökümanını delete et.
       batch.delete(
-        _db
-            .collection('users')
-            .doc(myUid)
-            .collection('followRequests')
-            .doc(fromUid),
+        _db.collection('users').doc(myUid).collection('followRequests').doc(fromUid),
       );
 
       await batch.commit();
+
+      if (fromUid == targetUid) {
+        isFollowing.value = true;
+      }
     } catch (e) {
-      Get.snackbar('Hata', 'İstek kabul edilemedi: $e');
+      print('FIREBASE KABUL ETME HATASI: $e');
+      Get.snackbar(
+        'Hata', 
+        'İstek kabul edilemedi, yetki reddedildi: $e',
+        backgroundColor: Colors.red.shade900,
+        colorText: Colors.white,
+      );
     }
   }
 

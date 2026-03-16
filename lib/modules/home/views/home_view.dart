@@ -1040,6 +1040,9 @@ class _HomeViewState extends State<HomeView> {
   // ── Friend Activities ───────────────────────────────────────
   Widget _buildFriendActivities() {
     final textColor = AppColors.text(context);
+    final subText = AppColors.subText(context);
+    final homeController = Get.find<HomeController>();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
@@ -1055,25 +1058,67 @@ class _HomeViewState extends State<HomeView> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildActivityItem(
-            name: 'Mehmet',
-            action: 'bir maç oluşturdu.',
-            time: '2 saat önce • Ataşehir Arena',
-            avatarUrl: 'https://picsum.photos/seed/friend1/100/100',
-            showJoinButton: true,
-            icon: Icons.sports_soccer,
-            iconColor: Colors.blue,
-          ),
-          const SizedBox(height: 12),
-          _buildActivityItem(
-            name: 'Ayşe',
-            action: '"Salı Futbolu" maçına katıldı.',
-            time: '4 saat önce',
-            avatarUrl: 'https://picsum.photos/seed/friend2/100/100',
-            showJoinButton: false,
-            icon: Icons.check,
-            iconColor: kGreen,
-          ),
+          Obx(() {
+            if (homeController.isActivitiesLoading.value) {
+              return const Center(child: CircularProgressIndicator(color: kGreen));
+            }
+
+            final activities = homeController.friendActivities;
+
+            // --- EMPTY STATE ---
+            if (activities.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.overlay(context),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border(context)),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.people_alt_outlined,
+                      size: 48,
+                      color: subText.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Henüz kimseyi takip etmiyorsun\nveya arkadaşların şu an aktif değil.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: subText,
+                        fontSize: 14,
+                        decoration: TextDecoration.none,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // --- DYNAMIC FEED ---
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: activities.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final activity = activities[index];
+                return _buildActivityItem(
+                  name: activity.userName,
+                  action: activity.action,
+                  time: activity.time,
+                  avatarUrl: activity.userAvatar,
+                  showJoinButton: activity.matchId != null,
+                  icon: activity.isCreated ? Icons.add_circle : Icons.check_circle,
+                  iconColor: activity.isCreated ? Colors.blue : kGreen,
+                  matchId: activity.matchId,
+                );
+              },
+            );
+          }),
         ],
       ),
     );
@@ -1087,6 +1132,7 @@ class _HomeViewState extends State<HomeView> {
     required bool showJoinButton,
     required IconData icon,
     required Color iconColor,
+    String? matchId,
   }) {
     final textColor = AppColors.text(context);
     final subText = AppColors.subText(context);
@@ -1166,12 +1212,16 @@ class _HomeViewState extends State<HomeView> {
                     decoration: TextDecoration.none,
                   ),
                 ),
-                if (showJoinButton) ...[
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () {},
-                    child: Text(
-                      'Katıl',
+                  if (showJoinButton) ...[
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () {
+                        if (matchId != null) {
+                          Get.toNamed('/match-detail', arguments: matchId);
+                        }
+                      },
+                      child: Text(
+                        'Katıl',
                       style: TextStyle(
                         color: kGreen,
                         fontWeight: FontWeight.bold,

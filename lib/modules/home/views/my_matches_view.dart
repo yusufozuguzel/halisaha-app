@@ -187,18 +187,6 @@ class MyMatchesView extends GetView<MyMatchesController> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        GestureDetector(
-          onTap: () {},
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.card(context),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.tune, color: AppColors.text(context), size: 22),
-          ),
-        ),
       ],
     );
   }

@@ -46,6 +46,7 @@ class FriendsController extends GetxController {
   final RxString searchQuery = ''.obs;
   final RxBool isSearching = false.obs;
   final RxBool isLoading = true.obs;
+  final RxString errorMessage = ''.obs;
 
   // ── Subscriptions ─────────────────────────────────────────
   final List<Function()> _subs = [];
@@ -85,21 +86,33 @@ class FriendsController extends GetxController {
         .doc(myUid)
         .collection('following')
         .snapshots()
-        .listen((snap) async {
-          isLoading.value = true;
-          final result = <UserModel>[];
-          for (final doc in snap.docs) {
-            final uid = doc.id;
-            try {
-              final userDoc = await _db.collection('users').doc(uid).get();
-              if (userDoc.exists) {
-                result.add(UserModel.fromFirestore(uid, userDoc.data() ?? {}));
-              }
-            } catch (_) {}
-          }
-          following.assignAll(result);
-          isLoading.value = false;
-        });
+        .listen(
+          (snap) async {
+            isLoading.value = true;
+            errorMessage.value = '';
+            final result = <UserModel>[];
+            for (final doc in snap.docs) {
+              final uid = doc.id;
+              try {
+                final userDoc = await _db.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                  result.add(UserModel.fromFirestore(uid, userDoc.data() ?? {}));
+                }
+              } catch (_) {}
+            }
+            following.assignAll(result);
+            isLoading.value = false;
+          },
+          onError: (e) {
+            print('Takip listesi hatası: $e');
+            if (e.toString().contains('permission-denied')) {
+              errorMessage.value = 'Listeye erişim için yetkiniz yok.';
+            } else {
+              errorMessage.value = 'Takip listesi yüklenemedi.';
+            }
+            isLoading.value = false;
+          },
+        );
     _subs.add(sub.cancel);
   }
 
@@ -113,21 +126,26 @@ class FriendsController extends GetxController {
         .doc(myUid)
         .collection('followRequests')
         .snapshots()
-        .listen((snap) async {
-          final result = <UserModel>[];
-          for (final doc in snap.docs) {
-            final fromUid = doc['from'] as String? ?? doc.id;
-            try {
-              final userDoc = await _db.collection('users').doc(fromUid).get();
-              if (userDoc.exists) {
-                result.add(
-                  UserModel.fromFirestore(fromUid, userDoc.data() ?? {}),
-                );
-              }
-            } catch (_) {}
-          }
-          pendingRequests.assignAll(result);
-        });
+        .listen(
+          (snap) async {
+            final result = <UserModel>[];
+            for (final doc in snap.docs) {
+              final fromUid = doc['from'] as String? ?? doc.id;
+              try {
+                final userDoc = await _db.collection('users').doc(fromUid).get();
+                if (userDoc.exists) {
+                  result.add(
+                    UserModel.fromFirestore(fromUid, userDoc.data() ?? {}),
+                  );
+                }
+              } catch (_) {}
+            }
+            pendingRequests.assignAll(result);
+          },
+          onError: (e) {
+            print('Arkadaşlık istekleri hatası: $e');
+          },
+        );
     _subs.add(sub.cancel);
   }
 
@@ -197,6 +215,7 @@ class FriendsController extends GetxController {
       await ctrl.acceptFollowRequest(fromUid);
     } catch (_) {
       // ProfileController yoksa doğrudan Firestore batch yap
+      // ✔ Sadece alt-koleksiyonlara yazılır — ana dökümana dokunulmaz
       final myUid = _myUid;
       if (myUid == null) return;
       final batch = _db.batch();
@@ -208,12 +227,7 @@ class FriendsController extends GetxController {
         _db.collection('users').doc(fromUid).collection('following').doc(myUid),
         {'uid': myUid, 'since': FieldValue.serverTimestamp()},
       );
-      batch.update(_db.collection('users').doc(myUid), {
-        'followersCount': FieldValue.increment(1),
-      });
-      batch.update(_db.collection('users').doc(fromUid), {
-        'followingCount': FieldValue.increment(1),
-      });
+      // NOT: followersCount / followingCount Cloud Function'a bırakıldı.
       batch.delete(
         _db
             .collection('users')

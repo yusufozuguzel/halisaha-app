@@ -40,8 +40,11 @@ class ProfileController extends GetxController {
   final RxBool isUploading = false.obs;
 
   // ── Şifre Değiştirme Durumu ────────────────────────────────
-  final RxString currentPassword = "".obs;
-  final RxString newPassword = "".obs;
+  // Form key for password change
+  final GlobalKey<FormState> changePasswordFormKey = GlobalKey<FormState>();
+
+  var currentPassword = ''.obs;
+  var newPassword = ''.obs;
   final RxString confirmPassword = "".obs;
   final RxBool isCurrentObscure = true.obs;
   final RxBool isNewObscure = true.obs;
@@ -51,14 +54,12 @@ class ProfileController extends GetxController {
   final RxString deletePassword = "".obs;
   final RxBool isDeleteObscure = true.obs;
 
+  // Using Form validation now, old manual computed values not needed but keeping for compatibility if used elsewhere
   bool get isLengthValid => newPassword.value.length >= 8;
-  bool get isComplexValid =>
-      RegExp(r'(?=.*[A-ZÇĞİÖŞÜ])(?=.*[0-9])').hasMatch(newPassword.value);
-  bool get isMatchValid =>
-      newPassword.value == confirmPassword.value &&
-      newPassword
-          .value
-          .isNotEmpty; // ── Firestore / Auth shortcuts ─────────────────────────────
+  bool get isComplexValid => RegExp(r'[A-Z]').hasMatch(newPassword.value) && RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(newPassword.value);
+  bool get isMatchValid => newPassword.value == confirmPassword.value;
+
+  // ── Şifre Güncelle ──────────────────────────────────────────|──
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
   String? get _myUid => _auth.currentUser?.uid;
@@ -467,16 +468,7 @@ class ProfileController extends GetxController {
     final user = _auth.currentUser;
     if (user == null || user.email == null) return;
 
-    if (currentPassword.value.isEmpty ||
-        !isLengthValid ||
-        !isComplexValid ||
-        !isMatchValid) {
-      Get.snackbar(
-        'Uyarı',
-        'Lütfen tüm alanları kurallara uygun doldurduğunuzdan emin olun.',
-        backgroundColor: Colors.orange.shade600,
-        colorText: Colors.white,
-      );
+    if (!changePasswordFormKey.currentState!.validate()) {
       return;
     }
 

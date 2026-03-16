@@ -751,13 +751,14 @@ class MatchCreateView extends GetView<MatchCreateController> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        height: MediaQuery.of(context).size.height * 0.72,
-        decoration: BoxDecoration(
-          color: AppColors.bg(context),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.bg(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
           children: [
             // Handle bar
             Padding(
@@ -863,7 +864,51 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+
+            // 📍 Yakınımdaki Sahaları Bul
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Obx(() => SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: ElevatedButton.icon(
+                  onPressed: controller.isLocationLoading.value
+                      ? null
+                      : () => controller.sortByDistance(),
+                  icon: controller.isLocationLoading.value
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF2EED7B),
+                          ),
+                        )
+                      : const Icon(Icons.my_location, size: 18),
+                  label: Text(
+                    controller.isLocationLoading.value
+                        ? 'Konum alınıyor...'
+                        : 'Yakınımdaki Sahaları Bul',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.isDark(context)
+                        ? const Color(0xFF1A2E1F)
+                        : const Color(0xFFE8F9ED),
+                    foregroundColor: const Color(0xFF2EED7B),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: const Color(0xFF2EED7B).withOpacity(0.4),
+                      ),
+                    ),
+                  ),
+                ),
+              )),
+            ),
+            const SizedBox(height: 12),
 
             // 🔥 YENİ VE DÜZELTİLMİŞ: SAHALAR LİSTESİ 🔥
             Expanded(
@@ -952,6 +997,18 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
+                                  if (loc['distanceInMeters'] != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        '📍 ${((loc['distanceInMeters'] as double) / 1000).toStringAsFixed(1)} km',
+                                        style: const TextStyle(
+                                          color: Color(0xFF2EED7B),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -1012,6 +1069,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

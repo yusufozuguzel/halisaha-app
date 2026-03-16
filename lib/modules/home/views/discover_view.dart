@@ -11,21 +11,6 @@ import '../../match/views/match_create_view.dart';
 import '../controllers/discover_controller.dart';
 
 // ============================================================
-// Data Models
-// ============================================================
-class _FieldData {
-  final String name, location, distance, rating, price, imageUrl;
-  _FieldData({
-    required this.name,
-    required this.location,
-    required this.distance,
-    required this.rating,
-    required this.price,
-    required this.imageUrl,
-  });
-}
-
-// ============================================================
 // Page
 // ============================================================
 class DiscoverView extends GetView<DiscoverController> {
@@ -36,26 +21,6 @@ class DiscoverView extends GetView<DiscoverController> {
 
   final ScrollController _popularMatchesController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-
-  // ---- Dummy Data (Yalnızca Sahalar Kaldı) ----
-  final List<_FieldData> _fields = [
-    _FieldData(
-      name: 'Gold Arena Halı Saha',
-      location: 'Şişli, İstanbul',
-      distance: '1.2 km',
-      rating: '4.9',
-      price: '₺1200',
-      imageUrl: 'https://picsum.photos/seed/dfield1/800/400',
-    ),
-    _FieldData(
-      name: 'Vadi İstanbul Arena',
-      location: 'Sarıyer, İstanbul',
-      distance: '3.5 km',
-      rating: '4.8',
-      price: '₺1400',
-      imageUrl: 'https://picsum.photos/seed/dfield2/800/400',
-    ),
-  ];
 
   static const _green = Color(0xFF2EED7B);
 
@@ -206,6 +171,7 @@ class DiscoverView extends GetView<DiscoverController> {
                   ),
                   child: TextField(
                     controller: _searchController,
+                    onChanged: (value) => controller.onSearchChanged(value),
                     style: TextStyle(color: textColor, fontSize: 14),
                     decoration: InputDecoration(
                       hintText: 'Saha veya Şehir Ara',
@@ -239,7 +205,7 @@ class DiscoverView extends GetView<DiscoverController> {
     );
   }
 
-  // ── Nearby Fields ───────────────────────────────────────────
+  // ── Nearby Fields ───────────────────────────────────────────────────────
   Widget _buildNearbyFields(BuildContext context) {
     final textColor = AppColors.text(context);
     return Column(
@@ -271,15 +237,50 @@ class DiscoverView extends GetView<DiscoverController> {
           ),
         ),
         const SizedBox(height: 14),
-        ..._fields.map((f) => _buildFieldCard(context, f)).toList(),
+        Obx(() {
+          if (controller.isVenuesLoading.value) {
+            return const SizedBox(
+              height: 200,
+              child: Center(
+                child: CircularProgressIndicator(color: _green),
+              ),
+            );
+          }
+
+          if (controller.nearbyVenues.isEmpty) {
+            return SizedBox(
+              height: 120,
+              child: Center(
+                child: Text(
+                  'Yakınınızda kayıtlı saha bulunamadı.',
+                  style: TextStyle(
+                    color: AppColors.subText(context),
+                    fontSize: 14,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return Column(
+            children: controller.nearbyVenues
+                .map((venue) => _buildFieldCard(context, venue))
+                .toList(),
+          );
+        }),
       ],
     );
   }
 
-  Widget _buildFieldCard(BuildContext context, _FieldData field) {
-    final textColor = AppColors.text(context);
-    final subText = AppColors.subText(context);
+  Widget _buildFieldCard(BuildContext context, Map<String, dynamic> venue) {
     final card = AppColors.card(context);
+    final name = venue['name'] ?? 'Bilinmiyor';
+    final city = venue['city'] ?? '';
+    final distanceMeters = venue['distanceInMeters'] as double?;
+    final distanceStr = distanceMeters != null
+        ? '${(distanceMeters / 1000).toStringAsFixed(1)} km'
+        : null;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
@@ -297,38 +298,14 @@ class DiscoverView extends GetView<DiscoverController> {
               SizedBox(
                 height: 160,
                 width: double.infinity,
-                child: Image.network(field.imageUrl, fit: BoxFit.cover),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.65),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.star,
-                        color: Color(0xFFFFC107),
-                        size: 13,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        field.rating,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ],
+                child: Image.network(
+                  'https://picsum.photos/seed/${venue['id']}/800/400',
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: AppColors.overlay(context),
+                    child: const Center(
+                      child: Icon(Icons.sports_soccer, size: 48, color: _green),
+                    ),
                   ),
                 ),
               ),
@@ -352,7 +329,7 @@ class DiscoverView extends GetView<DiscoverController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        field.name,
+                        name,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 17,
@@ -369,12 +346,18 @@ class DiscoverView extends GetView<DiscoverController> {
                             size: 13,
                           ),
                           const SizedBox(width: 3),
-                          Text(
-                            '${field.location} • ${field.distance}',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.65),
-                              fontSize: 12,
-                              decoration: TextDecoration.none,
+                          Expanded(
+                            child: Text(
+                              distanceStr != null
+                                  ? '$city • 📍 $distanceStr'
+                                  : city,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.65),
+                                fontSize: 12,
+                                decoration: TextDecoration.none,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -384,82 +367,6 @@ class DiscoverView extends GetView<DiscoverController> {
                 ),
               ),
             ],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Saatlik Ücret',
-                      style: TextStyle(
-                        color: subText,
-                        fontSize: 11,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: field.price,
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' / 60dk',
-                            style: TextStyle(color: subText, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                InkWell(
-                  onTap: () => Get.snackbar(
-                    'Rezervasyon',
-                    'Saha detaylarına gidiliyor...',
-                    backgroundColor: const Color(0xFF1C3A24),
-                    colorText: _green,
-                    borderRadius: 12,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    snackPosition: SnackPosition.BOTTOM,
-                    duration: const Duration(seconds: 3),
-                    icon: const Icon(Icons.event_available, color: _green),
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _green,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'Rezervasyon',
-                      style: TextStyle(
-                        color: Color(0xFF0F1712), // kDarkBg
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

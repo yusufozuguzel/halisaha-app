@@ -12,6 +12,7 @@ import 'my_matches_view.dart';
 import 'discover_view.dart';
 import '../../../routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/validators.dart';
 import '../../match/controllers/match_create_controller.dart';
 import '../../match/views/match_create_view.dart';
 import '../../friends/views/friends_view.dart';
@@ -1468,8 +1469,10 @@ class _ProfileViewState extends State<ProfileView> {
               ),
             ),
             child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Form(
+                key: controller.changePasswordFormKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Center(
@@ -1492,28 +1495,43 @@ class _ProfileViewState extends State<ProfileView> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _editField(
+                  _buildPasswordFormField(
                     'Mevcut Şifreniz',
                     currentPassCtrl,
-                    Icons.lock_outline,
                     ctx,
-                    inputBg: inputBg,
+                    inputBg,
+                    onChanged: (val) => controller.currentPassword.value = val,
+                    validator: (val) {
+                      if (val == null || val.isEmpty) return 'Mevcut şifre boş bırakılamaz.';
+                      return null;
+                    },
+                    isObscure: controller.isCurrentObscure,
                   ),
                   const SizedBox(height: 16),
-                  _editField(
+                  _buildPasswordFormField(
                     'Yeni Şifre',
                     newPassCtrl,
-                    Icons.lock_outline,
                     ctx,
-                    inputBg: inputBg,
+                    inputBg,
+                    onChanged: (val) => controller.newPassword.value = val,
+                    validator: AppValidators.passwordValidator,
+                    isObscure: controller.isNewObscure,
+                    helperText: "En az 8 karakter, 1 büyük harf ve 1 özel karakter",
                   ),
                   const SizedBox(height: 16),
-                  _editField(
+                  _buildPasswordFormField(
                     'Yeni Şifre (Tekrar)',
                     confirmPassCtrl,
-                    Icons.lock_outline,
                     ctx,
-                    inputBg: inputBg,
+                    inputBg,
+                    onChanged: (val) => controller.confirmPassword.value = val,
+                    validator: (val) {
+                      if (val != controller.newPassword.value) {
+                        return 'Şifreler eşleşmiyor.';
+                      }
+                      return AppValidators.passwordValidator(val);
+                    },
+                    isObscure: controller.isConfirmObscure,
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
@@ -1537,6 +1555,7 @@ class _ProfileViewState extends State<ProfileView> {
                   ),
                 ],
               ),
+            ),
             ),
           );
         },
@@ -1598,4 +1617,69 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
   }
+
+  Widget _buildPasswordFormField(
+    String label,
+    TextEditingController ctrl,
+    BuildContext ctx,
+    Color inputBg, {
+    required void Function(String) onChanged,
+    required String? Function(String?) validator,
+    required RxBool isObscure,
+    String? helperText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.subText(ctx),
+            fontSize: 12,
+            decoration: TextDecoration.none,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Obx(() => TextFormField(
+          controller: ctrl,
+          obscureText: isObscure.value,
+          onChanged: onChanged,
+          validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          style: TextStyle(color: AppColors.text(ctx), fontSize: 14),
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.lock_outline, color: AppColors.subText(ctx), size: 18),
+            suffixIcon: IconButton(
+              icon: Icon(
+                isObscure.value ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                color: AppColors.subText(ctx),
+              ),
+              onPressed: () => isObscure.value = !isObscure.value,
+            ),
+            filled: true,
+            fillColor: inputBg,
+            helperText: helperText,
+            helperStyle: TextStyle(
+              color: AppColors.subText(ctx),
+              fontSize: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border(ctx)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border(ctx)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF2EED7B)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+          ),
+        )),
+      ],
+    );
+  }
 }
+

@@ -22,6 +22,7 @@ class AuthController extends GetxController {
 
   late Rx<User?> firebaseUser;
   var isLogin = true.obs;
+  final GlobalKey<FormState> registerFormKey = GlobalKey<FormState>();
 
   @override
   void onReady() {
@@ -72,14 +73,14 @@ class AuthController extends GetxController {
       if (!emailToLogin.contains('@')) {
         final querySnapshot = await _firestore
             .collection('users')
-            .where('name', isEqualTo: emailToLogin)
+            .where('fullName', isEqualTo: emailToLogin)
             .limit(1)
             .get();
 
         if (querySnapshot.docs.isEmpty) {
           Get.snackbar(
             "Hata",
-            "Kullanıcı bulunamadı. Lütfen isminizi büyük/küçük harfe dikkat ederek doğru girdiğinizden emin olun.",
+            "Kullanıcı bulunamadı.",
           );
           return;
         }
@@ -100,7 +101,11 @@ class AuthController extends GetxController {
 
       Get.snackbar("Başarılı", "Giriş yapıldı");
     } on FirebaseAuthException catch (e) {
-      Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
+      if (e.code == 'invalid-credential' || e.code == 'user-not-found' || e.code == 'wrong-password') {
+        Get.snackbar("Hata", "E-posta veya şifreniz hatalı. Lütfen kontrol edip tekrar deneyin.");
+      } else {
+        Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
+      }
     } catch (e) {
       print("SİSTEM HATASI: $e");
       Get.snackbar("Giriş Hatası", "Hata detayı: $e");
@@ -108,6 +113,10 @@ class AuthController extends GetxController {
   }
 
   Future<void> register(String email, String password, String fullName) async {
+    if (!registerFormKey.currentState!.validate()) {
+      return;
+    }
+    
     try {
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(

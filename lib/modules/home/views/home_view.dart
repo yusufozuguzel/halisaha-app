@@ -867,6 +867,8 @@ class _HomeViewState extends State<HomeView> {
   // ── Daily Fields ────────────────────────────────────────────
   Widget _buildDailyFields() {
     final textColor = AppColors.text(context);
+    final homeController = Get.find<HomeController>();
+
     return Column(
       children: [
         Padding(
@@ -910,26 +912,43 @@ class _HomeViewState extends State<HomeView> {
         const SizedBox(height: 16),
         SizedBox(
           height: 180,
-          child: ListView(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            children: [
-              _buildFieldCard(
-                'Vadi İstanbul Arena',
-                'Sarıyer, İstanbul',
-                '4.8',
-                'https://picsum.photos/seed/field2/800/400',
-              ),
-              const SizedBox(width: 16),
-              _buildFieldCard(
-                'Kadıköy Spor Kompleksi',
-                'Kadıköy, İstanbul',
-                '4.5',
-                'https://picsum.photos/seed/field3/800/400',
-              ),
-            ],
-          ),
+          child: Obx(() {
+            if (homeController.isVenuesLoading.value) {
+              return const Center(
+                child: CircularProgressIndicator(color: Color(0xFF2EED7B)),
+              );
+            }
+
+            if (homeController.dailyVenues.isEmpty) {
+              return Center(
+                child: Text(
+                  'Henüz kayıtlı saha bulunamadı.',
+                  style: TextStyle(
+                    color: AppColors.subText(context),
+                    fontSize: 14,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              );
+            }
+
+            return ListView.separated(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemCount: homeController.dailyVenues.length,
+              itemBuilder: (_, index) {
+                final venue = homeController.dailyVenues[index];
+                return _buildFieldCard(
+                  venue['name'] ?? 'Bilinmiyor',
+                  venue['city'] ?? '',
+                  '⚽',
+                  'https://picsum.photos/seed/${venue['id']}/800/400',
+                );
+              },
+            );
+          }),
         ),
       ],
     );

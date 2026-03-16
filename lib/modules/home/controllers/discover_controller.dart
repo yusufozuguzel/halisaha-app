@@ -1,17 +1,31 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class DiscoverController extends GetxController {
   final RxList<Map<String, dynamic>> openMatches = <Map<String, dynamic>>[].obs;
   final RxBool isLoading = true.obs;
   StreamSubscription<QuerySnapshot>? _matchSubscription;
 
+  // 📍 Yakındaki Sahalar
+  final RxList<Map<String, dynamic>> nearbyVenues = <Map<String, dynamic>>[].obs;
+  final RxBool isVenuesLoading = true.obs;
+
+  // 🔍 Google Places Arama
+  final String _googlePlacesApiKey = (dotenv.env['GOOGLE_API_KEY'] ?? '').trim();
+  Timer? _debounce;
+  Position? _cachedPosition;
+
   @override
   void onClose() {
     _matchSubscription?.cancel();
+    _debounce?.cancel();
     super.onClose();
   }
 
@@ -19,6 +33,161 @@ class DiscoverController extends GetxController {
   void onInit() {
     super.onInit();
     fetchOpenMatches();
+    fetchNearbyVenues();
+  }
+
+  Future<void> fetchNearbyVenues() async {
+    try {
+      isVenuesLoading.value = true;
+
+      // Sahaları Firebase'den çek
+      final snapshot = await FirebaseFirestore.instance.collection('venues').get();
+      final venues = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['name'] ?? 'Bilinmiyor',
+          'lat': data['lat'],
+          'lng': data['lng'],
+          'city': data['city'] ?? 'Bilinmiyor',
+        };
+      }).toList();
+
+      if (venues.isEmpty) {
+        nearbyVenues.clear();
+        isVenuesLoading.value = false;
+        return;
+      }
+
+      // Konum izni kontrolü
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        // İzin yoksa mesafesiz listele
+        nearbyVenues.value = venues;
+        isVenuesLoading.value = false;
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      // Konumu önbelleğe al (arama sonuçlarında kullanılacak)
+      _cachedPosition = position;
+
+      final sorted = venues.map((v) {
+        final distMeters = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          (v['lat'] as num).toDouble(),
+          (v['lng'] as num).toDouble(),
+        );
+        return {...v, 'distanceInMeters': distMeters};
+      }).toList();
+
+      sorted.sort((a, b) =>
+          (a['distanceInMeters'] as double)
+              .compareTo(b['distanceInMeters'] as double));
+
+      nearbyVenues.value = sorted;
+    } catch (e) {
+      print('Yakındaki sahalar yüklenirken hata: $e');
+    } finally {
+      isVenuesLoading.value = false;
+    }
+  }
+
+  // 🔍 Arama değiştiğinde çağrılır
+  void onSearchChanged(String value) {
+    _debounce?.cancel();
+    if (value.trim().isEmpty) {
+      // Arama boşsa GPS sıralı listeyi baştan yükle
+      fetchNearbyVenues();
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      searchGooglePlaces(value.trim());
+    });
+  }
+
+  // 🔍 Google Places API ile saha arama
+  Future<void> searchGooglePlaces(String query) async {
+    if (query.length < 3) return;
+
+    try {
+      isVenuesLoading.value = true;
+
+      final encodedQuery = Uri.encodeComponent(
+        '$query halı saha OR stadyum OR spor tesisi',
+      );
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&key=$_googlePlacesApiKey',
+      );
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK') {
+          final results = data['results'] as List;
+          final excludedTypes = [
+            'cafe', 'restaurant', 'bar', 'bakery',
+            'meal_delivery', 'meal_takeaway', 'food',
+            'store', 'clothing_store', 'grocery_or_supermarket',
+            'supermarket', 'pharmacy', 'hospital', 'health',
+            'doctor', 'dentist', 'lodging', 'hotel',
+            'spa', 'beauty_salon', 'hair_care',
+          ];
+
+          final filteredResults = results.where((place) {
+            final types = List<String>.from(place['types'] ?? []);
+            return !types.any((type) => excludedTypes.contains(type));
+          }).toList();
+
+          List<Map<String, dynamic>> googleVenues = filteredResults
+              .map((place) => <String, dynamic>{
+                    'id': place['place_id'],
+                    'name': place['name'] ?? place['formatted_address'],
+                    'lat': place['geometry']['location']['lat'],
+                    'lng': place['geometry']['location']['lng'],
+                    'city': place['formatted_address'] ?? '',
+                    'source': 'google',
+                  })
+              .toList();
+
+          // Mesafe hesapla (konum varsa)
+          if (_cachedPosition != null) {
+            googleVenues = googleVenues.map((v) {
+              final dist = Geolocator.distanceBetween(
+                _cachedPosition!.latitude,
+                _cachedPosition!.longitude,
+                (v['lat'] as num).toDouble(),
+                (v['lng'] as num).toDouble(),
+              );
+              return {...v, 'distanceInMeters': dist};
+            }).toList();
+
+            googleVenues.sort((a, b) =>
+                (a['distanceInMeters'] as double)
+                    .compareTo(b['distanceInMeters'] as double));
+          }
+
+          nearbyVenues.value = googleVenues;
+        } else {
+          nearbyVenues.clear();
+        }
+      }
+    } catch (e) {
+      print('Google Places arama hatası: $e');
+    } finally {
+      isVenuesLoading.value = false;
+    }
   }
 
   void fetchOpenMatches() {

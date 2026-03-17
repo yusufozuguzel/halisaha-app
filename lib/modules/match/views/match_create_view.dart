@@ -759,317 +759,326 @@ class MatchCreateView extends GetView<MatchCreateController> {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
-          children: [
-            // Handle bar
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border(context),
-                  borderRadius: BorderRadius.circular(2),
+            children: [
+              // Handle bar
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border(context),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    color: Color(0xFF2EED7B),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Konum Seç',
-                    style: TextStyle(
-                      color: AppColors.text(context),
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Get.back(),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: AppColors.card(context),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.isDark(context)
-                              ? AppColors.border(context)
-                              : Colors.black12,
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.close,
-                        color: AppColors.subText(context),
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.card(context),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.isDark(context)
-                        ? AppColors.border(context)
-                        : Colors.black12,
-                    width: 1.0,
-                  ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.search,
-                      color: AppColors.subText(context),
-                      size: 18,
+                    const Icon(
+                      Icons.location_on_outlined,
+                      color: Color(0xFF2EED7B),
+                      size: 20,
                     ),
                     const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        onChanged: controller.onVenueSearchChanged,
-                        style: TextStyle(
-                          color: AppColors.text(context),
-                          fontSize: 14,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Saha adı veya konum ara...',
-                          hintStyle: TextStyle(
-                            color: AppColors.subText(context),
-                            fontSize: 13,
+                    Text(
+                      'Konum Seç',
+                      style: TextStyle(
+                        color: AppColors.text(context),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Get.back(),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppColors.card(context),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.isDark(context)
+                                ? AppColors.border(context)
+                                : Colors.black12,
+                            width: 1.0,
                           ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          color: AppColors.subText(context),
+                          size: 18,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-
-            // 📍 Yakınımdaki Sahaları Bul
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Obx(() => SizedBox(
-                width: double.infinity,
-                height: 42,
-                child: ElevatedButton.icon(
-                  onPressed: controller.isLocationLoading.value
-                      ? null
-                      : () => controller.sortByDistance(),
-                  icon: controller.isLocationLoading.value
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFF2EED7B),
-                          ),
-                        )
-                      : const Icon(Icons.my_location, size: 18),
-                  label: Text(
-                    controller.isLocationLoading.value
-                        ? 'Konum alınıyor...'
-                        : 'Yakınımdaki Sahaları Bul',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.isDark(context)
-                        ? const Color(0xFF1A2E1F)
-                        : const Color(0xFFE8F9ED),
-                    foregroundColor: const Color(0xFF2EED7B),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: const Color(0xFF2EED7B).withOpacity(0.4),
-                      ),
+              // Search bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.card(context),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.isDark(context)
+                          ? AppColors.border(context)
+                          : Colors.black12,
+                      width: 1.0,
                     ),
                   ),
-                ),
-              )),
-            ),
-            const SizedBox(height: 12),
-
-            // 🔥 YENİ VE DÜZELTİLMİŞ: SAHALAR LİSTESİ 🔥
-            Expanded(
-              child: Obx(() {
-                final currentLat = controller.selectedLat.value;
-                final currentLng = controller.selectedLng.value;
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: controller.filteredLocations.length,
-                  itemBuilder: (context, index) {
-                    final loc = controller.filteredLocations[index];
-                    final isSelected =
-                        currentLat == loc['lat'] && currentLng == loc['lng'];
-
-                    return GestureDetector(
-                      onTap: () async {
-                        await controller.setLocation(
-                          loc['name'],
-                          loc['lat'],
-                          loc['lng'],
-                          source: loc['source'],
-                          id: loc['id'],
-                          address: loc['address'],
-                        );
-                        Get.back(); // Seçim sonrası pencereyi kapat
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.card(context),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isSelected
-                                ? const Color(0xFF2EED7B)
-                                : AppColors.border(context),
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFF2EED7B).withOpacity(0.2)
-                                    : AppColors.overlay(context),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                loc['source'] == 'google'
-                                    ? Icons.public
-                                    : Icons.location_on,
-                                color: isSelected
-                                    ? const Color(0xFF2EED7B)
-                                    : (loc['source'] == 'google'
-                                          ? Colors.blueAccent
-                                          : AppColors.subText(context)),
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    loc['name'],
-                                    style: TextStyle(
-                                      color: AppColors.text(context),
-                                      fontSize: 14,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-                                  if (loc['source'] == 'google' &&
-                                      loc['address'] != null)
-                                    Text(
-                                      loc['address'],
-                                      style: TextStyle(
-                                        color: AppColors.subText(context),
-                                        fontSize: 11,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  if (loc['distanceInMeters'] != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        '📍 ${((loc['distanceInMeters'] as double) / 1000).toStringAsFixed(1)} km',
-                                        style: const TextStyle(
-                                          color: Color(0xFF2EED7B),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            if (isSelected)
-                              const Icon(
-                                Icons.check_circle,
-                                color: Color(0xFF2EED7B),
-                                size: 22,
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }),
-            ),
-
-            // Confirm button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-              child: GestureDetector(
-                onTap: () => Get.back(),
-                child: Container(
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2EED7B),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF2EED7B).withOpacity(0.35),
-                        blurRadius: 20,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.check_circle_outline,
-                        color: AppColors.bg(context),
-                        size: 20,
+                        Icons.search,
+                        color: AppColors.subText(context),
+                        size: 18,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Bu Konumu Seç',
-                        style: TextStyle(
-                          color: AppColors.bg(context),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          onChanged: controller.onVenueSearchChanged,
+                          style: TextStyle(
+                            color: AppColors.text(context),
+                            fontSize: 14,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Saha adı veya konum ara...',
+                            hintStyle: TextStyle(
+                              color: AppColors.subText(context),
+                              fontSize: 13,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+
+              // 📍 Yakınımdaki Sahaları Bul
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Obx(
+                  () => SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: ElevatedButton.icon(
+                      onPressed: controller.isLocationLoading.value
+                          ? null
+                          : () => controller.sortByDistance(),
+                      icon: controller.isLocationLoading.value
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF2EED7B),
+                              ),
+                            )
+                          : const Icon(Icons.my_location, size: 18),
+                      label: Text(
+                        controller.isLocationLoading.value
+                            ? 'Konum alınıyor...'
+                            : 'Yakınımdaki Sahaları Bul',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.isDark(context)
+                            ? const Color(0xFF1A2E1F)
+                            : const Color(0xFFE8F9ED),
+                        foregroundColor: const Color(0xFF2EED7B),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: const Color(0xFF2EED7B).withOpacity(0.4),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 🔥 YENİ VE DÜZELTİLMİŞ: SAHALAR LİSTESİ 🔥
+              Expanded(
+                child: Obx(() {
+                  final currentLat = controller.selectedLat.value;
+                  final currentLng = controller.selectedLng.value;
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: controller.filteredLocations.length,
+                    itemBuilder: (context, index) {
+                      final loc = controller.filteredLocations[index];
+                      final isSelected =
+                          currentLat == loc['lat'] && currentLng == loc['lng'];
+
+                      return GestureDetector(
+                        onTap: () async {
+                          await controller.setLocation(
+                            loc['name'],
+                            loc['lat'],
+                            loc['lng'],
+                            source: loc['source'],
+                            id: loc['id'],
+                            address: loc['address'],
+                            photoUrl: loc['photoUrl'],
+                          );
+                          Get.back(); // Seçim sonrası pencereyi kapat
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.card(context),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF2EED7B)
+                                  : AppColors.border(context),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFF2EED7B).withOpacity(0.2)
+                                      : AppColors.overlay(context),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  loc['source'] == 'google'
+                                      ? Icons.public
+                                      : Icons.location_on,
+                                  color: isSelected
+                                      ? const Color(0xFF2EED7B)
+                                      : (loc['source'] == 'google'
+                                            ? Colors.blueAccent
+                                            : AppColors.subText(context)),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      loc['name'],
+                                      style: TextStyle(
+                                        color: AppColors.text(context),
+                                        fontSize: 14,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                    if (loc['source'] == 'google' &&
+                                        loc['address'] != null)
+                                      Text(
+                                        loc['address'],
+                                        style: TextStyle(
+                                          color: AppColors.subText(context),
+                                          fontSize: 11,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    if (loc['distanceInMeters'] != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          '📍 ${((loc['distanceInMeters'] as double) / 1000).toStringAsFixed(1)} km',
+                                          style: const TextStyle(
+                                            color: Color(0xFF2EED7B),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: Color(0xFF2EED7B),
+                                  size: 22,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
+              ),
+
+              // Confirm button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+                child: GestureDetector(
+                  onTap: () => Get.back(),
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2EED7B),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2EED7B).withOpacity(0.35),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          color: AppColors.bg(context),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Bu Konumu Seç',
+                          style: TextStyle(
+                            color: AppColors.bg(context),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

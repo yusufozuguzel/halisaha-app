@@ -37,11 +37,10 @@ class _HomeViewState extends State<HomeView> {
 
   // 👇 YÖNLENDİRME METODUMUZ (HER İKİ BUTON DA BUNU KULLANACAK) 👇
   void _goToCreateMatch() {
-    // Beynini (Controller'ı) hazırlayıp efsane form sayfasına geçiyoruz
     Get.put(MatchCreateController());
     Get.to(
       () => const MatchCreateView(),
-      transition: Transition.downToUp, // Alttan yukarı şık bir animasyon
+      transition: Transition.downToUp,
       duration: const Duration(milliseconds: 300),
     );
   }
@@ -74,14 +73,13 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
       ),
-      // 👇 ORTADAKİ DEVASA YEŞİL "+" BUTONU 👇
       floatingActionButton: GestureDetector(
-        onTap: _goToCreateMatch, // Direkt bizim metodu çağırıyor
+        onTap: _goToCreateMatch,
         child: Container(
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: const Color(0xFF2EED7B), // kGreen
+            color: const Color(0xFF2EED7B),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -173,11 +171,13 @@ class _HomeViewState extends State<HomeView> {
     bool isActive, {
     required VoidCallback onTap,
   }) {
-    final color = isActive ? kGreen : AppColors.navInactive(context);
+    final color = isActive
+        ? const Color(0xFF2EED7B)
+        : AppColors.navInactive(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: kGreen.withValues(alpha: 0.15),
+      splashColor: const Color(0xFF2EED7B).withValues(alpha: 0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
@@ -331,7 +331,6 @@ class _HomeViewState extends State<HomeView> {
                 ],
               ),
               const Spacer(),
-              // Friends icon button
               GestureDetector(
                 onTap: () => Get.to(
                   () => const FriendsView(),
@@ -353,7 +352,6 @@ class _HomeViewState extends State<HomeView> {
                 ),
               ),
               const SizedBox(width: 8),
-              // Notifications icon button
               GestureDetector(
                 onTap: () => Get.to(
                   () => const NotificationsView(),
@@ -407,18 +405,17 @@ class _HomeViewState extends State<HomeView> {
       child: Row(
         children: [
           Expanded(
-            // --- SOL KART: YENİ MAÇ BAŞLAT ---
             child: GestureDetector(
               onTap: _goToCreateMatch,
               child: Container(
                 height: 120,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: kGreen,
+                  color: const Color(0xFF2EED7B),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: kGreen.withValues(alpha: 0.3),
+                      color: const Color(0xFF2EED7B).withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 8),
                     ),
@@ -435,7 +432,11 @@ class _HomeViewState extends State<HomeView> {
                         color: Colors.black.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.add, color: kDarkBg, size: 22),
+                      child: const Icon(
+                        Icons.add,
+                        color: Color(0xFF0F1712),
+                        size: 22,
+                      ),
                     ),
                     const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,7 +445,7 @@ class _HomeViewState extends State<HomeView> {
                         Text(
                           'Organizasyon',
                           style: TextStyle(
-                            color: kDarkBg,
+                            color: Color(0xFF0F1712),
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.none,
@@ -454,7 +455,7 @@ class _HomeViewState extends State<HomeView> {
                         Text(
                           'Yeni Maç\nBaşlat',
                           style: TextStyle(
-                            color: kDarkBg,
+                            color: Color(0xFF0F1712),
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
                             height: 1.1,
@@ -470,10 +471,8 @@ class _HomeViewState extends State<HomeView> {
           ),
           const SizedBox(width: 16),
           Expanded(
-            // 👇 SAĞ KART: UYGULAMAYI PAYLAŞ (QR YERİNE) 👇
             child: GestureDetector(
               onTap: () {
-                // Uygulamanın genel davet linki
                 SharePlus.instance.share(
                   ShareParams(
                     text:
@@ -500,9 +499,9 @@ class _HomeViewState extends State<HomeView> {
                         color: AppColors.overlay(context),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.share_outlined,
-                        color: kGreen,
+                        color: Color(0xFF2EED7B),
                         size: 20,
                       ),
                     ),
@@ -543,12 +542,9 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // ── Next Match Card ─────────────────────────────────────────
-  // ── Next Match Card (🔥 GERÇEK FİREBASE VERİSİ 🔥) ────────────
   Widget _buildNextMatchCard() {
     final textColor = AppColors.text(context);
     final subText = AppColors.subText(context);
-
-    // Yukarıda ayağa kaldırdığımız controller'ı buluyoruz
     final homeController = Get.find<HomeController>();
 
     return Column(
@@ -570,7 +566,7 @@ class _HomeViewState extends State<HomeView> {
               Text(
                 'Tümü',
                 style: TextStyle(
-                  color: kGreen.withValues(alpha: 0.8),
+                  color: const Color(0xFF2EED7B).withValues(alpha: 0.8),
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   decoration: TextDecoration.none,
@@ -580,10 +576,7 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
         const SizedBox(height: 16),
-
-        // 👇 Obx ile Firebase'i canlı canlı dinliyoruz! 👇
         Obx(() {
-          // 1. Veri yükleniyorsa dönen top göster
           if (homeController.isNextMatchLoading.value) {
             return const SizedBox(
               height: 200,
@@ -593,7 +586,6 @@ class _HomeViewState extends State<HomeView> {
             );
           }
 
-          // 2. Eğer sıradaki maç yoksa
           final nextMatch = homeController.nextMatch.value;
           if (nextMatch == null) {
             return Container(
@@ -634,7 +626,6 @@ class _HomeViewState extends State<HomeView> {
             );
           }
 
-          // 3. Veri varsa ekrana çiz
           final dateStr =
               "${nextMatch.date.day.toString().padLeft(2, '0')}/${nextMatch.date.month.toString().padLeft(2, '0')}/${nextMatch.date.year}";
           final timeStr =
@@ -646,9 +637,10 @@ class _HomeViewState extends State<HomeView> {
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
+              // 🔥 YENİ: Rastgele doğa manzarası yerine Efsanevi Stadyum Fotoğrafı
               image: const DecorationImage(
                 image: NetworkImage(
-                  'https://picsum.photos/seed/field1/800/400',
+                  'https://images.unsplash.com/photo-1551280857-2b9bbe520442?q=80&w=800&auto=format&fit=crop',
                 ),
                 fit: BoxFit.cover,
               ),
@@ -777,11 +769,11 @@ class _HomeViewState extends State<HomeView> {
                                   children: [
                                     _buildAvatarPlaceholder(
                                       0,
-                                      'https://picsum.photos/seed/av2/100/100',
+                                      'https://ui-avatars.com/api/?name=P1&background=random',
                                     ),
                                     _buildAvatarPlaceholder(
                                       24,
-                                      'https://picsum.photos/seed/av3/100/100',
+                                      'https://ui-avatars.com/api/?name=P2&background=random',
                                     ),
                                     Positioned(
                                       left: 48,
@@ -940,11 +932,18 @@ class _HomeViewState extends State<HomeView> {
               itemCount: homeController.dailyVenues.length,
               itemBuilder: (_, index) {
                 final venue = homeController.dailyVenues[index];
+
+                // 🔥 YENİ: Gerçek fotoğraf varsa onu al, yoksa Efsanevi Yeşil Saha Koy! 🔥
+                final realPhotoUrl = venue['photoUrl'] ?? venue['image'] ?? '';
+                final displayImage = realPhotoUrl.toString().isNotEmpty
+                    ? realPhotoUrl
+                    : 'https://images.unsplash.com/photo-1518605368461-1e1e38ce8ba9?q=80&w=800&auto=format&fit=crop';
+
                 return _buildFieldCard(
                   venue['name'] ?? 'Bilinmiyor',
                   venue['city'] ?? '',
                   '⚽',
-                  'https://picsum.photos/seed/${venue['id']}/800/400',
+                  displayImage,
                 );
               },
             );
@@ -976,13 +975,40 @@ class _HomeViewState extends State<HomeView> {
       width: 240,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        image: DecorationImage(
-          image: NetworkImage(imageUrl),
-          fit: BoxFit.cover,
-        ),
+        color: AppColors.overlay(
+          context,
+        ), // Fotoğraf yüklenene kadar arkaplan rengi
       ),
       child: Stack(
         children: [
+          // 🔥 YENİ: CachedNetworkImage ile güvenli fotoğraf yükleme 🔥
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF2EED7B),
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Center(
+                  child: Icon(
+                    Icons.sports_soccer,
+                    size: 48,
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Siyah Karartma (Yazıların rahat okunması için)
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
@@ -1079,16 +1105,20 @@ class _HomeViewState extends State<HomeView> {
           const SizedBox(height: 16),
           Obx(() {
             if (homeController.isActivitiesLoading.value) {
-              return const Center(child: CircularProgressIndicator(color: kGreen));
+              return const Center(
+                child: CircularProgressIndicator(color: Color(0xFF2EED7B)),
+              );
             }
 
             final activities = homeController.friendActivities;
 
-            // --- EMPTY STATE ---
             if (activities.isEmpty) {
               return Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 32,
+                  horizontal: 16,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.overlay(context),
                   borderRadius: BorderRadius.circular(16),
@@ -1117,7 +1147,6 @@ class _HomeViewState extends State<HomeView> {
               );
             }
 
-            // --- DYNAMIC FEED ---
             return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1131,8 +1160,12 @@ class _HomeViewState extends State<HomeView> {
                   time: activity.time,
                   avatarUrl: activity.userAvatar,
                   showJoinButton: activity.matchId != null,
-                  icon: activity.isCreated ? Icons.add_circle : Icons.check_circle,
-                  iconColor: activity.isCreated ? Colors.blue : kGreen,
+                  icon: activity.isCreated
+                      ? Icons.add_circle
+                      : Icons.check_circle,
+                  iconColor: activity.isCreated
+                      ? Colors.blue
+                      : const Color(0xFF2EED7B),
                   matchId: activity.matchId,
                 );
               },
@@ -1231,18 +1264,18 @@ class _HomeViewState extends State<HomeView> {
                     decoration: TextDecoration.none,
                   ),
                 ),
-                  if (showJoinButton) ...[
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () {
-                        if (matchId != null) {
-                          Get.toNamed('/match-detail', arguments: matchId);
-                        }
-                      },
-                      child: Text(
-                        'Katıl',
+                if (showJoinButton) ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () {
+                      if (matchId != null) {
+                        Get.toNamed('/match-detail', arguments: matchId);
+                      }
+                    },
+                    child: const Text(
+                      'Katıl',
                       style: TextStyle(
-                        color: kGreen,
+                        color: Color(0xFF2EED7B),
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         decoration: TextDecoration.none,

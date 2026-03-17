@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'home_view.dart';
 import 'my_matches_view.dart';
 import 'profile_view.dart';
@@ -16,7 +17,9 @@ import '../controllers/discover_controller.dart';
 class DiscoverView extends GetView<DiscoverController> {
   DiscoverView({super.key}) {
     // Controller hafızada yoksa oluştur
-    Get.put(DiscoverController());
+    if (!Get.isRegistered<DiscoverController>()) {
+      Get.put(DiscoverController());
+    }
   }
 
   final ScrollController _popularMatchesController = ScrollController();
@@ -26,7 +29,7 @@ class DiscoverView extends GetView<DiscoverController> {
 
   void _showFilterSheet() {
     Get.bottomSheet(
-      _FilterSheet(),
+      const _FilterSheet(),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
     );
@@ -45,7 +48,7 @@ class DiscoverView extends GetView<DiscoverController> {
         onTap: () {
           Get.put(MatchCreateController());
           Get.to(
-            () => MatchCreateView(),
+            () => const MatchCreateView(),
             transition: Transition.downToUp,
             duration: const Duration(milliseconds: 300),
           );
@@ -241,9 +244,7 @@ class DiscoverView extends GetView<DiscoverController> {
           if (controller.isVenuesLoading.value) {
             return const SizedBox(
               height: 200,
-              child: Center(
-                child: CircularProgressIndicator(color: _green),
-              ),
+              child: Center(child: CircularProgressIndicator(color: _green)),
             );
           }
 
@@ -282,6 +283,11 @@ class DiscoverView extends GetView<DiscoverController> {
         ? '${(distanceMeters / 1000).toStringAsFixed(1)} km'
         : null;
 
+    // Gerçek fotoğrafı çekmeye çalışıyoruz
+    String imageUrl =
+        venue['photoUrl']?.toString() ?? venue['image']?.toString() ?? '';
+    if (imageUrl == 'null') imageUrl = '';
+
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       decoration: BoxDecoration(
@@ -298,16 +304,32 @@ class DiscoverView extends GetView<DiscoverController> {
               SizedBox(
                 height: 160,
                 width: double.infinity,
-                child: Image.network(
-                  'https://picsum.photos/seed/${venue['id']}/800/400',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: AppColors.overlay(context),
-                    child: const Center(
-                      child: Icon(Icons.sports_soccer, size: 48, color: _green),
-                    ),
-                  ),
-                ),
+                child: imageUrl.isNotEmpty
+                    // EĞER GERÇEK FOTOĞRAF VARSA ONU GÖSTER
+                    ? CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: AppColors.overlay(context),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: _green,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) =>
+                            _buildMapPlaceholder(
+                              context,
+                              name,
+                            ), // Hata olursa Harita'ya düş
+                      )
+                    // EĞER GERÇEK FOTOĞRAF YOKSA ŞIK BİR HARİTA ÖNİZLEMESİ ÇİZ
+                    : _buildMapPlaceholder(context, name),
               ),
               Positioned(
                 bottom: 0,
@@ -363,6 +385,60 @@ class DiscoverView extends GetView<DiscoverController> {
                         ],
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🔥 ŞIK HARİTA TASARIMI 🔥
+  Widget _buildMapPlaceholder(BuildContext context, String name) {
+    return Container(
+      color: const Color(0xFF0D1B13), // Koyu yeşil/siyah harita zemini
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Arka plandaki şık ızgara deseni (Harita izlenimi verir)
+          CustomPaint(size: Size.infinite, painter: _GridPainter()),
+          // Ortada stadyum/saha pin ikonu
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _green.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _green.withOpacity(0.3)),
+                ),
+                child: const Icon(
+                  Icons.stadium_outlined,
+                  color: _green,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Konum işareti
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Konumu Haritada Gör',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ),
@@ -492,7 +568,6 @@ class DiscoverView extends GetView<DiscoverController> {
     final dateString = controller.formatDate(matchData['date']);
     final price = matchData['price']?.toString() ?? '0';
 
-    // Buton dinamiği hesabı
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     final List<dynamic> currentPlayers = matchData['currentPlayers'] ?? [];
 
@@ -520,7 +595,7 @@ class DiscoverView extends GetView<DiscoverController> {
                   color: _green.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
+                child: const Text(
                   'Açık',
                   style: TextStyle(
                     color: _green,
@@ -569,14 +644,13 @@ class DiscoverView extends GetView<DiscoverController> {
             dateString,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: const TextStyle(
               color: _green,
               fontSize: 11,
               decoration: TextDecoration.none,
             ),
           ),
           const SizedBox(height: 8),
-          // Alt satır: oyuncu sayısı
           Row(
             children: [
               Icon(Icons.people_outline, color: subText, size: 14),
@@ -592,7 +666,6 @@ class DiscoverView extends GetView<DiscoverController> {
             ],
           ),
           const SizedBox(height: 8),
-          // Butonlar satırı (kurucu ise ikisi yan yana)
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -600,15 +673,23 @@ class DiscoverView extends GetView<DiscoverController> {
                 Expanded(
                   child: InkWell(
                     onTap: () {
-                      Get.to(() => const MatchFormationView(), arguments: matchData['id']);
+                      Get.to(
+                        () => const MatchFormationView(),
+                        arguments: matchData['id'],
+                      );
                     },
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F1712),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.5)),
+                        border: Border.all(
+                          color: Colors.blueAccent.withOpacity(0.5),
+                        ),
                       ),
                       child: const Text(
                         'Kadroyu Düzenle',
@@ -629,11 +710,14 @@ class DiscoverView extends GetView<DiscoverController> {
                     onTap: () => controller.cancelMatch(matchData['id']),
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F1712),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.7)),
+                        border: Border.all(color: Colors.red.withOpacity(0.7)),
                       ),
                       child: const Text(
                         'İptal Et',
@@ -654,18 +738,26 @@ class DiscoverView extends GetView<DiscoverController> {
                     if (isUserJoined) {
                       controller.leaveMatch(matchData['id'], currentPlayers);
                     } else {
-                      controller.joinMatch(
-                        matchData['id'],
-                        currentPlayers,
-                        matchData['maxPlayers'] ?? 14,
-                      ).then((_) {
-                        Get.to(() => const MatchFormationView(), arguments: matchData['id']);
-                      });
+                      controller
+                          .joinMatch(
+                            matchData['id'],
+                            currentPlayers,
+                            matchData['maxPlayers'] ?? 14,
+                          )
+                          .then((_) {
+                            Get.to(
+                              () => const MatchFormationView(),
+                              arguments: matchData['id'],
+                            );
+                          });
                     }
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0F1712),
                       borderRadius: BorderRadius.circular(8),
@@ -678,7 +770,9 @@ class DiscoverView extends GetView<DiscoverController> {
                     child: Text(
                       isUserJoined ? 'Maçtan Ayrıl' : 'Maça Katıl',
                       style: TextStyle(
-                        color: isUserJoined ? Colors.orangeAccent.shade700 : _green,
+                        color: isUserJoined
+                            ? Colors.orangeAccent.shade700
+                            : _green,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                         decoration: TextDecoration.none,
@@ -811,6 +905,8 @@ class DiscoverView extends GetView<DiscoverController> {
 // Filter Bottom Sheet
 // ============================================================
 class _FilterSheet extends StatefulWidget {
+  const _FilterSheet({super.key});
+
   @override
   State<_FilterSheet> createState() => _FilterSheetState();
 }
@@ -997,4 +1093,25 @@ class _FilterSheetState extends State<_FilterSheet> {
       ),
     );
   }
+}
+
+// ── Harita Izgarası Çizen Özel Sınıf ──
+class _GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF2EED7B).withOpacity(0.05)
+      ..strokeWidth = 1.0;
+
+    const double step = 20.0;
+    for (double i = 0; i < size.width; i += step) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (double i = 0; i < size.height; i += step) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -14,11 +14,13 @@ class DiscoverController extends GetxController {
   StreamSubscription<QuerySnapshot>? _matchSubscription;
 
   // 📍 Yakındaki Sahalar
-  final RxList<Map<String, dynamic>> nearbyVenues = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> nearbyVenues =
+      <Map<String, dynamic>>[].obs;
   final RxBool isVenuesLoading = true.obs;
 
   // 🔍 Google Places Arama
-  final String _googlePlacesApiKey = (dotenv.env['GOOGLE_API_KEY'] ?? '').trim();
+  final String _googlePlacesApiKey = (dotenv.env['GOOGLE_API_KEY'] ?? '')
+      .trim();
   Timer? _debounce;
   Position? _cachedPosition;
 
@@ -40,63 +42,142 @@ class DiscoverController extends GetxController {
     try {
       isVenuesLoading.value = true;
 
-      // Sahaları Firebase'den çek
-      final snapshot = await FirebaseFirestore.instance.collection('venues').get();
-      final venues = snapshot.docs.map((doc) {
+      // 1. Sahaları Firebase'den çek
+      final snapshot = await FirebaseFirestore.instance
+          .collection('venues')
+          .get();
+      List<Map<String, dynamic>> allVenues = snapshot.docs.map((doc) {
         final data = doc.data();
+        final lat = data['lat'];
+        final lng = data['lng'];
+
+        String photoUrl = data['photoUrl'] ?? data['image'] ?? '';
+
+        if (photoUrl.isEmpty || photoUrl == 'null') {
+          if (lat != null && lng != null) {
+            photoUrl =
+                'https://maps.googleapis.com/maps/api/staticmap?center=$lat,$lng&zoom=18&size=600x400&maptype=satellite&key=$_googlePlacesApiKey';
+          }
+        }
+
         return {
           'id': doc.id,
           'name': data['name'] ?? 'Bilinmiyor',
-          'lat': data['lat'],
-          'lng': data['lng'],
+          'lat': lat,
+          'lng': lng,
           'city': data['city'] ?? 'Bilinmiyor',
+          'photoUrl': photoUrl,
         };
       }).toList();
 
-      if (venues.isEmpty) {
-        nearbyVenues.clear();
-        isVenuesLoading.value = false;
-        return;
-      }
-
-      // Konum izni kontrolü
+      // 2. Konum kontrolü
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       LocationPermission permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.denied ||
+      // EĞER GPS YOKSA VEYA İZİN REDDEDİLDİYSE FİREBASE'DEKİLERİ GÖSTER GEÇ
+      if (!serviceEnabled ||
+          permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        // İzin yoksa mesafesiz listele
-        nearbyVenues.value = venues;
+        nearbyVenues.value = allVenues;
         isVenuesLoading.value = false;
         return;
       }
 
+      // 3. Konumu Al
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
       );
-
-      // Konumu önbelleğe al (arama sonuçlarında kullanılacak)
       _cachedPosition = position;
 
-      final sorted = venues.map((v) {
-        final distMeters = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          (v['lat'] as num).toDouble(),
-          (v['lng'] as num).toDouble(),
-        );
-        return {...v, 'distanceInMeters': distMeters};
-      }).toList();
+      // 4. GOOGLE PLACES API İLE OTOMATİK ÇEKİM
+      if (_googlePlacesApiKey.isNotEmpty) {
+        try {
+          final encodedQuery = Uri.encodeComponent('halı saha OR spor tesisi');
+          final url = Uri.parse(
+            'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&location=${position.latitude},${position.longitude}&radius=30000&key=$_googlePlacesApiKey',
+          );
+          final response = await http.get(url);
 
-      sorted.sort((a, b) =>
-          (a['distanceInMeters'] as double)
-              .compareTo(b['distanceInMeters'] as double));
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            if (data['status'] == 'OK') {
+              final results = data['results'] as List;
+              for (var place in results) {
+                bool exists = allVenues.any((v) => v['name'] == place['name']);
+                if (!exists) {
+                  String photoUrl = '';
+                  if (place['photos'] != null &&
+                      (place['photos'] as List).isNotEmpty) {
+                    final photoRef = place['photos'][0]['photo_reference'];
+                    photoUrl =
+                        'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$_googlePlacesApiKey';
+                  } else if (place['geometry'] != null) {
+                    final pLat = place['geometry']['location']['lat'];
+                    final pLng = place['geometry']['location']['lng'];
+                    photoUrl =
+                        'https://maps.googleapis.com/maps/api/staticmap?center=$pLat,$pLng&zoom=18&size=600x400&maptype=satellite&key=$_googlePlacesApiKey';
+                  }
 
-      nearbyVenues.value = sorted;
+                  allVenues.add({
+                    'id': place['place_id'],
+                    'name': place['name'] ?? place['formatted_address'],
+                    'lat': place['geometry']['location']['lat'],
+                    'lng': place['geometry']['location']['lng'],
+                    'city': place['formatted_address'] ?? '',
+                    'source': 'google',
+                    'photoUrl': photoUrl,
+                  });
+                }
+              }
+            } else {
+              // Eğer Google API Key bozuksa veya yetki yoksa terminale yazdıracak
+              print("🚨 GOOGLE API HATASI: ${data['status']}");
+            }
+          }
+        } catch (e) {
+          print('Google otomatik çekim hatası: $e');
+        }
+      }
+
+      // 5. MESAFELERİ HESAPLA VE SIRALA
+      for (var i = 0; i < allVenues.length; i++) {
+        final v = allVenues[i];
+        if (v['lat'] != null && v['lng'] != null) {
+          final distMeters = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            (v['lat'] as num).toDouble(),
+            (v['lng'] as num).toDouble(),
+          );
+          allVenues[i]['distanceInMeters'] = distMeters;
+        } else {
+          allVenues[i]['distanceInMeters'] = 9999999.0;
+        }
+      }
+
+      allVenues.sort(
+        (a, b) => (a['distanceInMeters'] as double).compareTo(
+          b['distanceInMeters'] as double,
+        ),
+      );
+
+      // 6. 75 KM FİLTRESİ
+      final List<Map<String, dynamic>> filteredList = allVenues
+          .where((v) => (v['distanceInMeters'] as double) <= 75000)
+          .toList();
+
+      // 🔥 HAYAT KURTARAN DOKUNUŞ: Ekran asla boş kalmasın! 75km içinde saha yoksa en yakın 5 tanesini zorla göster.
+      if (filteredList.isNotEmpty) {
+        nearbyVenues.value = filteredList;
+      } else {
+        nearbyVenues.value = allVenues.take(5).toList();
+      }
     } catch (e) {
       print('Yakındaki sahalar yüklenirken hata: $e');
     } finally {
@@ -108,7 +189,6 @@ class DiscoverController extends GetxController {
   void onSearchChanged(String value) {
     _debounce?.cancel();
     if (value.trim().isEmpty) {
-      // Arama boşsa GPS sıralı listeyi baştan yükle
       fetchNearbyVenues();
       return;
     }
@@ -117,7 +197,7 @@ class DiscoverController extends GetxController {
     });
   }
 
-  // 🔍 Google Places API ile saha arama
+  // 🔍 Google Places API ile manuel saha arama
   Future<void> searchGooglePlaces(String query) async {
     if (query.length < 3) return;
 
@@ -137,12 +217,27 @@ class DiscoverController extends GetxController {
         if (data['status'] == 'OK') {
           final results = data['results'] as List;
           final excludedTypes = [
-            'cafe', 'restaurant', 'bar', 'bakery',
-            'meal_delivery', 'meal_takeaway', 'food',
-            'store', 'clothing_store', 'grocery_or_supermarket',
-            'supermarket', 'pharmacy', 'hospital', 'health',
-            'doctor', 'dentist', 'lodging', 'hotel',
-            'spa', 'beauty_salon', 'hair_care',
+            'cafe',
+            'restaurant',
+            'bar',
+            'bakery',
+            'meal_delivery',
+            'meal_takeaway',
+            'food',
+            'store',
+            'clothing_store',
+            'grocery_or_supermarket',
+            'supermarket',
+            'pharmacy',
+            'hospital',
+            'health',
+            'doctor',
+            'dentist',
+            'lodging',
+            'hotel',
+            'spa',
+            'beauty_salon',
+            'hair_care',
           ];
 
           final filteredResults = results.where((place) {
@@ -150,18 +245,33 @@ class DiscoverController extends GetxController {
             return !types.any((type) => excludedTypes.contains(type));
           }).toList();
 
-          List<Map<String, dynamic>> googleVenues = filteredResults
-              .map((place) => <String, dynamic>{
-                    'id': place['place_id'],
-                    'name': place['name'] ?? place['formatted_address'],
-                    'lat': place['geometry']['location']['lat'],
-                    'lng': place['geometry']['location']['lng'],
-                    'city': place['formatted_address'] ?? '',
-                    'source': 'google',
-                  })
-              .toList();
+          List<Map<String, dynamic>> googleVenues = filteredResults.map((
+            place,
+          ) {
+            String photoUrl = '';
+            if (place['photos'] != null &&
+                (place['photos'] as List).isNotEmpty) {
+              final photoRef = place['photos'][0]['photo_reference'];
+              photoUrl =
+                  'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$_googlePlacesApiKey';
+            } else if (place['geometry'] != null) {
+              final pLat = place['geometry']['location']['lat'];
+              final pLng = place['geometry']['location']['lng'];
+              photoUrl =
+                  'https://maps.googleapis.com/maps/api/staticmap?center=$pLat,$pLng&zoom=18&size=600x400&maptype=satellite&key=$_googlePlacesApiKey';
+            }
 
-          // Mesafe hesapla (konum varsa)
+            return <String, dynamic>{
+              'id': place['place_id'],
+              'name': place['name'] ?? place['formatted_address'],
+              'lat': place['geometry']['location']['lat'],
+              'lng': place['geometry']['location']['lng'],
+              'city': place['formatted_address'] ?? '',
+              'source': 'google',
+              'photoUrl': photoUrl,
+            };
+          }).toList();
+
           if (_cachedPosition != null) {
             googleVenues = googleVenues.map((v) {
               final dist = Geolocator.distanceBetween(
@@ -173,9 +283,11 @@ class DiscoverController extends GetxController {
               return {...v, 'distanceInMeters': dist};
             }).toList();
 
-            googleVenues.sort((a, b) =>
-                (a['distanceInMeters'] as double)
-                    .compareTo(b['distanceInMeters'] as double));
+            googleVenues.sort(
+              (a, b) => (a['distanceInMeters'] as double).compareTo(
+                b['distanceInMeters'] as double,
+              ),
+            );
           }
 
           nearbyVenues.value = googleVenues;
@@ -203,7 +315,6 @@ class DiscoverController extends GetxController {
           (QuerySnapshot querySnapshot) {
             openMatches.value = querySnapshot.docs.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
-              // Belgenin kendi id'sini (doc.id) veri içine dahil ediyoruz
               data['id'] = doc.id;
               return data;
             }).toList();
@@ -348,7 +459,6 @@ class DiscoverController extends GetxController {
     }
   }
 
-  /// Firestore'dan gelen Timestamp verisini okunabilir bir saat/tarih formatına dönüştürür.
   String formatDate(Timestamp? timestamp) {
     if (timestamp == null) return 'Tarih Belirtilmedi';
 

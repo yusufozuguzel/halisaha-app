@@ -26,6 +26,7 @@ class MatchCreateController extends GetxController {
   final teamBController = TextEditingController();
 
   final RxString selectedFormat = '7x7'.obs;
+
   final selectedDate = Rx<DateTime?>(null);
 
   // 🔥 YENİ: Tek saat yerine Başlangıç ve Bitiş Saatleri 🔥
@@ -36,7 +37,7 @@ class MatchCreateController extends GetxController {
   final Rx<double?> selectedLng = Rx<double?>(null);
   final RxString selectedVenueId = ''.obs;
   final RxString selectedVenueCity = ''.obs;
-
+  final RxString selectedPhotoUrl = ''.obs;
   final isLoading = false.obs;
   final RxString searchQuery = ''.obs;
   final RxBool isEditing = false.obs;
@@ -83,7 +84,9 @@ class MatchCreateController extends GetxController {
               'name': doc['name'],
               'lat': doc['lat'],
               'lng': doc['lng'],
-              'city': doc.data().containsKey('city') ? doc['city'] : 'Bilinmiyor',
+              'city': doc.data().containsKey('city')
+                  ? doc['city']
+                  : 'Bilinmiyor',
             },
           )
           .toList();
@@ -115,10 +118,11 @@ class MatchCreateController extends GetxController {
     // Arama filtresi
     if (searchQuery.value.isNotEmpty) {
       result = result
-          .where((v) => v['name']
-              .toString()
-              .toLowerCase()
-              .contains(searchQuery.value.toLowerCase()))
+          .where(
+            (v) => v['name'].toString().toLowerCase().contains(
+              searchQuery.value.toLowerCase(),
+            ),
+          )
           .toList();
     }
 
@@ -133,15 +137,22 @@ class MatchCreateController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          Get.snackbar('Konum İzni', 'Konum izni verilmedi.',
-              backgroundColor: Colors.red[900], colorText: Colors.white);
+          Get.snackbar(
+            'Konum İzni',
+            'Konum izni verilmedi.',
+            backgroundColor: Colors.red[900],
+            colorText: Colors.white,
+          );
           return;
         }
       }
       if (permission == LocationPermission.deniedForever) {
-        Get.snackbar('Konum İzni',
-            'Konum izni kalıcı olarak reddedildi. Ayarlardan açınız.',
-            backgroundColor: Colors.red[900], colorText: Colors.white);
+        Get.snackbar(
+          'Konum İzni',
+          'Konum izni kalıcı olarak reddedildi. Ayarlardan açınız.',
+          backgroundColor: Colors.red[900],
+          colorText: Colors.white,
+        );
         return;
       }
 
@@ -161,15 +172,21 @@ class MatchCreateController extends GetxController {
         return {...v, 'distanceInMeters': distMeters};
       }).toList();
 
-      sorted.sort((a, b) =>
-          (a['distanceInMeters'] as double)
-              .compareTo(b['distanceInMeters'] as double));
+      sorted.sort(
+        (a, b) => (a['distanceInMeters'] as double).compareTo(
+          b['distanceInMeters'] as double,
+        ),
+      );
 
       hybridVenues.value = sorted;
     } catch (e) {
       print('Konum hatası: $e');
-      Get.snackbar('Hata', 'Konum alınamadı: $e',
-          backgroundColor: Colors.red[900], colorText: Colors.white);
+      Get.snackbar(
+        'Hata',
+        'Konum alınamadı: $e',
+        backgroundColor: Colors.red[900],
+        colorText: Colors.white,
+      );
     } finally {
       isLocationLoading.value = false;
     }
@@ -323,6 +340,7 @@ class MatchCreateController extends GetxController {
     String? source,
     String? id,
     String? address,
+    String? photoUrl, // 🔥 YENİ EKLENDİ
   }) async {
     venueController.text = name;
     Future.microtask(() {
@@ -330,6 +348,7 @@ class MatchCreateController extends GetxController {
       selectedLng.value = lng;
       selectedVenueId.value = id ?? '';
       selectedVenueCity.value = address ?? '';
+      selectedPhotoUrl.value = photoUrl ?? ''; // 🔥 YENİ EKLENDİ
       searchQuery.value = '';
       hybridVenues.value = allVenues;
     });
@@ -529,30 +548,19 @@ class MatchCreateController extends GetxController {
   }
 
   void _updateTime(TimeOfDay picked, bool isStart) {
-    // 🔥 Sadece tam (00) ve buçuk (30) saatlere yuvarla
-    int snappedMinute = (picked.minute < 15)
-        ? 0
-        : (picked.minute < 45)
-            ? 30
-            : 0;
-            
-    // Eğer 45'ten büyükse saati 1 ileri atıp dakikayı 00 yapıyoruz
-    int snappedHour = picked.hour;
-    if (picked.minute >= 45) {
-      snappedHour = (snappedHour + 1) % 24;
-    }
-
-    final snappedTime = TimeOfDay(hour: snappedHour, minute: snappedMinute);
+    // 🔥 YUVARLAMA İPTAL! Adam kaçı seçerse saniyesi saniyesine o kaydedilecek.
+    final exactTime = TimeOfDay(hour: picked.hour, minute: picked.minute);
 
     if (isStart) {
-      selectedStartTime.value = snappedTime;
+      selectedStartTime.value = exactTime;
+
       // 🔥 Otomatik 1 saat ileri atma: Başlangıç seçildiği ANDA bitişi 1 saat sonrasına kur
       selectedEndTime.value = TimeOfDay(
-        hour: (snappedHour + 1) % 24,
-        minute: snappedMinute,
+        hour: (picked.hour + 1) % 24,
+        minute: picked.minute,
       );
     } else {
-      selectedEndTime.value = snappedTime;
+      selectedEndTime.value = exactTime;
     }
   }
 
@@ -634,7 +642,8 @@ class MatchCreateController extends GetxController {
 
     // 🔥 KONTROL 2: BİTİŞ SAATİ VE MİNİMUM SÜRE KONTROLÜ 🔥
     final difference = combinedEndDateTime.difference(combinedStartDateTime);
-    if (!combinedEndDateTime.isAfter(combinedStartDateTime) || difference.inMinutes < 30) {
+    if (!combinedEndDateTime.isAfter(combinedStartDateTime) ||
+        difference.inMinutes < 30) {
       Get.snackbar(
         'Geçersiz Saat',
         'Hata: Bitiş saati, başlama saatinden önce veya aynı olamaz!',
@@ -690,6 +699,7 @@ class MatchCreateController extends GetxController {
       final matchData = {
         'title': title,
         'venue': venue,
+        'venuePhotoUrl': selectedPhotoUrl.value,
         'venueId': selectedVenueId.value,
         'latitude': selectedLat.value,
         'longitude': selectedLng.value,

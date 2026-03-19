@@ -933,18 +933,7 @@ class _HomeViewState extends State<HomeView> {
               itemBuilder: (_, index) {
                 final venue = homeController.dailyVenues[index];
 
-                // 🔥 YENİ: Gerçek fotoğraf varsa onu al, yoksa Efsanevi Yeşil Saha Koy! 🔥
-                final realPhotoUrl = venue['photoUrl'] ?? venue['image'] ?? '';
-                final displayImage = realPhotoUrl.toString().isNotEmpty
-                    ? realPhotoUrl
-                    : 'https://images.unsplash.com/photo-1518605368461-1e1e38ce8ba9?q=80&w=800&auto=format&fit=crop';
-
-                return _buildFieldCard(
-                  venue['name'] ?? 'Bilinmiyor',
-                  venue['city'] ?? '',
-                  '⚽',
-                  displayImage,
-                );
+                return _buildFieldCard(venue);
               },
             );
           }),
@@ -965,12 +954,14 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildFieldCard(
-    String name,
-    String location,
-    String rating,
-    String imageUrl,
-  ) {
+  Widget _buildFieldCard(Map<String, dynamic> venue) {
+    String name = venue['name'] ?? 'Bilinmiyor';
+    String location = venue['city'] ?? '';
+    String rating = '⚽';
+
+    String imageUrl = venue['photoUrl']?.toString() ?? venue['image']?.toString() ?? '';
+    if (imageUrl == 'null') imageUrl = '';
+
     return Container(
       width: 240,
       decoration: BoxDecoration(
@@ -981,31 +972,26 @@ class _HomeViewState extends State<HomeView> {
       ),
       child: Stack(
         children: [
-          // 🔥 YENİ: CachedNetworkImage ile güvenli fotoğraf yükleme 🔥
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF2EED7B),
-                      strokeWidth: 2,
-                    ),
-                  ),
-                ),
-                errorWidget: (context, url, error) => Center(
-                  child: Icon(
-                    Icons.sports_soccer,
-                    size: 48,
-                    color: Colors.white.withValues(alpha: 0.2),
-                  ),
-                ),
-              ),
+              child: imageUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF2EED7B),
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => _buildMapPlaceholder(context, name),
+                    )
+                  : _buildMapPlaceholder(context, name),
             ),
           ),
           // Siyah Karartma (Yazıların rahat okunması için)
@@ -1076,6 +1062,60 @@ class _HomeViewState extends State<HomeView> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🔥 ŞIK HARİTA TASARIMI 🔥
+  Widget _buildMapPlaceholder(BuildContext context, String name) {
+    return Container(
+      color: const Color(0xFF0D1B13), // Koyu yeşil/siyah harita zemini
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Arka plandaki şık ızgara deseni (Harita izlenimi verir)
+          CustomPaint(size: Size.infinite, painter: _GridPainter()),
+          // Ortada stadyum/saha pin ikonu
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2EED7B).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF2EED7B).withValues(alpha: 0.3)),
+                ),
+                child: const Icon(
+                  Icons.stadium_outlined,
+                  color: Color(0xFF2EED7B),
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Konum işareti
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Konumu Haritada Gör',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1290,4 +1330,25 @@ class _HomeViewState extends State<HomeView> {
       ),
     );
   }
+}
+
+// ── Harita Izgarası Çizen Özel Sınıf ──
+class _GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF2EED7B).withValues(alpha: 0.05)
+      ..strokeWidth = 1.0;
+
+    const double step = 20.0;
+    for (double i = 0; i < size.width; i += step) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (double i = 0; i < size.height; i += step) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

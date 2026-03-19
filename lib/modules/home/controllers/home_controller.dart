@@ -1,6 +1,9 @@
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../../match/models/match_model.dart';
 import '../../match/services/match_service.dart';
 import '../models/activity_model.dart';
@@ -42,16 +45,65 @@ class HomeController extends GetxController {
     try {
       isVenuesLoading.value = true;
       final snapshot = await FirebaseFirestore.instance.collection('venues').get();
-      final venues = snapshot.docs.map((doc) {
+      final String googleApiKey = (dotenv.env['GOOGLE_API_KEY'] ?? '').trim();
+
+      final venues = await Future.wait(snapshot.docs.map((doc) async {
         final data = doc.data();
-        return {
+        final lat = data['lat'];
+        final lng = data['lng'];
+        
+        // placeId kontrolü (Firebase'de id, placeId veya place_id olarak kayıtlı olabilir)
+        final placeId = data['placeId'] ?? data['place_id'] ?? data['id'] ?? doc.id;
+
+        String photoUrl = data['photoUrl']?.toString() ?? data['image']?.toString() ?? '';
+
+        if (photoUrl.isEmpty || photoUrl == 'null') {
+          if (data['photo_reference'] != null) {
+            final photoRef = data['photo_reference'];
+            photoUrl =
+                'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$googleApiKey';
+          } else if (data['photos'] != null && (data['photos'] as List).isNotEmpty) {
+            final photoRef = data['photos'][0]['photo_reference'];
+            photoUrl =
+                'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$googleApiKey';
+          }
+        }
+
+        // Eğer hala photoUrl boşsa ve placeId varsa Google API'ye soralım
+        if ((photoUrl.isEmpty || photoUrl == 'null') && googleApiKey.isNotEmpty && placeId != null) {
+          try {
+            final url = Uri.parse(
+              'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=photos&key=$googleApiKey',
+            );
+            final response = await http.get(url);
+            if (response.statusCode == 200) {
+              final resultData = json.decode(response.body);
+              if (resultData['status'] == 'OK' && resultData['result'] != null) {
+                final result = resultData['result'];
+                if (result['photos'] != null && (result['photos'] as List).isNotEmpty) {
+                  final photoRef = result['photos'][0]['photo_reference'];
+                  photoUrl = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=$photoRef&key=$googleApiKey';
+                }
+              }
+            }
+          } catch (e) {
+            print('Google Places API fotoğraf çekim hatası: $e');
+          }
+        }
+
+        if (photoUrl == 'null') photoUrl = '';
+
+        final venue = {
           'id': doc.id,
           'name': data['name'] ?? 'Bilinmiyor',
-          'lat': data['lat'],
-          'lng': data['lng'],
+          'lat': lat,
+          'lng': lng,
           'city': data['city'] ?? 'Bilinmiyor',
+          'photoUrl': photoUrl,
         };
-      }).toList();
+        
+        return venue;
+      }).toList());
 
       venues.shuffle();
       dailyVenues.value = venues.take(5).toList();

@@ -949,24 +949,23 @@ class _ProfileViewState extends State<ProfileView> {
                   Expanded(
                     child: Obx(
                       () => Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _inlineStatCol(
                             value: _ctrl.matchesCount.value.toString(),
                             label: 'Maç',
                           ),
-                          GestureDetector(
+                          InkWell(
                             onTap: () => Get.to(() => const FriendsView()),
-                            child: _inlineStatCol(
-                              value: _ctrl.followersCount.value.toString(),
-                              label: 'Takipçi',
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Get.to(() => const FriendsView()),
-                            child: _inlineStatCol(
-                              value: _ctrl.followingCount.value.toString(),
-                              label: 'Takip',
+                            borderRadius: BorderRadius.circular(12),
+                            highlightColor: _green.withOpacity(0.1),
+                            splashColor: _green.withOpacity(0.2),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              child: _inlineStatCol(
+                                value: _ctrl.friendsCount.value.toString(),
+                                label: 'Arkadaş',
+                              ),
                             ),
                           ),
                         ],

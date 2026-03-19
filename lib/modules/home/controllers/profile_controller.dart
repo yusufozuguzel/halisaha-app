@@ -32,8 +32,7 @@ class ProfileController extends GetxController {
 
   // ── İstatistikler ──────────────────────────────────────────
   final RxInt matchesCount = 0.obs;
-  final RxInt followersCount = 0.obs;
-  final RxInt followingCount = 0.obs;
+  final RxInt friendsCount = 0.obs;
 
   // ── Upload durumu ──────────────────────────────────────────
   // ── Upload durumu ──────────────────────────────────────────
@@ -120,11 +119,19 @@ class ProfileController extends GetxController {
         orElse: () => validPositions.first,
       );
       if (selectedPosition.value.isEmpty) selectedPosition.value = normalized;
-      // follower/following counters
-      followersCount.value = (d['followersCount'] ?? 0) as int;
-      followingCount.value = (d['followingCount'] ?? 0) as int;
     });
     _subs.add(sub.cancel);
+
+    // KULLANICININ ARKADAŞ LİSTESİ (FOLLOWING ALT KOLEKSİYONU ÜZERİNDEN HESAPLANIR)
+    final friendsSub = _db
+        .collection('users')
+        .doc(targetUid)
+        .collection('following')
+        .snapshots()
+        .listen((snap) {
+          friendsCount.value = snap.docs.length;
+        });
+    _subs.add(friendsSub.cancel);
   }
 
   // ── Stats: match count ─────────────────────────────────────
@@ -207,6 +214,7 @@ class ProfileController extends GetxController {
       batch.delete(_db.collection('users').doc(targetUid).collection('followRequests').doc(myUid));
 
       // 4. Engelle: kendi dokümanıma hedefin UID'sini ekle
+      // (Arkadaşlık / Following bağı zaten yukarıdaki 1. ve 2. adımlarda delete ile siliniyor)
       batch.update(_db.collection('users').doc(myUid), {
         'blockedUsers': FieldValue.arrayUnion([targetUid]),
       });

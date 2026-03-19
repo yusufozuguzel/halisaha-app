@@ -905,7 +905,7 @@ class DiscoverView extends GetView<DiscoverController> {
 // Filter Bottom Sheet
 // ============================================================
 class _FilterSheet extends StatefulWidget {
-  const _FilterSheet({super.key});
+  const _FilterSheet();
 
   @override
   State<_FilterSheet> createState() => _FilterSheetState();

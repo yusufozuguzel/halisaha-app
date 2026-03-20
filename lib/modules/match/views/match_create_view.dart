@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../controllers/match_create_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../widgets/venue_map_widget.dart';
 
 class MatchCreateView extends GetView<MatchCreateController> {
   const MatchCreateView({super.key});
@@ -704,7 +705,90 @@ class MatchCreateView extends GetView<MatchCreateController> {
             ),
             Center(
               child: GestureDetector(
-                onTap: () => controller.openMap(),
+                onTap: () {
+                  debugPrint('DEBUG MAÇ: Seçilen Saha Lat: ${controller.selectedLat.value}');
+                  debugPrint('DEBUG MAÇ: Seçilen Saha Lng: ${controller.selectedLng.value}');
+                  
+                  if (controller.selectedLat.value == null || controller.selectedLng.value == null) {
+                    Get.snackbar(
+                      'Uyarı',
+                      'Lütfen önce bir saha seçin',
+                      backgroundColor: Colors.amber.shade700,
+                      colorText: Colors.white,
+                      snackPosition: SnackPosition.BOTTOM,
+                      margin: const EdgeInsets.all(16),
+                      duration: const Duration(seconds: 2),
+                    );
+                    return;
+                  }
+
+                  Get.bottomSheet(
+                    Container(
+                      height: Get.height,
+                      decoration: BoxDecoration(
+                        color: AppColors.bg(context),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: SafeArea(
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 5,
+                              width: 40,
+                              margin: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.border(context),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Saha Konumu',
+                                    style: TextStyle(
+                                      color: AppColors.text(context),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.close, color: AppColors.text(context)),
+                                    onPressed: () => Get.back(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Obx(() {
+                                final lat = controller.selectedLat.value;
+                                final lng = controller.selectedLng.value;
+                                
+                                if (lat == null || lng == null) {
+                                  return const SizedBox.shrink();
+                                }
+                                
+                                return VenueMapWidget(
+                                  venues: [{
+                                    'id': controller.selectedVenueId.value,
+                                    'name': controller.venueController.text.isNotEmpty ? controller.venueController.text : 'Seçilen Saha',
+                                    'lat': lat,
+                                    'lng': lng,
+                                  }],
+                                );
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    isScrollControlled: true,
+                    enableDrag: false,
+                  );
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,

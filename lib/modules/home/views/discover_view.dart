@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../match/controllers/match_create_controller.dart';
 import '../../match/views/match_create_view.dart';
 import '../controllers/discover_controller.dart';
+import '../../../widgets/venue_map_widget.dart';
 
 // ============================================================
 // Page
@@ -74,20 +75,37 @@ class DiscoverView extends GetView<DiscoverController> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomNav(context),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 20),
-              _buildNearbyFields(context),
-              const SizedBox(height: 28),
-              _buildPopularMatches(context),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
+        child: Obx(() {
+          if (controller.isMapView.value) {
+            return Column(
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Obx(() => VenueMapWidget(
+                        venues: controller.nearbyVenues.toList(),
+                        userPosition: controller.userPosition,
+                      )),
+                ),
+              ],
+            );
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 20),
+                _buildNearbyFields(context),
+                const SizedBox(height: 28),
+                _buildPopularMatches(context),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -115,21 +133,8 @@ class DiscoverView extends GetView<DiscoverController> {
                 ),
               ),
               const Spacer(),
-              InkWell(
-                onTap: () => Get.snackbar(
-                  'Harita',
-                  'Harita görünümü açılıyor...',
-                  backgroundColor: card,
-                  colorText: textColor,
-                  borderRadius: 12,
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  snackPosition: SnackPosition.TOP,
-                  duration: const Duration(seconds: 2),
-                  icon: const Icon(Icons.map, color: _green),
-                ),
+              Obx(() => InkWell(
+                onTap: () => controller.toggleMapView(),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -141,14 +146,18 @@ class DiscoverView extends GetView<DiscoverController> {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: _green.withOpacity(0.35)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.map_outlined, color: _green, size: 15),
-                      SizedBox(width: 5),
+                      Icon(
+                        controller.isMapView.value ? Icons.list : Icons.map_outlined, 
+                        color: _green, 
+                        size: 15
+                      ),
+                      const SizedBox(width: 5),
                       Text(
-                        'Haritada Göster',
-                        style: TextStyle(
+                        controller.isMapView.value ? 'Listede Göster' : 'Haritada Göster',
+                        style: const TextStyle(
                           color: _green,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -158,7 +167,7 @@ class DiscoverView extends GetView<DiscoverController> {
                     ],
                   ),
                 ),
-              ),
+              )),
             ],
           ),
           const SizedBox(height: 16),

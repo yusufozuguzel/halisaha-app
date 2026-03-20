@@ -24,6 +24,14 @@ class DiscoverController extends GetxController {
   Timer? _debounce;
   Position? _cachedPosition;
 
+  // 🗺️ Harita Görünüm Geçiçi
+  final RxBool isMapView = false.obs;
+  Position? get userPosition => _cachedPosition;
+
+  void toggleMapView() {
+    isMapView.value = !isMapView.value;
+  }
+
   @override
   void onClose() {
     _matchSubscription?.cancel();
@@ -204,9 +212,12 @@ class DiscoverController extends GetxController {
     try {
       isVenuesLoading.value = true;
 
-      final encodedQuery = Uri.encodeComponent(
-        '$query halı saha OR stadyum OR spor tesisi',
-      );
+      String lowerQuery = query.toLowerCase();
+      String apiQuery = lowerQuery.contains('saha') || lowerQuery.contains('spor')
+          ? query
+          : '$query halı saha';
+
+      final encodedQuery = Uri.encodeComponent(apiQuery);
       final url = Uri.parse(
         'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&key=$_googlePlacesApiKey',
       );

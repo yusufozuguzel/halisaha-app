@@ -395,13 +395,19 @@ class DiscoverController extends GetxController {
         return;
       }
 
-      await FirebaseFirestore.instance
-          .collection('matches')
-          .doc(matchId)
-          .update({
-            'currentPlayers': FieldValue.arrayUnion([uid]),
-          });
+      // 1. Hedef maçı bul
+      final index = openMatches.indexWhere((m) => m['id'] == matchId);
+      if (index == -1) return;
+      final targetMatch = openMatches[index];
 
+      // 2. Anında UI Güncellemesi (Optimistic Update)
+      final List<dynamic> oldPlayers = List.from(targetMatch['currentPlayers'] ?? []);
+      final List<dynamic> optimisticPlayers = List.from(oldPlayers)..add(uid);
+      targetMatch['currentPlayers'] = optimisticPlayers;
+      openMatches[index] = targetMatch; // UI tetiklemesi
+      openMatches.refresh(); // RxList'i zorla güncelle
+
+      // 3. Normal Snackbar (Geri alma yok)
       Get.snackbar(
         'Başarılı',
         'Maça kadrosuna eklendiniz! Kramponları hazırlayın.',
@@ -409,9 +415,16 @@ class DiscoverController extends GetxController {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
       );
 
-      fetchOpenMatches();
+      // 4. Asıl Firebase Görevi (Bekleme olmadan, anında)
+      await FirebaseFirestore.instance
+          .collection('matches')
+          .doc(matchId)
+          .update({
+        'currentPlayers': FieldValue.arrayUnion([uid]),
+      });
     } catch (e) {
       Get.snackbar(
         'Hata',
@@ -443,13 +456,22 @@ class DiscoverController extends GetxController {
         return;
       }
 
-      await FirebaseFirestore.instance
-          .collection('matches')
-          .doc(matchId)
-          .update({
-            'currentPlayers': FieldValue.arrayRemove([uid]),
-          });
+      // 1. Hedef maçı bul
+      final index = openMatches.indexWhere((m) => m['id'] == matchId);
+      if (index == -1) return;
+      final targetMatch = openMatches[index];
 
+      // 2. Anında UI Güncellemesi (Optimistic Update)
+      final List<dynamic> oldPlayers = List.from(targetMatch['currentPlayers'] ?? []);
+      final List<dynamic> optimisticPlayers = List.from(oldPlayers)..remove(uid);
+      targetMatch['currentPlayers'] = optimisticPlayers;
+      openMatches[index] = targetMatch; // UI tetiklemesi
+      openMatches.refresh(); // RxList'i zorla güncelle
+
+      // 3. Geri alma statüsü
+      bool isUndone = false;
+
+      // 4. Geri Al butonlu Snackbar
       Get.snackbar(
         'Başarılı',
         'Maçtan başarıyla ayrıldınız.',
@@ -457,7 +479,33 @@ class DiscoverController extends GetxController {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+        mainButton: TextButton(
+          onPressed: () {
+            isUndone = true;
+            targetMatch['currentPlayers'] = oldPlayers;
+            openMatches[index] = targetMatch;
+            openMatches.refresh();
+            if (Get.isSnackbarOpen) Get.back();
+          },
+          child: const Text('Geri Al',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
       );
+
+      // 5. Cayma payı (3 saniye)
+      await Future.delayed(const Duration(seconds: 3));
+
+      // 6. Asıl Firebase Görevi
+      if (!isUndone) {
+        await FirebaseFirestore.instance
+            .collection('matches')
+            .doc(matchId)
+            .update({
+          'currentPlayers': FieldValue.arrayRemove([uid]),
+        });
+      }
     } catch (e) {
       Get.snackbar(
         'Hata',

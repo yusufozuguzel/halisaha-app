@@ -227,14 +227,20 @@ class _MatchFormationViewState extends State<MatchFormationView> {
 
   Widget _buildPlayerSlot(String positionId) {
     String? assignedUid = controller.positions[positionId];
-    Map<String, dynamic>? playerInfo;
+    final List<dynamic> currentPlayers = controller.matchData.value?['currentPlayers'] ?? [];
     
+    // 🔥 UX KRİTİK DÜZELTME: Oyuncu maçtan ayrılmışsa slot anında boşa düşsün 🔥
+    if (assignedUid != null && !currentPlayers.contains(assignedUid)) {
+       assignedUid = null;
+    }
+
+    Map<String, dynamic>? playerInfo;
     if (assignedUid != null) {
        playerInfo = controller.playerDetails[assignedUid];
     }
     
     final bool isEmpty = assignedUid == null;
-    final bool isCaptainProfile = assignedUid == controller.matchData.value?['createdBy'];
+    final bool isCaptainProfile = assignedUid != null && assignedUid == controller.matchData.value?['createdBy'];
 
     // Avatarlar için geçerli URL olup olmadığını kontrol et
     final String? photoUrl = playerInfo?['avatarUrl'] ?? playerInfo?['profileImageUrl'] ?? playerInfo?['photoUrl'] ?? playerInfo?['avatar'] ?? playerInfo?['image'];
@@ -324,7 +330,7 @@ class _MatchFormationViewState extends State<MatchFormationView> {
                         cancelTextColor: Colors.grey,
                         onConfirm: () {
                           Get.back();
-                          controller.kickPlayerFromFormation(assignedUid, positionId);
+                          controller.kickPlayerFromFormation(assignedUid!, positionId);
                         },
                       );
                     },

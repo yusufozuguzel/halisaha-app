@@ -63,10 +63,6 @@ class MatchCreateController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print("-----------------------------------------");
-    print("🚨 BALYOZ MODU AKTİF 🚨");
-    print("DEBUG: API ANAHTARI ZORLA KODA GÖMÜLDÜ -> '$_googlePlacesApiKey'");
-    print("-----------------------------------------");
 
     _checkEditMode();
     fetchVenues();
@@ -628,6 +624,11 @@ class MatchCreateController extends GetxController {
       eTime.minute,
     );
 
+    // 🔥 YENİ: Gece yarısını geçen maçlar için ertesi güne sarkma mantığı 🔥
+    if (eTime.hour < sTime.hour) {
+      combinedEndDateTime = combinedEndDateTime.add(const Duration(days: 1));
+    }
+
     // 🔥 KONTROL 1: GEÇMİŞ ZAMAN KONTROLÜ 🔥
     if (combinedStartDateTime.isBefore(DateTime.now())) {
       Get.snackbar(
@@ -699,7 +700,7 @@ class MatchCreateController extends GetxController {
       final matchData = {
         'title': title,
         'venue': venue,
-        'venuePhotoUrl': selectedPhotoUrl.value,
+        'venuePhotoUrl': '', // Patlak link yazılmaması için doğrudan boş string yapıldı
         'venueId': selectedVenueId.value,
         'latitude': selectedLat.value,
         'longitude': selectedLng.value,

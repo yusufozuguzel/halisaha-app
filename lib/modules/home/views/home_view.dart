@@ -631,22 +631,28 @@ class _HomeViewState extends State<HomeView> {
           final timeStr =
               "${nextMatch.date.hour.toString().padLeft(2, '0')}:${nextMatch.date.minute.toString().padLeft(2, '0')}";
 
+          String matchImageUrl = ''; // Boş bırakarak lokal fallback çalışmasını sağlıyoruz.
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 24.0),
             height: 200,
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              // 🔥 YENİ: Rastgele doğa manzarası yerine Efsanevi Stadyum Fotoğrafı
-              image: const DecorationImage(
-                image: NetworkImage(
-                  'https://images.unsplash.com/photo-1551280857-2b9bbe520442?q=80&w=800&auto=format&fit=crop',
-                ),
-                fit: BoxFit.cover,
-              ),
             ),
             child: Stack(
               children: [
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: matchImageUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: matchImageUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (context, url, error) => _buildMapPlaceholder(context, nextMatch.title),
+                          )
+                        : _buildMapPlaceholder(context, nextMatch.title),
+                  ),
+                ),
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),

@@ -13,7 +13,6 @@ import '../../match/views/match_create_view.dart';
 
 // 👇 İŞTE EKSİK OLAN KAHRAMANLARIMIZ 👇
 import '../../match/views/match_detail_view.dart';
-import '../../match/services/match_service.dart';
 
 class MyMatchesView extends GetView<MyMatchesController> {
   MyMatchesView({super.key}) {
@@ -464,24 +463,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
                             ] else ...[
                               const SizedBox(width: 8),
                               GestureDetector(
-                                onTap: () async {
-                                  try {
-                                    await MatchService().leaveMatch(matchId);
-                                    Get.snackbar(
-                                      "Başarılı",
-                                      "Maçtan ayrıldın!",
-                                      backgroundColor: Colors.green[100],
-                                      colorText: Colors.green[900],
-                                    );
-                                  } catch (e) {
-                                    Get.snackbar(
-                                      "Hata",
-                                      "Ayrılırken bir sorun oluştu.",
-                                      backgroundColor: Colors.red[100],
-                                      colorText: Colors.red[900],
-                                    );
-                                  }
-                                },
+                                onTap: () => controller.leaveMatch(matchId),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,

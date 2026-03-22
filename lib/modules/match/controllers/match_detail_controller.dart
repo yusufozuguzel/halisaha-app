@@ -99,6 +99,7 @@ class MatchDetailController extends GetxController {
 
       final Map<String, dynamic> updates = {
          'currentPlayers': FieldValue.arrayRemove([targetUid]),
+         'invitedPlayers': FieldValue.arrayRemove([targetUid]),
       };
 
       if (data.containsKey('positions')) {
@@ -112,6 +113,20 @@ class MatchDetailController extends GetxController {
           }
           if (userSlot != null) {
               updates['positions.$userSlot'] = FieldValue.delete();
+          }
+      }
+
+      if (data.containsKey('pendingPositions')) {
+          final Map<String, dynamic> pendingData = data['pendingPositions'] as Map<String, dynamic>;
+          String? pendingSlot;
+          for (var entry in pendingData.entries) {
+              if (entry.value == targetUid) {
+                  pendingSlot = entry.key;
+                  break;
+              }
+          }
+          if (pendingSlot != null) {
+              updates['pendingPositions.$pendingSlot'] = FieldValue.delete();
           }
       }
 

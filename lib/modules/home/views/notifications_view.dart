@@ -31,34 +31,43 @@ class NotificationsView extends StatelessWidget {
 
                   final docs = snapshot.data?.docs ?? [];
 
-                  if (docs.isEmpty) {
-                    return _buildEmpty(context);
-                  }
+                  return Obx(() {
+                    final matchInvites = controller.matchInvites;
+                    if (docs.isEmpty && matchInvites.isEmpty) {
+                      return _buildEmpty(context);
+                    }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 24, top: 8),
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = docs[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      final type = data['type'] as String? ?? '';
+                    return ListView(
+                      padding: const EdgeInsets.only(bottom: 24, top: 8),
+                      children: [
+                        // 1) Maç Davetleri
+                        ...matchInvites.map((doc) {
+                          return _MatchInviteCard(doc: doc, controller: controller);
+                        }),
 
-                      if (type == 'follow_request') {
-                        return _FollowRequestCard(
-                          doc: doc,
-                          data: data,
-                          controller: controller,
-                        );
-                      }
+                        // 2) Diğer Tüm Bildirimler
+                        ...docs.map((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final type = data['type'] as String? ?? '';
 
-                      return _GenericCard(
-                        context: context,
-                        doc: doc,
-                        data: data,
-                        controller: controller,
-                      );
-                    },
-                  );
+                          if (type == 'follow_request') {
+                            return _FollowRequestCard(
+                              doc: doc,
+                              data: data,
+                              controller: controller,
+                            );
+                          }
+
+                          return _GenericCard(
+                            context: context,
+                            doc: doc,
+                            data: data,
+                            controller: controller,
+                          );
+                        }),
+                      ],
+                    );
+                  });
                 },
               ),
             ),
@@ -629,6 +638,171 @@ class _FollowRequestCard extends StatelessWidget {
       'Kas',
       'Ara',
     ];
+    final d = date.day.toString().padLeft(2, '0');
+    final m = months[date.month];
+    final h = date.hour.toString().padLeft(2, '0');
+    final mn = date.minute.toString().padLeft(2, '0');
+    if (diff.inDays == 1) return 'Dün, $h:$mn';
+    return '$d $m, $h:$mn';
+  }
+}
+
+// ─── Match Invite Request Notification Card ────────────────────────────────────────
+class _MatchInviteCard extends StatelessWidget {
+  final QueryDocumentSnapshot doc;
+  final NotificationsController controller;
+
+  const _MatchInviteCard({
+    required this.doc,
+    required this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data() as Map<String, dynamic>;
+    final matchId = data['matchId'] as String? ?? '';
+    final positionId = data['positionId'] as String? ?? '';
+    final senderId = data['senderId'] as String? ?? '';
+    final timestamp = data['createdAt'] as Timestamp?;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border(context)),
+      ),
+      child: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('users').doc(senderId).get(),
+        builder: (context, snapshot) {
+          String senderName = "Bir oyuncu";
+          String? avatarUrl;
+          
+          if (snapshot.hasData && snapshot.data!.exists) {
+            final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+            senderName = userData['fullName'] ?? userData['name'] ?? "Bir oyuncu";
+            avatarUrl = userData['avatarUrl'] ?? userData['profileImageUrl'] ?? userData['photoUrl'];
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: kGreen.withOpacity(0.12),
+                      backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
+                      child: (avatarUrl == null || avatarUrl.isEmpty) ? const Icon(Icons.sports_soccer, color: kGreen, size: 20) : null,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Maç Daveti ⚽',
+                            style: TextStyle(
+                              color: AppColors.text(context),
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$senderName seni bir maça davet etti!',
+                            style: TextStyle(
+                              color: AppColors.subText(context),
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatTimestamp(timestamp),
+                      style: TextStyle(
+                        color: AppColors.subText(context),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          controller.acceptInvite(doc.id, matchId, positionId);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: kGreen,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Kabul Et',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF0F1712),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          controller.rejectInvite(doc.id, matchId, positionId);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.isDark(context)
+                                ? const Color(0xFF2A2A2A)
+                                : const Color(0xFFEEEEEE),
+                            border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Reddet',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+      ),
+    );
+  }
+
+  String _formatTimestamp(Timestamp? ts) {
+    if (ts == null) return '';
+    final date = ts.toDate();
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return 'Az önce';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
+    if (diff.inHours < 24) return '${diff.inHours} saat önce';
+    const months = ['', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
     final d = date.day.toString().padLeft(2, '0');
     final m = months[date.month];
     final h = date.hour.toString().padLeft(2, '0');

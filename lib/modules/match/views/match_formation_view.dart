@@ -240,15 +240,25 @@ class _MatchFormationViewState extends State<MatchFormationView> {
     }
     
     final bool isEmpty = assignedUid == null;
+    final bool isPending = isEmpty && controller.pendingInvites.containsKey(positionId);
+    
+    Map<String, dynamic>? pendingInfo;
+    if (isPending) {
+       pendingInfo = controller.pendingInvites[positionId];
+    }
+
     final bool isCaptainProfile = assignedUid != null && assignedUid == controller.matchData.value?['createdBy'];
 
     // Avatarlar için geçerli URL olup olmadığını kontrol et
-    final String? photoUrl = playerInfo?['avatarUrl'] ?? playerInfo?['profileImageUrl'] ?? playerInfo?['photoUrl'] ?? playerInfo?['avatar'] ?? playerInfo?['image'];
+    final String? photoUrl = isPending 
+        ? (pendingInfo?['avatarUrl'] ?? pendingInfo?['profileImageUrl'] ?? pendingInfo?['photoUrl'] ?? pendingInfo?['avatar'] ?? pendingInfo?['image'])
+        : (playerInfo?['avatarUrl'] ?? playerInfo?['profileImageUrl'] ?? playerInfo?['photoUrl'] ?? playerInfo?['avatar'] ?? playerInfo?['image']);
+        
     final bool hasValidUrl = photoUrl != null && photoUrl.trim().isNotEmpty && photoUrl.startsWith('http');
     
     ImageProvider? imageProvider;
     if (hasValidUrl) {
-      imageProvider = CachedNetworkImageProvider(photoUrl.trim());
+      imageProvider = CachedNetworkImageProvider(photoUrl.toString().trim());
     }
 
     final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -256,10 +266,47 @@ class _MatchFormationViewState extends State<MatchFormationView> {
     final bool isOccupantNotCreator = assignedUid != currentUserId;
     final bool showKickButton = isCreator && !isEmpty && isOccupantNotCreator;
 
+    Widget avatarContent = Container(
+      width: 75,
+      height: 75,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: (isEmpty && !isPending) ? Colors.white12 : Colors.white,
+        border: Border.all(
+          color: (isEmpty && !isPending) ? Colors.transparent : (isPending ? Colors.orange : kGreen),
+          width: 2,
+        ),
+      ),
+      child: (isEmpty && !isPending) 
+         ? const Icon(Icons.add, color: Colors.white, size: 36)
+          : CircleAvatar(
+            backgroundColor: Colors.transparent,
+            backgroundImage: imageProvider,
+            child: imageProvider == null
+                ? Text(
+                    _getInitials(isPending ? (pendingInfo?['fullName'] ?? pendingInfo?['name']) : playerInfo?['name']),
+                    style: const TextStyle(
+                      color: Colors.black54, 
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  )
+                : null,
+         ),
+    );
+
+    if (isPending) {
+      avatarContent = Opacity(opacity: 0.5, child: avatarContent);
+    }
+
     return GestureDetector(
       onTap: () {
-         if (isEmpty) {
-             controller.moveToPosition(positionId);
+         if (isEmpty && !isPending) {
+             if (isCreator) {
+                 controller.showFriendsBottomSheet(positionId);
+             } else {
+                 controller.moveToPosition(positionId);
+             }
          }
       },
       child: Padding(
@@ -270,111 +317,105 @@ class _MatchFormationViewState extends State<MatchFormationView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.bottomCenter,
-            children: [
-              Container(
-                width: 75,
-                height: 75,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isEmpty ? Colors.white12 : Colors.white,
-                  border: Border.all(
-                    color: isEmpty ? Colors.transparent : kGreen,
-                    width: 2,
-                  ),
-                ),
-                child: isEmpty 
-                   ? const Icon(Icons.add, color: Colors.white, size: 36)
-                    : CircleAvatar(
-                      backgroundColor: Colors.transparent,
-                      backgroundImage: imageProvider,
-                      child: imageProvider == null
-                          ? Text(
-                              _getInitials(playerInfo?['name']),
-                              style: const TextStyle(
-                                color: Colors.black54, 
-                                fontWeight: FontWeight.bold,
-                                fontSize: 24,
-                              ),
-                            )
-                          : null,
-                   ),
-              ),
-              if (isCaptainProfile)
-                Positioned(
-                  top: -6,
-                  right: -6,
-                  child: Container(
-                     padding: const EdgeInsets.all(4),
-                     decoration: const BoxDecoration(
-                       color: Colors.amber,
-                       shape: BoxShape.circle,
-                     ),
-                     child: const Text('C', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
-                  ),
-                ),
-              if (showKickButton)
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: GestureDetector(
-                    onTap: () {
-                      Get.defaultDialog(
-                        title: 'Oyuncuyu Çıkar',
-                        middleText: '\nBu oyuncuyu sahadan ve maçtan çıkarmak istediğinize emin misiniz?',
-                        textCancel: 'İptal',
-                        textConfirm: 'Çıkar',
-                        confirmTextColor: Colors.white,
-                        buttonColor: Colors.redAccent,
-                        cancelTextColor: Colors.grey,
-                        onConfirm: () {
-                          Get.back();
-                          controller.kickPlayerFromFormation(assignedUid!, positionId);
-                        },
-                      );
-                    },
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.cancel,
-                        color: Colors.red,
-                        size: 24,
+                clipBehavior: Clip.none,
+                alignment: Alignment.bottomCenter,
+                children: [
+                  avatarContent,
+                  if (isCaptainProfile)
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: Container(
+                         padding: const EdgeInsets.all(4),
+                         decoration: const BoxDecoration(
+                           color: Colors.amber,
+                           shape: BoxShape.circle,
+                         ),
+                         child: const Text('C', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
                       ),
                     ),
-                  ),
+                  if (showKickButton)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: GestureDetector(
+                        onTap: () {
+                          Get.defaultDialog(
+                            title: 'Oyuncuyu Çıkar',
+                            middleText: '\nBu oyuncuyu sahadan ve maçtan çıkarmak istediğinize emin misiniz?',
+                            textCancel: 'İptal',
+                            textConfirm: 'Çıkar',
+                            confirmTextColor: Colors.white,
+                            buttonColor: Colors.redAccent,
+                            cancelTextColor: Colors.grey,
+                            onConfirm: () {
+                              Get.back();
+                              controller.kickPlayerFromFormation(assignedUid!, positionId);
+                            },
+                          );
+                        },
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.cancel,
+                            color: Colors.red,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (isPending)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: GestureDetector(
+                        onTap: () {
+                          controller.cancelLocalInvite(positionId);
+                        },
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.cancel,
+                            color: Colors.red,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isCaptainProfile ? const Color(0xFF1E2836) : (isPending ? Colors.orange.withOpacity(0.2) : Colors.white),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                /// Ensure text container isn't infinitely wide causing scale down
+                constraints: const BoxConstraints(maxWidth: 90),
+                child: Text(
+                  (isEmpty && !isPending) ? "Boş" : (isPending ? "⏳ Bekliyor" : (playerInfo?['name'] ?? "Oyuncu")),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isCaptainProfile ? Colors.white : (isPending ? Colors.orange : Colors.black),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              )
             ],
           ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: isCaptainProfile ? const Color(0xFF1E2836) : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            /// Ensure text container isn't infinitely wide causing scale down
-            constraints: const BoxConstraints(maxWidth: 90),
-            child: Text(
-              isEmpty ? "Boş" : (playerInfo?['name'] ?? "Oyuncu"),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: isCaptainProfile ? Colors.white : Colors.black,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-          )
-        ],
-      ),
-     ),
-    ),
-   );
+         ),
+        ),
+       );
   }
 
 }

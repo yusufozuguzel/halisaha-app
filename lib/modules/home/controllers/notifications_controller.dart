@@ -12,6 +12,29 @@ class NotificationsController extends GetxController {
   // Takip durumunu tutan harita (TargetUID -> isFollowing)
   final RxMap<String, RxBool> followingStatus = <String, RxBool>{}.obs;
 
+  // Yeni Eklenecek: Maç davetleri için
+  final RxList<QueryDocumentSnapshot> matchInvites = <QueryDocumentSnapshot>[].obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _listenToMatchInvites();
+  }
+
+  void _listenToMatchInvites() {
+    final uid = _uid;
+    if (uid == null) return;
+    
+    _firestore
+        .collection('notifications')
+        .where('receiverId', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .listen((snapshot) {
+      matchInvites.value = snapshot.docs;
+    });
+  }
+
   /// Belirtilen kullanıcıyı takip edip etmediğimizi kontrol eder
   void checkIfFollowing(String targetUid) {
     if (followingStatus.containsKey(targetUid)) {
@@ -241,5 +264,81 @@ class NotificationsController extends GetxController {
           'createdAt': FieldValue.serverTimestamp(),
           'status': 'pending',
         });
+  }
+
+  // ── MATCH INVITES ────────────────────────────────────────────────────────────
+
+  Future<void> acceptInvite(String notificationId, String matchId, String positionId) async {
+    final myUid = _uid;
+    if (myUid == null) return;
+
+    final batch = _firestore.batch();
+    
+    // 1. Update notification status to accepted
+    batch.update(
+      _firestore.collection('notifications').doc(notificationId),
+      {'status': 'accepted'}
+    );
+
+    // 2. Update matches doc
+    final matchRef = _firestore.collection('matches').doc(matchId);
+    batch.update(matchRef, {
+      'currentPlayers': FieldValue.arrayUnion([myUid]),
+      'positions.$positionId': myUid,
+      'pendingPositions.$positionId': FieldValue.delete(),
+    });
+
+    try {
+      await batch.commit();
+      Get.snackbar(
+        'Başarılı', 
+        'Maç davetini kabul ettin!', 
+        backgroundColor: const Color(0xFF1E2A22), 
+        colorText: const Color(0xFF2EED7B),
+        snackPosition: SnackPosition.BOTTOM
+      );
+    } catch(e) {
+      Get.snackbar('Hata', 'İşlem başarısız: $e', backgroundColor: Colors.red.shade900, colorText: Colors.white);
+    }
+  }
+
+  Future<void> rejectInvite(String notificationId, String matchId, String positionId) async {
+    final myUid = _uid;
+    if (myUid == null) return;
+    
+    try {
+      final matchDoc = await _firestore.collection('matches').doc(matchId).get();
+      final creatorId = matchDoc.data()?['createdBy'] as String?;
+
+      final batch = _firestore.batch();
+      
+      // 1. Delete notification
+      batch.delete(_firestore.collection('notifications').doc(notificationId));
+
+      // 2. Update matches doc (remove pending position and from invitedPlayers list)
+      final matchRef = _firestore.collection('matches').doc(matchId);
+      batch.update(matchRef, {
+        'pendingPositions.$positionId': FieldValue.delete(),
+        'invitedPlayers': FieldValue.arrayRemove([myUid]),
+      });
+
+      // 3. Bildirimi kurucuya ilet
+      if (creatorId != null && creatorId != myUid) {
+        final notifRef = _firestore.collection('notifications').doc();
+        batch.set(notifRef, {
+          'receiverId': creatorId,
+          'senderId': myUid,
+          'type': 'invite_rejected',
+          'matchId': matchId,
+          'createdAt': FieldValue.serverTimestamp(),
+          'status': 'unread'
+        });
+      }
+
+      await batch.commit();
+      Get.snackbar('Bilgi', 'Maç daveti reddedildi.', backgroundColor: Colors.black87, colorText: Colors.white, snackPosition: SnackPosition.BOTTOM);
+    } catch(e) {
+      Get.snackbar('Hata', 'İşlem başarısız: $e', backgroundColor: Colors.red.shade900, colorText: Colors.white);
+    }
   }
 }

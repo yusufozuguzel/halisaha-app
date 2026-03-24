@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../routes/app_routes.dart';
 
 class MatchFormationController extends GetxController {
@@ -296,6 +297,7 @@ class MatchFormationController extends GetxController {
                         'matchId': matchId,
                         'positionId': key,
                         'status': 'pending',
+                        'isRead': false,
                         'createdAt': FieldValue.serverTimestamp(),
                      });
                  }
@@ -443,7 +445,7 @@ class MatchFormationController extends GetxController {
             
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('users').doc(currentUid).collection('following').snapshots(),
+                stream: _firestore.collection('users').doc(currentUid).collection('friends').snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator(color: Color(0xFF2EED7B)));
@@ -562,5 +564,34 @@ class MatchFormationController extends GetxController {
     final Map<String, dynamic> dataToSave = Map<String, dynamic>.from(friendData);
     dataToSave['uid'] = friendUid;
     pendingInvites[positionId] = dataToSave;
+  }
+
+  Future<void> shareMatch() async {
+    final mData = matchData.value;
+    if (mData == null) return;
+
+    final String title = mData['title'] ?? 'Maç';
+    final String venueName = mData['venue'] ?? 'Saha Belirtilmemiş';
+    
+    String formattedDate = '';
+    String timeStr = '';
+
+    if (mData['date'] is Timestamp) {
+      final dt = (mData['date'] as Timestamp).toDate();
+      formattedDate = "${dt.day}/${dt.month}/${dt.year}";
+      timeStr = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+      
+      if (mData['endDate'] is Timestamp) {
+         final edt = (mData['endDate'] as Timestamp).toDate();
+         timeStr += " - ${edt.hour.toString().padLeft(2, '0')}:${edt.minute.toString().padLeft(2, '0')}";
+      }
+    }
+
+    final String deepLink = 'https://halisaha.app/join/$matchId';
+
+    await Share.share(
+      '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $timeStr\n📍 $venueName\n\nMaça katılmak için hemen tıkla:\n$deepLink',
+      subject: 'Halı Saha Maç Daveti',
+    );
   }
 }

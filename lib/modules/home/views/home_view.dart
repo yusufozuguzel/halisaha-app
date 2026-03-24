@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'my_matches_view.dart';
 import 'notifications_view.dart' hide kGreen;
 import '../controllers/home_controller.dart';
+import '../controllers/notifications_controller.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
 import '../../../routes/app_routes.dart';
@@ -306,31 +307,35 @@ class _HomeViewState extends State<HomeView> {
                 ],
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hoş geldin,',
-                    style: TextStyle(
-                      color: subText,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.none,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hoş geldin,',
+                      style: TextStyle(
+                        color: subText,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.none,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$fullName 👋',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
+                    const SizedBox(height: 4),
+                    Text(
+                      '$fullName 👋',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.none,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
               GestureDetector(
                 onTap: () => Get.to(
                   () => const FriendsView(),
@@ -353,11 +358,14 @@ class _HomeViewState extends State<HomeView> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () => Get.to(
-                  () => const NotificationsView(),
-                  transition: Transition.fadeIn,
-                  duration: const Duration(milliseconds: 300),
-                ),
+                onTap: () {
+                  Get.put(NotificationsController()).markAllAsRead();
+                  Get.to(
+                    () => const NotificationsView(),
+                    transition: Transition.fadeIn,
+                    duration: const Duration(milliseconds: 300),
+                  );
+                },
                 child: Container(
                   width: 40,
                   height: 40,
@@ -373,18 +381,23 @@ class _HomeViewState extends State<HomeView> {
                         color: textColor,
                         size: 22,
                       ),
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.redAccent,
-                            shape: BoxShape.circle,
+                      Obx(() {
+                        final unreadCount = Get.put(NotificationsController()).unreadCount.value;
+                        if (unreadCount == 0) return const SizedBox.shrink();
+
+                        return Positioned(
+                          top: 10,
+                          right: 10,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -1179,7 +1192,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Henüz kimseyi takip etmiyorsun\nveya arkadaşların şu an aktif değil.',
+                      'Henüz arkadaşın yok\nveya arkadaşların şu an aktif değil.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: subText,
@@ -1201,6 +1214,7 @@ class _HomeViewState extends State<HomeView> {
               itemBuilder: (context, index) {
                 final activity = activities[index];
                 return _buildActivityItem(
+                  id: activity.id,
                   name: activity.userName,
                   action: activity.action,
                   time: activity.time,
@@ -1223,6 +1237,7 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _buildActivityItem({
+    required String id,
     required String name,
     required String action,
     required String time,
@@ -1234,8 +1249,24 @@ class _HomeViewState extends State<HomeView> {
   }) {
     final textColor = AppColors.text(context);
     final subText = AppColors.subText(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
+    final homeController = Get.find<HomeController>();
+    return Dismissible(
+      key: Key(id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) {
+        homeController.hideActivity(id);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.overlay(context),
         borderRadius: BorderRadius.circular(16),
@@ -1334,7 +1365,7 @@ class _HomeViewState extends State<HomeView> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 

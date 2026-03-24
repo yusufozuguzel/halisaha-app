@@ -447,7 +447,7 @@ class _FollowingTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Henüz kimseyi takip etmiyorsun.',
+                  'Henüz hiç arkadaşın yok.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.text(context),
@@ -458,7 +458,7 @@ class _FollowingTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Arama yaparak arkadaşlarını bul ve takip et!',
+                  'Arama yaparak arkadaşlarını bul ve ekle!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.subText(context),

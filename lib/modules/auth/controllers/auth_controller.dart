@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -101,14 +102,37 @@ class AuthController extends GetxController {
 
       Get.snackbar("Başarılı", "Giriş yapıldı");
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'invalid-credential' || e.code == 'user-not-found' || e.code == 'wrong-password') {
-        Get.snackbar("Hata", "E-posta veya şifreniz hatalı. Lütfen kontrol edip tekrar deneyin.");
+      String message = "Bir hata oluştu. Lütfen tekrar deneyin.";
+      if (e.code == 'network-request-failed') {
+        message = 'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
+      } else if (e.code == 'invalid-credential' || e.code == 'user-not-found' || e.code == 'wrong-password') {
+        message = 'E-posta veya şifre hatalı. Lütfen kontrol edip tekrar deneyin.';
+      } else if (e.code == 'invalid-email') {
+        message = 'Geçersiz bir e-posta adresi girdiniz.';
+      } else if (e.code == 'user-disabled') {
+        message = 'Bu hesap askıya alınmış veya kapatılmış.';
+      } else if (e.code == 'too-many-requests') {
+        message = 'Çok fazla başarısız deneme yapıldı. Lütfen daha sonra tekrar deneyin.';
       } else {
-        Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
+        message = e.message ?? message;
       }
+      
+      Get.snackbar(
+        "Giriş Başarısız", 
+        message,
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } catch (e) {
       print("SİSTEM HATASI: $e");
-      Get.snackbar("Giriş Hatası", "Hata detayı: $e");
+      Get.snackbar(
+        "Hata", 
+        "Sistemsel bir sorun oluştu: $e",
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 
@@ -133,7 +157,26 @@ class AuthController extends GetxController {
 
       Get.snackbar("Başarılı", "Kayıt işlemi tamamlandı");
     } on FirebaseAuthException catch (e) {
-      Get.snackbar("Hata", e.message ?? "Bir hata oluştu");
+      String message = "Kayıt olurken bir hata oluştu.";
+      if (e.code == 'network-request-failed') {
+        message = 'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
+      } else if (e.code == 'email-already-in-use') {
+        message = 'Bu e-posta adresi zaten kullanımda.';
+      } else if (e.code == 'invalid-email') {
+        message = 'Geçersiz bir e-posta adresi girdiniz.';
+      } else if (e.code == 'weak-password') {
+        message = 'Şifreniz çok zayıf. Daha güçlü bir şifre belirleyin.';
+      } else {
+        message = e.message ?? message;
+      }
+      
+      Get.snackbar(
+        "Kayıt Hatası", 
+        message,
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 
@@ -202,8 +245,53 @@ class AuthController extends GetxController {
 
         Get.snackbar("Başarılı", "Google ile giriş yapıldı");
       }
+    } on PlatformException catch (e) {
+      if (e.code == 'network_error') {
+        Get.snackbar(
+          "Bağlantı Hatası", 
+          "İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.",
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } else if (e.code == 'sign_in_canceled') {
+        Get.snackbar(
+          "Bilgi", 
+          "Giriş işlemi iptal edildi.",
+          backgroundColor: Colors.grey.shade800,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        Get.snackbar(
+          "Hata", 
+          "Google ile giriş yapılırken bir sorun oluştu. Lütfen tekrar deneyin.",
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = "Google ile giriş yapılırken bir sorun oluştu. Lütfen tekrar deneyin.";
+      if (e.code == 'network-request-failed') {
+        message = 'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
+      }
+      Get.snackbar(
+        "Hata", 
+        message,
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } catch (e) {
-      Get.snackbar("Hata", "Google girişi başarısız: ${e.toString()}");
+      Get.snackbar(
+        "Hata", 
+        "Google ile giriş yapılırken bir sorun oluştu. Lütfen tekrar deneyin.",
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 

@@ -25,8 +25,8 @@ class ProfileController extends GetxController {
   final RxString avatarUrl = ''.obs;
 
   // ── Takip durumu ───────────────────────────────────────────
-  final RxBool isFollowing = false.obs;
-  final RxBool isRequestSent = false.obs;
+  final RxBool isFriend = false.obs;
+  final RxBool isPending = false.obs;
   final RxBool isLoading = false.obs;
   final RxBool isBlocked = false.obs;
 
@@ -126,7 +126,7 @@ class ProfileController extends GetxController {
     final friendsSub = _db
         .collection('users')
         .doc(targetUid)
-        .collection('following')
+        .collection('friends')
         .snapshots()
         .listen((snap) {
           friendsCount.value = snap.docs.length;
@@ -166,20 +166,20 @@ class ProfileController extends GetxController {
     final followerDoc = await _db
         .collection('users')
         .doc(targetUid)
-        .collection('followers')
+        .collection('friends')
         .doc(myUid)
         .get();
-    isFollowing.value = followerDoc.exists;
+    isFriend.value = followerDoc.exists;
 
     // İstek gönderildi mi?
-    if (!isFollowing.value) {
+    if (!isFriend.value) {
       final reqDoc = await _db
           .collection('users')
           .doc(targetUid)
           .collection('followRequests')
           .doc(myUid)
           .get();
-      isRequestSent.value = reqDoc.exists;
+      isPending.value = reqDoc.exists;
     }
   }
 
@@ -191,22 +191,12 @@ class ProfileController extends GetxController {
       isLoading.value = true;
       final batch = _db.batch();
 
-      // 1. Benım followersCount'u güncelle (āeger hedef beni takip ediyorsa)
-      final targetFollowsMe = await _db
-          .collection('users').doc(myUid).collection('followers').doc(targetUid).get();
-      if (targetFollowsMe.exists) {
-        batch.delete(_db.collection('users').doc(myUid).collection('followers').doc(targetUid));
-        batch.delete(_db.collection('users').doc(targetUid).collection('following').doc(myUid));
-        // NOT: followersCount / followingCount Cloud Function'a bırakıldı
-      }
-
-      // 2. Ben hedefi takip ediyorsam
-      final iFollowTarget = await _db
-          .collection('users').doc(targetUid).collection('followers').doc(myUid).get();
-      if (iFollowTarget.exists) {
-        batch.delete(_db.collection('users').doc(targetUid).collection('followers').doc(myUid));
-        batch.delete(_db.collection('users').doc(myUid).collection('following').doc(targetUid));
-        // NOT: followersCount / followingCount Cloud Function'a bırakıldı
+      final targetIsFriend = await _db
+          .collection('users').doc(myUid).collection('friends').doc(targetUid).get();
+      if (targetIsFriend.exists) {
+        batch.delete(_db.collection('users').doc(myUid).collection('friends').doc(targetUid));
+        batch.delete(_db.collection('users').doc(targetUid).collection('friends').doc(myUid));
+        // NOT: friendsCount Cloud Function'a bırakıldı
       }
 
       // 3. Bekleyen followRequest'leri sil (her iki yön)
@@ -223,8 +213,8 @@ class ProfileController extends GetxController {
 
       // Lokal state güncelle
       isBlocked.value = true;
-      isFollowing.value = false;
-      isRequestSent.value = false;
+      isFriend.value = false;
+      isPending.value = false;
 
       Get.snackbar(
         'Engellendi',
@@ -283,7 +273,7 @@ class ProfileController extends GetxController {
             'status': 'pending',
             'createdAt': FieldValue.serverTimestamp(),
           });
-      isRequestSent.value = true;
+      isPending.value = true;
 
       // ── Düzeltme: bildirimi atan KENDİ adımızı Firestore'dan al ──
       final myDoc = await _db.collection('users').doc(myUid).get();
@@ -297,10 +287,11 @@ class ProfileController extends GetxController {
           .collection('notifications')
           .add({
             'title': 'Yeni Takip İsteği 👥',
-            'message': '$myName sana takip isteği gönderdi.',
+            'message': '$myName seninle arkadaş olmak istiyor.',
             'type': 'follow_request',
             'senderUid': myUid,
             'senderName': myName,
+            'isRead': false,
             'createdAt': FieldValue.serverTimestamp(),
             'status': 'pending',
           });
@@ -325,7 +316,7 @@ class ProfileController extends GetxController {
           .collection('followRequests')
           .doc(myUid)
           .delete();
-      isRequestSent.value = false;
+      isPending.value = false;
     } catch (e) {
       Get.snackbar('Hata', 'İstek iptal edilemedi: $e');
     } finally {
@@ -333,8 +324,8 @@ class ProfileController extends GetxController {
     }
   }
 
-  // ── Unfollow ───────────────────────────────────────────────
-  Future<void> unfollow() async {
+  // ── Remove Friend ───────────────────────────────────────────────
+  Future<void> removeFriend() async {
     final myUid = _myUid;
     if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value) {
       return;
@@ -343,28 +334,28 @@ class ProfileController extends GetxController {
     try {
       final batch = _db.batch();
 
-      // target.followers/{myUid} — hedefin alt koleksiyonu (OK)
+      // target.friends/{myUid}
       batch.delete(
         _db
             .collection('users')
             .doc(targetUid)
-            .collection('followers')
+            .collection('friends')
             .doc(myUid),
       );
 
-      // my.following/{targetUid} — benim alt koleksiyonum (OK)
+      // my.friends/{targetUid}
       batch.delete(
         _db
             .collection('users')
             .doc(myUid)
-            .collection('following')
+            .collection('friends')
             .doc(targetUid),
       );
 
       // NOT: followersCount / followingCount sayıçları Cloud Function'a bırakıldı.
 
       await batch.commit();
-      isFollowing.value = false;
+      isFriend.value = false;
     } catch (e) {
       Get.snackbar('Hata', 'Takipten çıkılamadı: $e');
     } finally {
@@ -382,21 +373,41 @@ class ProfileController extends GetxController {
     if (myUid == null || myUid.isEmpty || fromUid.isEmpty) return;
     
     try {
+      final myDoc = await _db.collection('users').doc(myUid).get();
+      final fromDoc = await _db.collection('users').doc(fromUid).get();
+
+      final myData = myDoc.data() ?? {};
+      final fromData = fromDoc.data() ?? {};
+      
       final batch = _db.batch();
 
-      // 1. users/{currentUser}/followers/{senderUid} dökümanını set et
+      // B'nin (Kabul eden) friends koleksiyonuna A'yı ekle
       batch.set(
-        _db.collection('users').doc(myUid).collection('followers').doc(fromUid),
-        {'uid': fromUid, 'since': FieldValue.serverTimestamp()},
+        _db.collection('users').doc(myUid).collection('friends').doc(fromUid),
+        {
+          'uid': fromUid,
+          'fullName': fromData['fullName'] ?? fromData['name'] ?? '',
+          'avatarUrl': fromData['avatarUrl'] ?? '',
+          'avatarData': fromData['avatarData'] ?? '0',
+          'position': fromData['position'] ?? '',
+          'since': FieldValue.serverTimestamp()
+        },
       );
 
-      // 2. users/{senderUid}/following/{currentUser} dökümanını set et
+      // A'nın (İstek gönderen) friends koleksiyonuna B'yi ekle
       batch.set(
-        _db.collection('users').doc(fromUid).collection('following').doc(myUid),
-        {'uid': myUid, 'since': FieldValue.serverTimestamp()},
+        _db.collection('users').doc(fromUid).collection('friends').doc(myUid),
+        {
+          'uid': myUid,
+          'fullName': myData['fullName'] ?? myData['name'] ?? '',
+          'avatarUrl': myData['avatarUrl'] ?? '',
+          'avatarData': myData['avatarData'] ?? '0',
+          'position': myData['position'] ?? '',
+          'since': FieldValue.serverTimestamp()
+        },
       );
 
-      // 3. users/{currentUser}/followRequests/{senderUid} dökümanını delete et.
+      // 3. users/{currentUser}/followRequests/{fromUid} dökümanını delete et.
       batch.delete(
         _db.collection('users').doc(myUid).collection('followRequests').doc(fromUid),
       );
@@ -404,7 +415,7 @@ class ProfileController extends GetxController {
       await batch.commit();
 
       if (fromUid == targetUid) {
-        isFollowing.value = true;
+        isFriend.value = true;
       }
     } catch (e) {
       print('FIREBASE KABUL ETME HATASI: $e');

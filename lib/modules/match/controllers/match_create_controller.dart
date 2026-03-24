@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -14,6 +13,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../modules/home/controllers/notifications_controller.dart';
 import '../../../modules/home/controllers/home_controller.dart';
+import '../views/match_formation_view.dart';
 import 'my_matches_controller.dart';
 
 class MatchCreateController extends GetxController {
@@ -749,13 +749,6 @@ class MatchCreateController extends GetxController {
         generatedMatchId = docRef.id;
       }
 
-      final String deepLink = 'https://halisaha.app/join/$generatedMatchId';
-      final String formattedDate = "${date.day}/${date.month}/${date.year}";
-      final String startStr =
-          "${sTime.hour.toString().padLeft(2, '0')}:${sTime.minute.toString().padLeft(2, '0')}";
-      final String endStr =
-          "${eTime.hour.toString().padLeft(2, '0')}:${eTime.minute.toString().padLeft(2, '0')}";
-
       Get.back();
       Get.snackbar(
         isEditing.value ? 'Maç Güncellendi! ✏️' : 'Maç Oluşturuldu! 🏆',
@@ -785,10 +778,7 @@ class MatchCreateController extends GetxController {
         Get.find<HomeController>().fetchMatches();
 
       if (!isEditing.value) {
-        await Share.share(
-          '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $startStr - $endStr\n📍 $venue\n\nMaça katılmak için hemen tıkla:\n$deepLink',
-          subject: 'Halı Saha Maç Daveti',
-        );
+        Get.off(() => const MatchFormationView(), arguments: generatedMatchId);
       }
     } catch (e) {
       Get.snackbar(

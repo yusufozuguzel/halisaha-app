@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../match/models/match_model.dart';
@@ -173,7 +174,7 @@ class HomeController extends GetxController {
     final db = FirebaseFirestore.instance;
 
     // 1. Önce Takip Edilenleri Çek (Following collection)
-    db.collection('users').doc(myUid).collection('following').snapshots().listen((followingSnap) async {
+    db.collection('users').doc(myUid).collection('friends').snapshots().listen((followingSnap) async {
       try {
         if (followingSnap.docs.isEmpty) {
           friendActivities.clear();
@@ -236,6 +237,7 @@ class HomeController extends GetxController {
           if (creatorId != null && followingUids.contains(creatorId) && createdAt != null) {
             final profile = await getUserProfile(creatorId);
             activities.add(ActivityModel(
+              id: '${creatorId}_$matchId',
               userId: creatorId,
               userName: profile['name']!,
               userAvatar: profile['avatar']!,
@@ -265,6 +267,7 @@ class HomeController extends GetxController {
             if (followingUids.contains(playerUid) && playerUid != data['creatorId']) {
               final profile = await getUserProfile(playerUid);
               activities.add(ActivityModel(
+                id: '${playerUid}_$matchId',
                 userId: playerUid,
                 userName: profile['name']!,
                 userAvatar: profile['avatar']!,
@@ -289,6 +292,40 @@ class HomeController extends GetxController {
         isActivitiesLoading.value = false;
       }
     });
+  }
+
+  void hideActivity(String activityId) {
+    final index = friendActivities.indexWhere((a) => a.id == activityId);
+    if (index == -1) return;
+
+    final activity = friendActivities[index];
+    friendActivities.removeAt(index);
+
+    Get.snackbar(
+      'Aktivite gizlendi.',
+      '',
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 3),
+      backgroundColor: Colors.grey.shade900,
+      colorText: Colors.white,
+      mainButton: TextButton(
+        onPressed: () {
+          if (index <= friendActivities.length) {
+            friendActivities.insert(index, activity);
+          } else {
+            friendActivities.add(activity);
+          }
+          Get.back(); // Snackbar'ı kapat
+        },
+        child: const Text(
+          'Geri Al',
+          style: TextStyle(
+            color: Color(0xFF2EED7B),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
   }
 
   String _timeAgoStr(DateTime date) {

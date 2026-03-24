@@ -238,7 +238,7 @@ class _HomeViewState extends State<HomeView> {
         final avatarUrl = data['avatarUrl'] ?? '';
 
         Widget avatarWidget;
-        if (avatarUrl.isNotEmpty) {
+        if (avatarUrl.isNotEmpty && avatarUrl != 'null') {
           avatarWidget = ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: CachedNetworkImage(
@@ -246,7 +246,7 @@ class _HomeViewState extends State<HomeView> {
               width: 48,
               height: 48,
               fit: BoxFit.cover,
-              errorWidget: (context, error, stackTrace) =>
+              errorWidget: (context, url, error) =>
                   Icon(Icons.person, color: textColor, size: 24),
             ),
           );
@@ -867,9 +867,20 @@ class _HomeViewState extends State<HomeView> {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
           shape: BoxShape.circle,
-          image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
           border: Border.all(color: Colors.white, width: 1.5),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: url.isNotEmpty && url != 'null'
+              ? CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.cover,
+                  errorWidget: (context, u, error) =>
+                      const Icon(Icons.person, color: Colors.white, size: 20),
+                )
+              : const Icon(Icons.person, color: Colors.white, size: 20),
         ),
       ),
     );
@@ -1282,10 +1293,18 @@ class _HomeViewState extends State<HomeView> {
                 height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image: NetworkImage(avatarUrl),
-                    fit: BoxFit.cover,
-                  ),
+                  color: AppColors.overlay(context),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: avatarUrl.isNotEmpty && avatarUrl != 'null'
+                      ? CachedNetworkImage(
+                          imageUrl: avatarUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, url, error) =>
+                              Icon(Icons.person, color: textColor, size: 24),
+                        )
+                      : Icon(Icons.person, color: textColor, size: 24),
                 ),
               ),
               Positioned(

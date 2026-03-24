@@ -564,6 +564,8 @@ class MatchFormationController extends GetxController {
     final Map<String, dynamic> dataToSave = Map<String, dynamic>.from(friendData);
     dataToSave['uid'] = friendUid;
     pendingInvites[positionId] = dataToSave;
+    
+    Get.back();
   }
 
   Future<void> shareMatch() async {

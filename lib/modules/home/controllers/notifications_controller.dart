@@ -127,8 +127,10 @@ class NotificationsController extends GetxController {
       '',
       snackPosition: SnackPosition.BOTTOM,
       duration: const Duration(seconds: 3),
-      backgroundColor: Colors.grey.shade900,
+      backgroundColor: Colors.grey.shade800,
       colorText: Colors.white,
+      margin: const EdgeInsets.all(12),
+      borderRadius: 8,
       mainButton: TextButton(
         onPressed: () {
           isUndone = true;
@@ -163,16 +165,61 @@ class NotificationsController extends GetxController {
   Future<void> clearAllNotifications() async {
     final uid = _uid;
     if (uid == null) return;
+
     final snapshot = await _firestore
         .collection('users')
         .doc(uid)
         .collection('notifications')
         .get();
-    final batch = _firestore.batch();
-    for (var doc in snapshot.docs) {
-      batch.delete(doc.reference);
+
+    if (snapshot.docs.isEmpty) return;
+
+    // 1) UI'dan gizlemek için ID'leri yedekle ve ekle
+    final idsToHide = snapshot.docs.map((d) => d.id).toList();
+    hiddenNotificationIds.addAll(idsToHide);
+
+    bool isUndone = false;
+
+    // 2) Kullanıcıya bildiri (Snackbar) çıkar
+    Get.snackbar(
+      'Tüm bildirimler silindi',
+      '',
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 3),
+      backgroundColor: Colors.grey.shade800,
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(12),
+      borderRadius: 8,
+      mainButton: TextButton(
+        onPressed: () {
+          isUndone = true;
+          hiddenNotificationIds.removeWhere((id) => idsToHide.contains(id));
+          Get.back(); // Snackbar'ı kapat
+        },
+        child: const Text(
+          'Geri Al',
+          style: TextStyle(
+            color: Color(0xFF2EED7B),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+
+    // 3) 3 saniye bekle
+    await Future.delayed(const Duration(seconds: 3));
+
+    // 4) Geri alınmadıysa batch ile tamamen sil
+    if (!isUndone) {
+      final batch = _firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      // Temizlenen id'leri hidden listesinden çıkarabiliriz
+      hiddenNotificationIds.removeWhere((id) => idsToHide.contains(id));
     }
-    await batch.commit();
   }
 
   /// Yeni bildirim ekle — kendi kullanıcının bildirim kutusuna

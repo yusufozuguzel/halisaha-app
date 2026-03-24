@@ -306,8 +306,10 @@ class HomeController extends GetxController {
       '',
       snackPosition: SnackPosition.BOTTOM,
       duration: const Duration(seconds: 3),
-      backgroundColor: Colors.grey.shade900,
+      backgroundColor: Colors.grey.shade800,
       colorText: Colors.white,
+      margin: const EdgeInsets.all(12),
+      borderRadius: 8,
       mainButton: TextButton(
         onPressed: () {
           if (index <= friendActivities.length) {

@@ -14,9 +14,16 @@ class DiscoverController extends GetxController {
   StreamSubscription<QuerySnapshot>? _matchSubscription;
 
   // 📍 Yakındaki Sahalar
+  final List<Map<String, dynamic>> baseVenues = [];
   final RxList<Map<String, dynamic>> nearbyVenues =
       <Map<String, dynamic>>[].obs;
   final RxBool isVenuesLoading = true.obs;
+
+  // 🌍 Yeni Filtre Değişkenleri
+  final RxList<String> availableCities = <String>[].obs;
+  final RxList<String> availableDistricts = <String>[].obs;
+  final RxString selectedCity = ''.obs;
+  final RxString selectedDistrict = ''.obs;
 
   // 🔍 Google Places Arama
   final String _googlePlacesApiKey = (dotenv.env['GOOGLE_API_KEY'] ?? '')
@@ -68,12 +75,15 @@ class DiscoverController extends GetxController {
           }
         }
 
+        final address = data['city'] ?? data['address'] ?? 'Bilinmiyor';
+        final loc = _parseLocation(address.toString());
         return {
           'id': doc.id,
           'name': data['name'] ?? 'Bilinmiyor',
           'lat': lat,
           'lng': lng,
-          'city': data['city'] ?? 'Bilinmiyor',
+          'city': loc['city'],
+          'district': loc['district'],
           'photoUrl': photoUrl,
         };
       }).toList();
@@ -132,12 +142,15 @@ class DiscoverController extends GetxController {
                         'https://maps.googleapis.com/maps/api/staticmap?center=$pLat,$pLng&zoom=18&size=600x400&maptype=satellite&key=$_googlePlacesApiKey';
                   }
 
+                  final address = place['formatted_address'] ?? '';
+                  final loc = _parseLocation(address);
                   allVenues.add({
                     'id': place['place_id'],
                     'name': place['name'] ?? place['formatted_address'],
                     'lat': place['geometry']['location']['lat'],
                     'lng': place['geometry']['location']['lng'],
-                    'city': place['formatted_address'] ?? '',
+                    'city': loc['city'],
+                    'district': loc['district'],
                     'source': 'google',
                     'photoUrl': photoUrl,
                   });
@@ -175,17 +188,21 @@ class DiscoverController extends GetxController {
         ),
       );
 
-      // 6. 75 KM FİLTRESİ
-      final List<Map<String, dynamic>> filteredList = allVenues
-          .where((v) => (v['distanceInMeters'] as double) <= 75000)
-          .toList();
+      // Filtreler için TÜM SAHALARI (allVenues) alıyoruz.
+      // Mesafe kısıtlamasını UI seviyesinde kaldırdığımız için
+      // veritabanındaki her şehrin dropdown'a düşmesini sağlıyoruz.
+      baseVenues.clear();
+      baseVenues.addAll(allVenues);
 
-      // 🔥 HAYAT KURTARAN DOKUNUŞ: Ekran asla boş kalmasın! 75km içinde saha yoksa en yakın 5 tanesini zorla göster.
-      if (filteredList.isNotEmpty) {
-        nearbyVenues.value = filteredList;
-      } else {
-        nearbyVenues.value = allVenues.take(5).toList();
-      }
+      final cities = baseVenues
+          .map((v) => v['city']?.toString().trim() ?? '')
+          .where((c) => c.isNotEmpty && c != 'Bilinmiyor')
+          .toSet()
+          .toList();
+      cities.sort();
+      availableCities.value = cities;
+
+      applyFilter();
     } catch (e) {
       print('Yakındaki sahalar yüklenirken hata: $e');
     } finally {
@@ -272,12 +289,15 @@ class DiscoverController extends GetxController {
                   'https://maps.googleapis.com/maps/api/staticmap?center=$pLat,$pLng&zoom=18&size=600x400&maptype=satellite&key=$_googlePlacesApiKey';
             }
 
+            final address = place['formatted_address'] ?? '';
+            final loc = _parseLocation(address);
             return <String, dynamic>{
               'id': place['place_id'],
               'name': place['name'] ?? place['formatted_address'],
               'lat': place['geometry']['location']['lat'],
               'lng': place['geometry']['location']['lng'],
-              'city': place['formatted_address'] ?? '',
+              'city': loc['city'],
+              'district': loc['district'],
               'source': 'google',
               'photoUrl': photoUrl,
             };
@@ -301,9 +321,23 @@ class DiscoverController extends GetxController {
             );
           }
 
-          nearbyVenues.value = googleVenues;
+          baseVenues.clear();
+          baseVenues.addAll(googleVenues);
+          
+          final cities = baseVenues
+              .map((v) => v['city']?.toString().trim() ?? '')
+              .where((c) => c.isNotEmpty && c != 'Bilinmiyor')
+              .toSet()
+              .toList();
+          cities.sort();
+          availableCities.value = cities;
+
+          applyFilter();
         } else {
+          baseVenues.clear();
           nearbyVenues.clear();
+          availableCities.clear();
+          availableDistricts.clear();
         }
       }
     } catch (e) {
@@ -516,6 +550,85 @@ class DiscoverController extends GetxController {
         margin: const EdgeInsets.all(16),
       );
     }
+  }
+
+  Map<String, String> _parseLocation(String address) {
+    if (address.isEmpty || address == 'Bilinmiyor') {
+      return {'city': 'Bilinmiyor', 'district': ''};
+    }
+
+    final parts = address.split(',');
+    String targetPart = parts.last;
+
+    for (int i = parts.length - 1; i >= 0; i--) {
+      if (parts[i].toLowerCase().contains('türkiye')) {
+        if (i > 0) {
+          targetPart = parts[i - 1];
+        } else {
+          targetPart = parts[i];
+        }
+        break;
+      }
+    }
+
+    targetPart = targetPart.replaceAll(RegExp(r'\d{5}'), '').trim();
+
+    final slashParts = targetPart.split('/');
+    if (slashParts.length >= 2) {
+      return {
+        'district': slashParts[0].trim(),
+        'city': slashParts[1].trim(),
+      };
+    } else {
+      return {
+        'city': targetPart.trim(),
+        'district': '',
+      };
+    }
+  }
+
+  void onCityChanged(String? city) {
+    selectedCity.value = city ?? '';
+    selectedDistrict.value = '';
+    availableDistricts.clear();
+
+    if (city != null && city.isNotEmpty) {
+      final districts = baseVenues
+          .where((v) => v['city']?.toString().trim() == city)
+          .map((v) => v['district']?.toString().trim() ?? '')
+          .where((d) => d.isNotEmpty)
+          .toSet()
+          .toList();
+      districts.sort();
+      availableDistricts.value = districts;
+    }
+  }
+
+  void onDistrictChanged(String? district) {
+    selectedDistrict.value = district ?? '';
+  }
+
+  void applyFilter() {
+    List<Map<String, dynamic>> filtered = List.from(baseVenues);
+
+    final city = selectedCity.value;
+    final district = selectedDistrict.value;
+
+    if (city.isNotEmpty) {
+      filtered = filtered.where((v) => v['city']?.toString().trim() == city).toList();
+    }
+    if (district.isNotEmpty) {
+      filtered = filtered.where((v) => v['district']?.toString().trim() == district).toList();
+    }
+
+    nearbyVenues.value = filtered;
+  }
+
+  void clearFilter() {
+    selectedCity.value = '';
+    selectedDistrict.value = '';
+    availableDistricts.clear();
+    applyFilter();
   }
 
   String formatDate(Timestamp? timestamp) {

@@ -236,13 +236,16 @@ class DiscoverView extends GetView<DiscoverController> {
                   decoration: TextDecoration.none,
                 ),
               ),
-              Text(
-                'Tümü',
-                style: TextStyle(
-                  color: _green.withOpacity(0.85),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  decoration: TextDecoration.none,
+              GestureDetector(
+                onTap: () => controller.toggleMapView(),
+                child: Text(
+                  'Tümü',
+                  style: TextStyle(
+                    color: _green.withOpacity(0.85),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
               ),
             ],
@@ -923,10 +926,6 @@ class _FilterSheet extends StatefulWidget {
 class _FilterSheetState extends State<_FilterSheet> {
   static const _green = Color(0xFF2EED7B);
 
-  double _distance = 5;
-  double _maxPrice = 1500;
-  String _fieldType = 'Hepsi';
-
   @override
   Widget build(BuildContext context) {
     final sheetBg = AppColors.isDark(context)
@@ -934,6 +933,9 @@ class _FilterSheetState extends State<_FilterSheet> {
         : Colors.white;
     final textColor = AppColors.text(context);
     final subText = AppColors.subText(context);
+    final card = AppColors.card(context);
+    
+    final controller = Get.find<DiscoverController>();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
@@ -956,106 +958,113 @@ class _FilterSheetState extends State<_FilterSheet> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(
-            'Filtrele',
-            style: TextStyle(
-              color: textColor,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              decoration: TextDecoration.none,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Filtrele',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  controller.clearFilter();
+                },
+                child: const Text(
+                  'Temizle',
+                  style: TextStyle(
+                    color: _green,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 22),
 
-          _label('Mesafe: ${_distance.toInt()} km', subText),
-          const SizedBox(height: 6),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: _green,
-              inactiveTrackColor: AppColors.border(context),
-              thumbColor: _green,
-              overlayColor: _green.withOpacity(0.2),
-            ),
-            child: Slider(
-              value: _distance,
-              min: 1,
-              max: 20,
-              divisions: 19,
-              onChanged: (v) => setState(() => _distance = v),
-            ),
-          ),
-          const SizedBox(height: 14),
+          _label('Şehir Seç', subText),
+          const SizedBox(height: 8),
+          Obx(() {
+            return DropdownButtonFormField<String>(
+              isExpanded: true,
+              value: controller.selectedCity.value.isEmpty ? null : controller.selectedCity.value,
+              hint: Text('Şehir seçin', style: TextStyle(color: subText, fontSize: 13)),
+              dropdownColor: card,
+              style: TextStyle(color: textColor, fontSize: 13),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: AppColors.border(context)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: _green),
+                ),
+              ),
+              items: controller.availableCities.map((city) {
+                return DropdownMenuItem(
+                  value: city,
+                  child: Text(city, maxLines: 1, overflow: TextOverflow.ellipsis),
+                );
+              }).toList(),
+              onChanged: (val) {
+                controller.onCityChanged(val);
+              },
+            );
+          }),
+          const SizedBox(height: 20),
 
-          _label('Maks. Fiyat: ₺${_maxPrice.toInt()}', subText),
-          const SizedBox(height: 6),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: _green,
-              inactiveTrackColor: AppColors.border(context),
-              thumbColor: _green,
-              overlayColor: _green.withOpacity(0.2),
-            ),
-            child: Slider(
-              value: _maxPrice,
-              min: 500,
-              max: 3000,
-              divisions: 25,
-              onChanged: (v) => setState(() => _maxPrice = v),
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          _label('Saha Tipi', subText),
-          const SizedBox(height: 10),
-          Row(
-            children: ['Hepsi', 'Halı Saha', 'Çim Saha', 'Salon']
-                .map(
-                  (t) => GestureDetector(
-                    onTap: () => setState(() => _fieldType = t),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _fieldType == t
-                            ? _green
-                            : AppColors.overlay(context),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: _fieldType == t
-                              ? _green
-                              : AppColors.border(context),
-                        ),
-                      ),
-                      child: Text(
-                        t,
-                        style: TextStyle(
-                          color: _fieldType == t
-                              ? const Color(0xFF0F1712)
-                              : textColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 28),
+          _label('İlçe Seç', subText),
+          const SizedBox(height: 8),
+          Obx(() {
+            return DropdownButtonFormField<String>(
+              isExpanded: true,
+              value: controller.selectedDistrict.value.isEmpty ? null : controller.selectedDistrict.value,
+              hint: Text('İlçe seçin', style: TextStyle(color: subText, fontSize: 13)),
+              dropdownColor: card,
+              style: TextStyle(color: textColor, fontSize: 13),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: AppColors.border(context)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: _green),
+                ),
+              ),
+              items: controller.availableDistricts.map((district) {
+                return DropdownMenuItem(
+                  value: district,
+                  child: Text(district, maxLines: 1, overflow: TextOverflow.ellipsis),
+                );
+              }).toList(),
+              onChanged: (val) {
+                controller.onDistrictChanged(val);
+              },
+            );
+          }),
+          
+          const SizedBox(height: 32),
 
           SizedBox(
             width: double.infinity,
             child: GestureDetector(
               onTap: () {
+                controller.applyFilter();
                 Get.back();
                 Get.snackbar(
                   'Filtre Uygulandı',
-                  '${_distance.toInt()} km • ₺${_maxPrice.toInt()} • $_fieldType',
-                  backgroundColor: sheetBg,
+                  'Arama sonuçları güncellendi.',
+                  backgroundColor: AppColors.card(context),
                   colorText: textColor,
                   borderRadius: 12,
                   margin: const EdgeInsets.symmetric(

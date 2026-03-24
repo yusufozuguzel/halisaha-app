@@ -15,10 +15,30 @@ class NotificationsController extends GetxController {
   // Yeni Eklenecek: Maç davetleri için
   final RxList<QueryDocumentSnapshot> matchInvites = <QueryDocumentSnapshot>[].obs;
 
+  // Yeni Özellikler: Geri alma, okunmamış sayacı
+  final RxInt unreadCount = 0.obs;
+  final RxList<String> hiddenNotificationIds = <String>[].obs;
+
   @override
   void onInit() {
     super.onInit();
     _listenToMatchInvites();
+    _listenToUnreadNotifications();
+  }
+
+  void _listenToUnreadNotifications() {
+    final uid = _uid;
+    if (uid == null) return;
+
+    _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+      unreadCount.value = snapshot.docs.length;
+    });
   }
 
   void _listenToMatchInvites() {
@@ -50,7 +70,7 @@ class NotificationsController extends GetxController {
     _firestore
         .collection('users')
         .doc(myUid)
-        .collection('following')
+        .collection('friends')
         .doc(targetUid)
         .get()
         .then((doc) {
@@ -70,16 +90,73 @@ class NotificationsController extends GetxController {
         .snapshots();
   }
 
-  /// Tek bir bildirimi sil
-  Future<void> deleteNotification(String docId) async {
+  /// Bildirimleri okundu olarak işaretle
+  Future<void> markAllAsRead() async {
     final uid = _uid;
     if (uid == null) return;
-    await _firestore
+
+    final snapshot = await _firestore
         .collection('users')
         .doc(uid)
         .collection('notifications')
-        .doc(docId)
-        .delete();
+        .where('isRead', isEqualTo: false)
+        .get();
+
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (var doc in snapshot.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+    await batch.commit();
+  }
+
+  /// Tek bir bildirimi sil (Undo destekli)
+  Future<void> deleteNotification(String docId) async {
+    final uid = _uid;
+    if (uid == null) return;
+
+    // 1) UI'dan gizlemek için ID'yi listeye ekle
+    hiddenNotificationIds.add(docId);
+
+    bool isUndone = false;
+
+    // 2) Kullanıcıya bildiri (Snackbar) çıkar
+    Get.snackbar(
+      'Bildirim silindi.',
+      '',
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 3),
+      backgroundColor: Colors.grey.shade900,
+      colorText: Colors.white,
+      mainButton: TextButton(
+        onPressed: () {
+          isUndone = true;
+          hiddenNotificationIds.remove(docId);
+          Get.back(); // Snackbar'ı kapat
+        },
+        child: const Text(
+          'Geri Al',
+          style: TextStyle(
+            color: Color(0xFF2EED7B),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+
+    // 3) 3 saniye sonra geri alınmadıysa gerçek silme işlemini yap
+    await Future.delayed(const Duration(seconds: 3));
+
+    if (!isUndone) {
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('notifications')
+          .doc(docId)
+          .delete();
+      hiddenNotificationIds.remove(docId);
+    }
   }
 
   /// Tüm bildirimleri toplu sil (batch)
@@ -112,6 +189,7 @@ class NotificationsController extends GetxController {
         .add({
           'title': title,
           'message': message,
+          'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
         });
   }
@@ -129,6 +207,7 @@ class NotificationsController extends GetxController {
         .add({
           'title': title,
           'message': message,
+          'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
           'fromUid': _uid ?? '',
         });
@@ -150,18 +229,38 @@ class NotificationsController extends GetxController {
 
     final db = _firestore;
     try {
+      final myDoc = await db.collection('users').doc(myUid).get();
+      final senderDoc = await db.collection('users').doc(senderUid).get();
+
+      final myData = myDoc.data() ?? {};
+      final senderData = senderDoc.data() ?? {};
+
       final batch = db.batch();
 
-      // 1. users/{currentUser}/followers/{senderUid} dökümanını set et.
+      // B'nin (Kabul eden) friends koleksiyonuna A'yı ekle
       batch.set(
-        db.collection('users').doc(myUid).collection('followers').doc(senderUid),
-        {'uid': senderUid, 'since': FieldValue.serverTimestamp()},
+        db.collection('users').doc(myUid).collection('friends').doc(senderUid),
+        {
+          'uid': senderUid,
+          'fullName': senderData['fullName'] ?? senderData['name'] ?? '',
+          'avatarUrl': senderData['avatarUrl'] ?? '',
+          'avatarData': senderData['avatarData'] ?? '0',
+          'position': senderData['position'] ?? '',
+          'since': FieldValue.serverTimestamp()
+        },
       );
 
-      // 2. users/{senderUid}/following/{currentUser} dökümanını set et.
+      // A'nın (İstek gönderen) friends koleksiyonuna B'yi ekle
       batch.set(
-        db.collection('users').doc(senderUid).collection('following').doc(myUid),
-        {'uid': myUid, 'since': FieldValue.serverTimestamp()},
+        db.collection('users').doc(senderUid).collection('friends').doc(myUid),
+        {
+          'uid': myUid,
+          'fullName': myData['fullName'] ?? myData['name'] ?? '',
+          'avatarUrl': myData['avatarUrl'] ?? '',
+          'avatarData': myData['avatarData'] ?? '0',
+          'position': myData['position'] ?? '',
+          'since': FieldValue.serverTimestamp()
+        },
       );
 
       // 3. users/{currentUser}/followRequests/{senderUid} dökümanını delete et.
@@ -257,7 +356,7 @@ class NotificationsController extends GetxController {
         .collection('notifications')
         .add({
           'title': 'Yeni Takip İsteği 👥',
-          'message': '$myName sana takip isteği gönderdi.',
+          'message': '$myName seninle arkadaş olmak istiyor.',
           'type': 'follow_request',
           'senderUid': myUid,
           'senderName': myName,

@@ -84,7 +84,7 @@ class FriendsController extends GetxController {
     final sub = _db
         .collection('users')
         .doc(myUid)
-        .collection('following')
+        .collection('friends')
         .snapshots()
         .listen(
           (snap) async {
@@ -218,16 +218,42 @@ class FriendsController extends GetxController {
       // ✔ Sadece alt-koleksiyonlara yazılır — ana dökümana dokunulmaz
       final myUid = _myUid;
       if (myUid == null) return;
+      
+      final myDoc = await _db.collection('users').doc(myUid).get();
+      final fromDoc = await _db.collection('users').doc(fromUid).get();
+
+      final myData = myDoc.data() ?? {};
+      final fromData = fromDoc.data() ?? {};
+      
       final batch = _db.batch();
+
+      // B'nin (Kabul eden) friends koleksiyonuna A'yı ekle
       batch.set(
-        _db.collection('users').doc(myUid).collection('followers').doc(fromUid),
-        {'uid': fromUid, 'since': FieldValue.serverTimestamp()},
+        _db.collection('users').doc(myUid).collection('friends').doc(fromUid),
+        {
+          'uid': fromUid,
+          'fullName': fromData['fullName'] ?? fromData['name'] ?? '',
+          'avatarUrl': fromData['avatarUrl'] ?? '',
+          'avatarData': fromData['avatarData'] ?? '0',
+          'position': fromData['position'] ?? '',
+          'since': FieldValue.serverTimestamp()
+        },
       );
+
+      // A'nın (İstek gönderen) friends koleksiyonuna B'yi ekle
       batch.set(
-        _db.collection('users').doc(fromUid).collection('following').doc(myUid),
-        {'uid': myUid, 'since': FieldValue.serverTimestamp()},
+        _db.collection('users').doc(fromUid).collection('friends').doc(myUid),
+        {
+          'uid': myUid,
+          'fullName': myData['fullName'] ?? myData['name'] ?? '',
+          'avatarUrl': myData['avatarUrl'] ?? '',
+          'avatarData': myData['avatarData'] ?? '0',
+          'position': myData['position'] ?? '',
+          'since': FieldValue.serverTimestamp()
+        },
       );
-      // NOT: followersCount / followingCount Cloud Function'a bırakıldı.
+
+      // Bekleyen isteği sil
       batch.delete(
         _db
             .collection('users')
@@ -351,6 +377,7 @@ class _MatchInviteSheet extends StatelessWidget {
             'matchTitle': title,
             'matchDate': date,
             'fromUid': myUid,
+            'isRead': false,
             'createdAt': FieldValue.serverTimestamp(),
           });
 

@@ -31,9 +31,7 @@ class _MatchFormationViewState extends State<MatchFormationView> {
         actions: [
           IconButton(
             icon: const Icon(Icons.share, color: kGreen),
-            onPressed: () {
-              // Share logic if needed
-            },
+            onPressed: controller.shareMatch,
           )
         ],
       ),

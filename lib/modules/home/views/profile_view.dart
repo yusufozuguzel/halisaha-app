@@ -1087,8 +1087,8 @@ class _ProfileViewState extends State<ProfileView> {
 
     return Obx(() {
       final blocked = _ctrl.isBlocked.value;
-      final following = _ctrl.isFollowing.value;
-      final reqSent = _ctrl.isRequestSent.value;
+      final friend = _ctrl.isFriend.value;
+      final reqSent = _ctrl.isPending.value;
       final loading = _ctrl.isLoading.value;
 
       // Engelliyse sadece 'Engeli Kaldır' göster — takip butonları hiç çıkmasın
@@ -1119,9 +1119,64 @@ class _ProfileViewState extends State<ProfileView> {
       }
 
       Widget followBtn;
-      if (following) {
+      if (friend) {
         followBtn = OutlinedButton(
-          onPressed: loading ? null : _ctrl.unfollow,
+          onPressed: loading ? null : () {
+            Get.defaultDialog(
+              title: 'Arkadaşlıktan Çıkar',
+              titleStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+              ),
+              middleText: 'Bu kişiyi arkadaş listenizden çıkarmak istediğinize emin misiniz?',
+              middleTextStyle: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+              backgroundColor: const Color(0xFF16221A),
+              radius: 16,
+              barrierDismissible: true,
+              cancel: TextButton(
+                onPressed: () => Get.back(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'İptal',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              confirm: TextButton(
+                onPressed: () {
+                  Get.back();
+                  _ctrl.removeFriend();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red.withOpacity(0.4)),
+                  ),
+                  child: const Text(
+                    'Çıkar',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.text(context),
             side: BorderSide(color: AppColors.border(context)),
@@ -1131,7 +1186,7 @@ class _ProfileViewState extends State<ProfileView> {
             padding: const EdgeInsets.symmetric(vertical: 10),
           ),
           child: const Text(
-            'Takip Ediliyor',
+            'Arkadaşsınız',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
         );
@@ -1164,7 +1219,7 @@ class _ProfileViewState extends State<ProfileView> {
             padding: const EdgeInsets.symmetric(vertical: 10),
           ),
           child: const Text(
-            'Takip Et',
+            'Arkadaş Ekle',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
         );
@@ -1681,4 +1736,3 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 }
-

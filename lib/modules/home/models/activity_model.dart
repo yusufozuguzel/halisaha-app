@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ActivityModel {
+  final String id;
   final String userId;
   final String userName;
   final String userAvatar;
@@ -11,6 +12,7 @@ class ActivityModel {
   final bool isCreated;
 
   ActivityModel({
+    required this.id,
     required this.userId,
     required this.userName,
     required this.userAvatar,

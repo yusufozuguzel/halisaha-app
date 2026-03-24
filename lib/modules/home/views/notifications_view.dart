@@ -32,8 +32,11 @@ class NotificationsView extends StatelessWidget {
                   final docs = snapshot.data?.docs ?? [];
 
                   return Obx(() {
-                    final matchInvites = controller.matchInvites;
-                    if (docs.isEmpty && matchInvites.isEmpty) {
+                    final hiddenIds = controller.hiddenNotificationIds;
+                    final matchInvites = controller.matchInvites.where((d) => !hiddenIds.contains(d.id)).toList();
+                    final visibleDocs = docs.where((d) => !hiddenIds.contains(d.id)).toList();
+
+                    if (visibleDocs.isEmpty && matchInvites.isEmpty) {
                       return _buildEmpty(context);
                     }
 
@@ -46,7 +49,7 @@ class NotificationsView extends StatelessWidget {
                         }),
 
                         // 2) Diğer Tüm Bildirimler
-                        ...docs.map((doc) {
+                        ...visibleDocs.map((doc) {
                           final data = doc.data() as Map<String, dynamic>;
                           final type = data['type'] as String? ?? '';
 
@@ -192,7 +195,24 @@ class _GenericCard extends StatelessWidget {
     final message = data['message'] as String? ?? '';
     final timestamp = data['createdAt'] as Timestamp?;
 
-    return Container(
+    return Dismissible(
+      key: Key(doc.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) {
+        controller.deleteNotification(doc.id);
+      },
+      child: Container(
+
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       decoration: BoxDecoration(
         color: AppColors.card(context),
@@ -281,7 +301,7 @@ class _GenericCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      ))
     );
   }
 
@@ -333,11 +353,28 @@ class _FollowRequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final senderName = data['senderName'] as String? ?? 'Biri';
     final senderUid = data['senderUid'] as String? ?? '';
-    final message = data['message'] as String? ?? '';
+    final message = '$senderName seninle arkadaş olmak istiyor.';
     final timestamp = data['createdAt'] as Timestamp?;
     final reqStatus = data['status'] as String? ?? 'pending';
 
-    return Container(
+    return Dismissible(
+      key: Key(doc.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) {
+        controller.deleteNotification(doc.id);
+      },
+      child: Container(
+
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       decoration: BoxDecoration(
         color: AppColors.card(context),
@@ -371,7 +408,7 @@ class _FollowRequestCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Takip İsteği 👥',
+                        'Arkadaşlık İsteği 👥',
                         style: TextStyle(
                           color: AppColors.text(context),
                           fontSize: 14,
@@ -521,7 +558,7 @@ class _FollowRequestCard extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            'Takip Ediyorsun',
+                            'Arkadaşsınız',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: AppColors.subText(
@@ -544,8 +581,8 @@ class _FollowRequestCard extends StatelessWidget {
                           controller.checkIfFollowing(senderUid);
 
                           Get.snackbar(
-                            'Takip İsteği Gönderildi',
-                            '$senderName adlı oyuncuya takip isteği gönderildi.',
+                            'Arkadaşlık İsteği Gönderildi',
+                            '$senderName adlı oyuncuya arkadaşlık isteği gönderildi.',
                             snackPosition: SnackPosition.BOTTOM,
                             duration: const Duration(seconds: 2),
                           );
@@ -558,7 +595,7 @@ class _FollowRequestCard extends StatelessWidget {
                             border: Border.all(color: kGreen.withOpacity(0.5)),
                           ),
                           child: const Text(
-                            'Sen de Takip Et',
+                            'Arkadaş Ekle',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: kGreen,
@@ -611,7 +648,7 @@ class _FollowRequestCard extends StatelessWidget {
             ],
           ],
         ),
-      ),
+      ))
     );
   }
 
@@ -665,7 +702,24 @@ class _MatchInviteCard extends StatelessWidget {
     final senderId = data['senderId'] as String? ?? '';
     final timestamp = data['createdAt'] as Timestamp?;
 
-    return Container(
+    return Dismissible(
+      key: Key(doc.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) {
+        controller.deleteNotification(doc.id);
+      },
+      child: Container(
+
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       decoration: BoxDecoration(
         color: AppColors.card(context),
@@ -790,7 +844,7 @@ class _MatchInviteCard extends StatelessWidget {
             ),
           );
         }
-      ),
+      ))
     );
   }
 

@@ -121,19 +121,6 @@ class NotificationsView extends StatelessWidget {
           GestureDetector(
             onTap: () async {
               await controller.clearAllNotifications();
-              Get.snackbar(
-                'Temizlendi',
-                'Tüm bildirimler silindi.',
-                backgroundColor: AppColors.isDark(Get.context!)
-                    ? const Color(0xFF1C2B21)
-                    : const Color(0xFFE8F5EC),
-                colorText: kGreen,
-                borderRadius: 12,
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                snackPosition: SnackPosition.BOTTOM,
-                duration: const Duration(seconds: 2),
-                icon: const Icon(Icons.done_all, color: kGreen),
-              );
             },
             child: const Text(
               'Tümünü Sil',

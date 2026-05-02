@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
 import 'package:get_storage/get_storage.dart';
 import '../../../core/utils/validators.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AuthView extends GetView<AuthController> {
   const AuthView({super.key});
@@ -11,7 +12,7 @@ class AuthView extends GetView<AuthController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1712),
+      backgroundColor: const Color(0xFF081C15),
       body: SafeArea(
         child: Obx(
           () => AnimatedSwitcher(
@@ -67,22 +68,14 @@ class _LoginFormState extends State<_LoginForm> {
         children: [
           const SizedBox(height: 40),
           Center(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF132A1C),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.sports_soccer,
-                color: Color(0xFF2EED7B),
-                size: 40,
-              ),
+            child: Image.asset(
+              'assets/images/logo_full.png',
+              height: 120,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           const Text(
-            "Halı Saha",
+            "DEPAR",
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
@@ -483,17 +476,37 @@ class _RegisterFormState extends State<_RegisterForm> {
                       fontSize: 13,
                       height: 1.5,
                     ),
-                    children: const [
+                    children: [
                       TextSpan(
                         text: "Kullanım Koşulları",
-                        style: TextStyle(color: Color(0xFF2EED7B)),
+                        style: const TextStyle(
+                          color: Color(0xFF2EED7B),
+                          decoration: TextDecoration.underline,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () async {
+                            final Uri url = Uri.parse('https://yusufozuguzel.github.io/depar-web/kosullar.html');
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url);
+                            }
+                          },
                       ),
-                      TextSpan(text: "'nı ve "),
+                      const TextSpan(text: "'nı ve "),
                       TextSpan(
                         text: "Gizlilik Politikası",
-                        style: TextStyle(color: Color(0xFF2EED7B)),
+                        style: const TextStyle(
+                          color: Color(0xFF2EED7B),
+                          decoration: TextDecoration.underline,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () async {
+                            final Uri url = Uri.parse('https://yusufozuguzel.github.io/depar-web/gizlilik.html');
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url);
+                            }
+                          },
                       ),
-                      TextSpan(text: "'nı okudum ve kabul ediyorum."),
+                      const TextSpan(text: "'nı okudum ve kabul ediyorum."),
                     ],
                   ),
                 ),

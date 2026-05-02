@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
       title: 'Halisaha App',
       theme: lightTheme,
       darkTheme: darkTheme,
-      themeMode: ThemeMode.dark,
+      themeMode: (GetStorage().read('isDarkMode') ?? true) ? ThemeMode.dark : ThemeMode.light,
       initialRoute: AppPages.initial,
       getPages: AppPages.routes,
     );

@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 class SettingsController extends GetxController {
-  // Başlangıç değeri onInit'te uygulamanın güncel temasından okunur
+  final _storage = GetStorage();
   final RxBool isDarkMode = true.obs;
 
   @override
   void onInit() {
     super.onInit();
-    // Uygulamanın o anki aktif tema modunu oku ve Switch'i senkronize et
-    isDarkMode.value = Get.isDarkMode;
+    bool storedTheme = _storage.read('isDarkMode') ?? true;
+    isDarkMode.value = storedTheme;
   }
 
   void toggleDarkMode(bool value) {
     isDarkMode.value = value;
+    _storage.write('isDarkMode', value);
     Get.changeThemeMode(value ? ThemeMode.dark : ThemeMode.light);
   }
 }

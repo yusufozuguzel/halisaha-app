@@ -1,0 +1,33 @@
+name: iOS CI/CD Build
+
+# Sadece biz GitHub üzerinden butona bastığımızda çalışması için (Manuel Tetikleme):
+on:
+  workflow_dispatch:
+
+jobs:
+  build_ios:
+    name: Build Flutter iOS
+    # İşte Emir'in "ortamı macos seçtir" dediği kritik yer:
+    runs-on: macos-latest
+
+    steps:
+      - name: 📥 Kodları Çek (Checkout)
+        uses: actions/checkout@v3
+
+      - name: ⚙️ Flutter Kurulumu
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: 📦 Paketleri Yükle
+        run: flutter pub get
+
+      - name: 🍏 iOS Derlemesi Al (Code Signing Olmadan Test)
+        # Not: Şimdilik ortamı test etmek ve derleme hatalarını görmek için imzasız alıyoruz.
+        run: flutter build ios --release --no-codesign
+
+      - name: 🚀 Sonucu Çıktı Olarak Ver (Artifact)
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-build-files
+          path: build/ios/iphoneos/

@@ -18,12 +18,12 @@ jobs:
       - name: 📦 Paketleri indir
         run: flutter pub get
 
-      - name: 🧹 Temizlik ve iOS 14.0 Manipülasyonu
-        # Podfile hatasından kurtulmak için en temiz yöntem (Eski dosyayı sil, pbxproj'u 14.0'a hackle)
+      - name: 🧹 Temizlik ve iOS 15.0 Manipülasyonu
+        # Podfile hatasından kurtulmak için en temiz yöntem (Eski dosyayı sil, pbxproj'u 15.0'a hackle)
         run: |
           rm -f ios/Podfile
           rm -f ios/Podfile.lock
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
 
       - name: 🍏 Sertifikasız iOS Build Al
         run: flutter build ios --release --no-codesign

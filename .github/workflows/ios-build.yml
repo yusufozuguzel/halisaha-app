@@ -20,7 +20,7 @@ jobs:
       - name: 📦 Paketleri Yükle
         run: flutter pub get
 
-      - name: 🔨 Kaba Kuvvet: Podfile'ı Zorla Yarat (Kesin Çözüm)
+      - name: "🔨 Kaba Kuvvet Podfile Zorla Yarat"
         run: |
           rm -f ios/Podfile
           cat << 'EOF' > ios/Podfile

@@ -1,69 +1,85 @@
-name: iOS CI/CD Build
-
+name: Build iOS IPA
 on:
   workflow_dispatch:
 
 jobs:
-  build_ios:
-    name: Build Flutter iOS
+  build-ios:
     runs-on: macos-latest
-
     steps:
-      - name: 📥 Kodları Çek (Checkout)
+      - name: 📥 Kodu çek
         uses: actions/checkout@v4
 
-      - name: ⚙️ Flutter Kurulumu
+      - name: ⚙️ Flutter'ı kur
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: 📦 Paketleri Yükle
+      - name: 📦 Paketleri indir
         run: flutter pub get
 
-      - name: "🔨 Kaba Kuvvet Podfile Zorla Yarat"
+      - name: 🧹 iOS 15.0 Platform ve Kod İmzalama Manipülasyonu
         run: |
-          rm -f ios/Podfile
-          cat << 'EOF' > ios/Podfile
-          platform :ios, '14.0'
-          ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-          project 'Runner', {
-            'Debug' => :debug,
-            'Profile' => :release,
-            'Release' => :release,
-          }
-          def flutter_root
-            generated_xcode_build_settings_path = File.expand_path(File.join('Flutter', 'Generated.xcconfig'), __dir__)
-            unless File.exist?(generated_xcode_build_settings_path)
-              raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
-            end
-            File.foreach(generated_xcode_build_settings_path) do |line|
-              matches = line.match(/FLUTTER_ROOT\=(.*)/)
-              return matches[1].strip if matches
-            end
-            raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
-          end
-          require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
-          flutter_ios_podfile_setup
-          target 'Runner' do
-            use_frameworks!
-            use_modular_headers!
-            flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-            target 'RunnerTests' do
-              inherit! :search_paths
-            end
-          end
-          post_install do |installer|
-            installer.pods_project.targets.each do |target|
-              flutter_additional_ios_build_settings(target)
-            end
-          end
-          EOF
+          set -e
 
-      - name: 🍏 iOS Derlemesi Al (Code Signing Olmadan Test)
-        run: flutter build ios --release --no-codesign
+          # --- 1) Podfile'ı SİLMEK YERİNE platform satırını 15.0'a çekiyoruz ---
+          # (Podfile silinirse Flutter varsayılan şablonla yeniden üretir ve
+          #  bu şablondaki platform sürümü genelde eski kalır; Firebase / 
+          #  google_maps_flutter_ios min iOS 15.0 istediği için archive adımı
+          #  tam da bu yüzden patlıyordu.)
+          if [ -f ios/Podfile ]; then
+            if grep -q "^platform :ios" ios/Podfile; then
+              sed -i '' "s/^platform :ios,.*/platform :ios, '15.0'/" ios/Podfile
+            else
+              # platform satırı yoksa (yorum satırıymış olabilir) en başa ekle
+              sed -i '' "1i\\
+platform :ios, '15.0'
+" ios/Podfile
+            fi
+          else
+            echo "⚠️ ios/Podfile bulunamadı, Flutter tarafından yeniden oluşturulacak."
+          fi
 
-      - name: 🚀 Sonucu Çıktı Olarak Ver (Artifact)
+          # Lock dosyasını sil ki pod install yeniden çözümlesin
+          rm -f ios/Podfile.lock
+
+          # --- 2) Xcode proje hedef sürümünü 15.0 yap ---
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
+
+          # --- 3) Kod imzalamayı kapat ---
+          sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' ios/Runner.xcodeproj/project.pbxproj
+
+      - name: 🍫 CocoaPods Kurulumu (platform sürümü netleşsin diye elle)
+        run: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: 🍏 Sertifikasız iOS Archive (Kasa) Oluştur
+        run: |
+          # Hata verirse (imza olmadığı için export aşamasında hata beklenir)
+          # işlemi durdurma; ama archive'in GERÇEKTEN oluşup oluşmadığını
+          # bir sonraki adımda ayrıca kontrol edeceğiz.
+          flutter build ipa --release --no-codesign || true
+
+      - name: 🔍 Arşiv Kontrolü
+        run: |
+          ARCHIVE_APP="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+          if [ ! -d "$ARCHIVE_APP" ]; then
+            echo "❌ Runner.xcarchive oluşmamış! Archive adımı gerçekten başarısız oldu (imza dışı bir hata var)."
+            echo "İpucu: Yukarıdaki 'Sertifikasız iOS Archive' adımının tam loguna bakın."
+            exit 1
+          fi
+          echo "✅ Runner.app arşivde bulundu, IPA paketlemeye geçiliyor."
+
+      - name: 📦 Kasanın İçinden App Dosyasını Çıkar ve IPA Yap
+        run: |
+          mkdir -p Payload
+          mv build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/Runner.app
+          zip -r -9 app.ipa Payload
+
+      - name: 🚀 IPA Dosyasını İndirilebilir Yap
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build-files
-          path: build/ios/iphoneos/
+          name: ios-ipa
+          path: app.ipa

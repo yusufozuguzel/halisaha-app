@@ -1,9 +1,22 @@
-import 'dart:math' as math;
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../controllers/profile_controller.dart';
 import 'home_view.dart';
 import 'my_matches_view.dart';
 import 'discover_view.dart';
+import '../../../routes/app_routes.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/validators.dart';
+import '../../match/controllers/match_create_controller.dart';
+import '../../match/views/match_create_view.dart';
+import '../../friends/views/friends_view.dart';
+import '../../friends/views/blocked_users_view.dart'; // 🔥 EKLENDİ
 
 // ============================================================
 // PROFILE VIEW
@@ -16,32 +29,32 @@ class ProfileView extends StatefulWidget {
 }
 
 class _ProfileViewState extends State<ProfileView> {
-  static const _bg = Color(0xFF0F1712);
-  static const _card = Color(0xFF16221A);
+  late Color _bg;
+  late Color _card;
+
   static const _green = Color(0xFF2EED7B);
+  late final ProfileController _ctrl;
 
-  // Editable profile state
-  String _name = 'Recep Onur Demiray';
-  String _position = 'ORTA SAHA';
-  String _avatarUrl = 'https://picsum.photos/seed/profile1/200/200';
+  @override
+  void initState() {
+    super.initState();
+    Get.delete<ProfileController>(force: true);
+    _ctrl = Get.put(ProfileController());
+  }
 
-  // Radar values (0.0 – 1.0)
-  final Map<String, double> _radarValues = {
-    'ŞUT': 0.78,
-    'HIZ': 0.65,
-    'DEFANS': 0.50,
-    'PAS': 0.88,
-  };
-
-  // ── Edit Profile Bottom Sheet ──────────────────────────────
   void _showEditSheet() {
-    final nameCtrl = TextEditingController(text: _name);
-    final posCtrl = TextEditingController(text: _position);
-    final avatarCtrl = TextEditingController(text: _avatarUrl);
+    final nameCtrl = TextEditingController(text: _ctrl.name.value);
+    File? tempAvatar = _ctrl.avatarFile.value;
 
     Get.bottomSheet(
       StatefulBuilder(
         builder: (ctx, setSheet) {
+          final isDark = AppColors.isDark(ctx);
+          final sheetBg = isDark ? const Color(0xFF16221A) : Colors.white;
+          final inputBg = isDark
+              ? const Color(0xFF0F1712)
+              : const Color(0xFFF0F4F1);
+
           return Container(
             padding: EdgeInsets.only(
               left: 24,
@@ -49,58 +62,240 @@ class _ProfileViewState extends State<ProfileView> {
               top: 20,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
             ),
-            decoration: const BoxDecoration(
-              color: Color(0xFF16221A),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: BoxDecoration(
+              color: sheetBg,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Handle
                   Center(
                     child: Container(
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: AppColors.border(ctx),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Profili Düzenle',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Builder(
+                        builder: (_) {
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user == null) {
+                            return const SizedBox(width: 52, height: 52);
+                          }
+                          return StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user.uid)
+                                .snapshots(),
+                            builder: (ctx2, snap) {
+                              Widget innerAvatar;
+                              if (snap.hasData) {
+                                final d =
+                                    snap.data!.data()
+                                        as Map<String, dynamic>? ??
+                                    {};
+                                final aData = d['avatarData'] ?? '0';
+                                final aUrl = d['avatarUrl'] ?? '';
+                                if (aUrl.isNotEmpty) {
+                                  innerAvatar = ClipRRect(
+                                    borderRadius: BorderRadius.circular(26),
+                                    child: CachedNetworkImage(
+                                      imageUrl: aUrl,
+                                      width: 52,
+                                      height: 52,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, _, _) => Icon(
+                                        Icons.person,
+                                        color: AppColors.text(ctx),
+                                        size: 24,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  final iconIdx =
+                                      int.tryParse(aData.toString()) ?? 0;
+                                  const defaultIcons = [
+                                    Icons.person,
+                                    Icons.sports_soccer,
+                                    Icons.sports_martial_arts,
+                                    Icons.face,
+                                  ];
+                                  innerAvatar = Icon(
+                                    defaultIcons[iconIdx % defaultIcons.length],
+                                    color: AppColors.text(ctx),
+                                    size: 24,
+                                  );
+                                }
+                              } else {
+                                innerAvatar = Icon(
+                                  Icons.person,
+                                  color: AppColors.text(ctx),
+                                  size: 24,
+                                );
+                              }
+                              return GestureDetector(
+                                onTap: _showImagePickerSheet,
+                                child: Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppColors.overlay(ctx),
+                                    border: Border.all(
+                                      color: _green.withOpacity(0.5),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      Center(child: innerAvatar),
+                                      Align(
+                                        alignment: Alignment.bottomRight,
+                                        child: Container(
+                                          width: 18,
+                                          height: 18,
+                                          decoration: BoxDecoration(
+                                            color: _green,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: sheetBg,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.camera_alt,
+                                            color: Color(0xFF0F1712),
+                                            size: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Profili Düzenle',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.text(ctx),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
-                  _editField('İsim', nameCtrl, Icons.person_outline),
+                  _editField(
+                    'İsim',
+                    nameCtrl,
+                    Icons.person_outline,
+                    ctx,
+                    inputBg: inputBg,
+                  ),
                   const SizedBox(height: 14),
-                  _editField('Mevki', posCtrl, Icons.sports_soccer),
-                  const SizedBox(height: 14),
-                  _editField('Avatar Link', avatarCtrl, Icons.image_outlined),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Mevki',
+                        style: TextStyle(
+                          color: AppColors.subText(ctx),
+                          fontSize: 12,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Obx(() {
+                        const positions = [
+                          'Kaleci',
+                          'Defans',
+                          'Orta Saha',
+                          'Forvet',
+                        ];
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: inputBg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border(ctx)),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: DropdownButtonFormField<String>(
+                            initialValue:
+                                positions.contains(_ctrl.selectedPosition.value)
+                                ? _ctrl.selectedPosition.value
+                                : positions.first,
+                            dropdownColor: AppColors.isDark(ctx)
+                                ? const Color(0xFF16221A)
+                                : Colors.white,
+                            icon: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.subText(ctx),
+                            ),
+                            style: TextStyle(
+                              color: AppColors.text(ctx),
+                              fontSize: 14,
+                            ),
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(
+                                Icons.sports_soccer,
+                                color: AppColors.subText(ctx),
+                                size: 18,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 4,
+                              ),
+                            ),
+                            items: positions
+                                .map(
+                                  (p) => DropdownMenuItem(
+                                    value: p,
+                                    child: Text(p),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                _ctrl.selectedPosition.value = val;
+                              }
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
                   const SizedBox(height: 28),
                   SizedBox(
                     width: double.infinity,
                     child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _name = nameCtrl.text.trim().isEmpty
-                              ? _name
-                              : nameCtrl.text.trim();
-                          _position = posCtrl.text.trim().isEmpty
-                              ? _position
-                              : posCtrl.text.trim().toUpperCase();
-                          _avatarUrl = avatarCtrl.text.trim().isEmpty
-                              ? _avatarUrl
-                              : avatarCtrl.text.trim();
-                        });
+                      onTap: () async {
+                        await _ctrl.updateProfile(
+                          newName: nameCtrl.text,
+                          newPosition: _ctrl.selectedPosition.value,
+                          newAvatarFile: tempAvatar,
+                        );
                         Get.back();
                       },
                       child: Container(
@@ -109,11 +304,11 @@ class _ProfileViewState extends State<ProfileView> {
                           color: _green,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Kaydet',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Color(0xFF0F1712),
+                            color: AppColors.bg(ctx),
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                             decoration: TextDecoration.none,
@@ -133,14 +328,20 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  Widget _editField(String label, TextEditingController ctrl, IconData icon) {
+  Widget _editField(
+    String label,
+    TextEditingController ctrl,
+    IconData icon,
+    BuildContext ctx, {
+    required Color inputBg,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
+            color: AppColors.subText(ctx),
             fontSize: 12,
             decoration: TextDecoration.none,
           ),
@@ -148,19 +349,15 @@ class _ProfileViewState extends State<ProfileView> {
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0F1712),
+            color: inputBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: AppColors.border(ctx)),
           ),
           child: TextField(
             controller: ctrl,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: AppColors.text(ctx), fontSize: 14),
             decoration: InputDecoration(
-              prefixIcon: Icon(
-                icon,
-                color: Colors.white.withOpacity(0.4),
-                size: 18,
-              ),
+              prefixIcon: Icon(icon, color: AppColors.subText(ctx), size: 18),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 14,
@@ -173,7 +370,251 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  // ── Logout Dialog ──────────────────────────────────────────
+  void _showImagePickerSheet() {
+    Get.bottomSheet(
+      Builder(
+        builder: (ctx) {
+          final sheetBg = AppColors.isDark(ctx)
+              ? const Color(0xFF16221A)
+              : Colors.white;
+          return Container(
+            padding: const EdgeInsets.only(
+              top: 24,
+              bottom: 32,
+              left: 24,
+              right: 24,
+            ),
+            decoration: BoxDecoration(
+              color: sheetBg,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border(ctx),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Profil Fotoğrafı Seç',
+                  style: TextStyle(
+                    color: AppColors.text(ctx),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _pickerOption(
+                  icon: Icons.camera_alt_outlined,
+                  label: 'Kamera ile Çek',
+                  ctx: ctx,
+                  onTap: () async {
+                    Get.back();
+                    final picker = ImagePicker();
+                    final picked = await picker.pickImage(
+                      source: ImageSource.camera,
+                    );
+                    if (picked != null) {
+                      await _ctrl.updateProfile(
+                        newName: _ctrl.name.value,
+                        newPosition: _ctrl.position.value,
+                        newAvatarFile: File(picked.path),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _pickerOption(
+                  icon: Icons.photo_library_outlined,
+                  label: 'Galeriden Seç',
+                  ctx: ctx,
+                  onTap: () async {
+                    Get.back();
+                    final picker = ImagePicker();
+                    final picked = await picker.pickImage(
+                      source: ImageSource.gallery,
+                    );
+                    if (picked != null) {
+                      await _ctrl.updateProfile(
+                        newName: _ctrl.name.value,
+                        newPosition: _ctrl.position.value,
+                        newAvatarFile: File(picked.path),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _pickerOption(
+                  icon: Icons.face_retouching_natural,
+                  label: 'Hazır Avatar Seç',
+                  ctx: ctx,
+                  onTap: () {
+                    Get.back();
+                    _showAvatarSelectionSheet();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+    );
+  }
+
+  void _showAvatarSelectionSheet() {
+    final List<IconData> defaultIcons = [
+      Icons.person,
+      Icons.sports_soccer,
+      Icons.sports_martial_arts,
+      Icons.face,
+    ];
+
+    Get.bottomSheet(
+      Builder(
+        builder: (ctx) {
+          final sheetBg = AppColors.isDark(ctx)
+              ? const Color(0xFF16221A)
+              : Colors.white;
+          return Container(
+            padding: const EdgeInsets.only(
+              top: 24,
+              bottom: 40,
+              left: 24,
+              right: 24,
+            ),
+            decoration: BoxDecoration(
+              color: sheetBg,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border(ctx),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Hazır Avatar Seç',
+                  style: TextStyle(
+                    color: AppColors.text(ctx),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                Wrap(
+                  spacing: 20,
+                  runSpacing: 20,
+                  alignment: WrapAlignment.center,
+                  children: List.generate(defaultIcons.length, (index) {
+                    return GestureDetector(
+                      onTap: () async {
+                        Get.back();
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user != null) {
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(user.uid)
+                              .update({
+                                'avatarType': 'icon',
+                                'avatarData': index.toString(),
+                              });
+                          Get.snackbar(
+                            'Başarılı',
+                            'Avatarın güncellendi! 😎',
+                            backgroundColor: Colors.green[100],
+                            colorText: Colors.green[900],
+                          );
+                        }
+                      },
+                      child: Container(
+                        width: 70,
+                        height: 70,
+                        decoration: BoxDecoration(
+                          color: AppColors.overlay(ctx),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF2EED7B).withOpacity(0.5),
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          defaultIcons[index],
+                          color: AppColors.text(ctx),
+                          size: 36,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+    );
+  }
+
+  Widget _pickerOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required BuildContext ctx,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: AppColors.isDark(ctx)
+              ? const Color(0xFF0F1712)
+              : const Color(0xFFF0F4F1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border(ctx)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF2EED7B), size: 24),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: TextStyle(
+                color: AppColors.text(ctx),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.chevron_right, color: AppColors.subText(ctx), size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showLogoutDialog() {
     Get.defaultDialog(
       title: 'Çıkış Yap',
@@ -210,7 +651,7 @@ class _ProfileViewState extends State<ProfileView> {
       confirm: TextButton(
         onPressed: () {
           Get.back();
-          // Gerçek çıkış mantığı buraya eklenebilir
+          Get.find<AuthController>().logout();
           Get.snackbar(
             'Çıkış',
             'Güvenli şekilde çıkış yapıldı.',
@@ -242,29 +683,45 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
   @override
   Widget build(BuildContext context) {
+    _bg = AppColors.bg(context);
+    _card = AppColors.card(context);
+
     return Scaffold(
       backgroundColor: _bg,
-      floatingActionButton: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: _green,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: _green.withOpacity(0.4),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
-            ),
-          ],
+      floatingActionButton: GestureDetector(
+        onTap: () {
+          Get.put(MatchCreateController());
+          Get.to(
+            () => MatchCreateView(),
+            transition: Transition.downToUp,
+            duration: const Duration(milliseconds: 300),
+          );
+        },
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: _green,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: _green.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.add,
+            size: 32,
+            color: AppColors.isDark(context)
+                ? const Color(0xFF0F1712)
+                : Colors.white,
+          ),
         ),
-        child: const Icon(Icons.add, size: 32, color: Color(0xFF0F1712)),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomNav(),
@@ -273,13 +730,142 @@ class _ProfileViewState extends State<ProfileView> {
           padding: const EdgeInsets.only(bottom: 100),
           child: Column(
             children: [
+              if (!_ctrl.isOwnProfile)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Geri butonu
+                      IconButton(
+                        onPressed: () => Get.back(),
+                        icon: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: AppColors.text(context),
+                          size: 22,
+                        ),
+                        tooltip: 'Geri',
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.card(context),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: AppColors.border(context)),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          minimumSize: const Size(42, 42),
+                        ),
+                      ),
+                      // Engelle menüsü
+                      Obx(() => _ctrl.isBlocked.value
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.withOpacity(0.4)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.block, color: Colors.redAccent, size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Engellendi',
+                                  style: TextStyle(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : PopupMenuButton<String>(
+                            icon: Icon(Icons.more_vert, color: AppColors.text(context)),
+                            color: AppColors.card(context),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            onSelected: (value) {
+                              if (value == 'block') {
+                                Get.defaultDialog(
+                                  title: 'Kullanıcıyı Engelle',
+                                  titleStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                  ),
+                                  middleText: 'Bu kullanıcıyı engellemek istediğinize emin misiniz?',
+                                  middleTextStyle: TextStyle(
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontSize: 14,
+                                  ),
+                                  backgroundColor: const Color(0xFF16221A),
+                                  radius: 16,
+                                  barrierDismissible: true,
+                                  cancel: TextButton(
+                                    onPressed: () => Get.back(),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        'İptal',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.7),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  confirm: TextButton(
+                                    onPressed: () async {
+                                      Get.back(); // dialog kapat
+                                      await _ctrl.blockUser();
+                                      Get.back(); // profile sayfasından çık
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.red.withOpacity(0.4)),
+                                      ),
+                                      child: const Text(
+                                        'Engelle',
+                                        style: TextStyle(
+                                          color: Colors.redAccent,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            itemBuilder: (ctx) => [
+                              PopupMenuItem<String>(
+                                value: 'block',
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.block, color: Colors.redAccent, size: 18),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      'Kullanıcıyı Engelle',
+                                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                      ),
+                    ],
+                  ),
+                ),
               _buildProfileCard(),
-              const SizedBox(height: 16),
-              _buildRadarSection(),
-              const SizedBox(height: 16),
-              _buildStatRow(),
               const SizedBox(height: 20),
-              _buildMenuItems(),
+              if (_ctrl.isOwnProfile) _buildMenuItems(),
             ],
           ),
         ),
@@ -287,326 +873,399 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  // ── Profile Card ───────────────────────────────────────────
+
   Widget _buildProfileCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-      child: Stack(
-        children: [
-          Column(
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(_ctrl.targetUid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.hasData
+            ? (snapshot.data!.data() as Map<String, dynamic>? ?? {})
+            : <String, dynamic>{};
+
+        final fullName = data['fullName'] ?? data['name'] ?? '...';
+        final pos = data['position'] ?? '';
+        final avatarData = data['avatarData'] ?? '0';
+        final avatarUrl = data['avatarUrl'] ?? '';
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar
-              Stack(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _card,
-                      image: DecorationImage(
-                        image: NetworkImage(_avatarUrl),
-                        fit: BoxFit.cover,
-                      ),
-                      border: Border.all(
-                        color: _green.withOpacity(0.5),
-                        width: 3,
-                      ),
+                  GestureDetector(
+                    onTap: _ctrl.isOwnProfile ? _showImagePickerSheet : null,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 82,
+                          height: 82,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _card,
+                            border: Border.all(
+                              color: _green.withOpacity(0.5),
+                              width: 3,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(41),
+                            child: _buildAvatarWidget(
+                              avatarData,
+                              avatarUrl,
+                              size: 82,
+                            ),
+                          ),
+                        ),
+                        if (_ctrl.isOwnProfile)
+                          Positioned(
+                            bottom: 2,
+                            right: 2,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: _green,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: _bg, width: 2),
+                              ),
+                              child: Icon(
+                                Icons.camera_alt,
+                                color: _bg,
+                                size: 12,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  Positioned(
-                    bottom: 2,
-                    right: 2,
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: _card,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: _bg, width: 2),
-                      ),
-                      child: const Icon(
-                        Icons.settings,
-                        color: Colors.white60,
-                        size: 14,
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Obx(
+                      () => Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _inlineStatCol(
+                            value: _ctrl.matchesCount.value.toString(),
+                            label: 'Maç',
+                          ),
+                          InkWell(
+                            onTap: () => Get.to(() => const FriendsView()),
+                            borderRadius: BorderRadius.circular(12),
+                            highlightColor: _green.withOpacity(0.1),
+                            splashColor: _green.withOpacity(0.2),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              child: _inlineStatCol(
+                                value: _ctrl.friendsCount.value.toString(),
+                                label: 'Arkadaş',
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Text(
-                _name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
+                fullName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.text(context),
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   decoration: TextDecoration.none,
                 ),
               ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: _green.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _green.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: _green,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _position,
-                      style: const TextStyle(
-                        color: _green,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          // Edit icon (top-right)
-          Positioned(
-            top: 0,
-            right: 0,
-            child: InkWell(
-              onTap: _showEditSheet,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Icon(
-                  Icons.edit_outlined,
-                  color: Colors.white.withOpacity(0.5),
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Radar Section (CustomPaint) ────────────────────────────
-  Widget _buildRadarSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'OYUNCU ÖZELLİKLERİ',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _green.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  'Genel: 84',
-                  style: TextStyle(
-                    color: _green,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.none,
+              if (pos.toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
                   ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: 220,
-            height: 220,
-            child: CustomPaint(painter: _RadarPainter(values: _radarValues)),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: _green,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Sezon 2023',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 12,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Stat Row ───────────────────────────────────────────────
-  Widget _buildStatRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          // Oynanan Maç
-          Expanded(
-            child: _statBox(
-              value: '24',
-              label: 'OYNANAN MAÇ',
-              valueFontSize: 32,
-              valueColor: Colors.white,
-              bgColor: _card,
-              labelColor: Colors.white54,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // MVP
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2310),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFFFC107).withOpacity(0.3),
-                ),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    '3',
-                    style: TextStyle(
-                      color: Color(0xFFFFC107),
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
+                  decoration: BoxDecoration(
+                    color: _green.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _green.withOpacity(0.3)),
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.star, color: Color(0xFFFFC107), size: 12),
-                      SizedBox(width: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: _green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
                       Text(
-                        'MVP',
-                        style: TextStyle(
-                          color: Color(0xFFFFC107),
+                        pos.toString().toUpperCase(),
+                        style: const TextStyle(
+                          color: _green,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
+                          letterSpacing: 1.1,
                           decoration: TextDecoration.none,
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              _buildActionButtons(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _inlineStatCol({required String value, required String label}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: AppColors.text(context),
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            decoration: TextDecoration.none,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.subText(context),
+            fontSize: 12,
+            decoration: TextDecoration.none,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    if (_ctrl.isOwnProfile) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: _showEditSheet,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.text(context),
+            side: BorderSide(color: AppColors.border(context)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          child: const Text(
+            'Profili Düzenle',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Obx(() {
+      final blocked = _ctrl.isBlocked.value;
+      final friend = _ctrl.isFriend.value;
+      final reqSent = _ctrl.isPending.value;
+      final loading = _ctrl.isLoading.value;
+
+      // Engelliyse sadece 'Engeli Kaldır' göster — takip butonları hiç çıkmasın
+      if (blocked) {
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: loading ? null : _ctrl.unblockUser,
+            icon: const Icon(Icons.block, size: 16, color: Colors.redAccent),
+            label: const Text(
+              'Engeli Kaldır',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          // Fair-Play
-          Expanded(
-            child: _statBox(
-              value: '9.8',
-              label: 'FAİR-PLAY',
-              valueFontSize: 28,
-              valueColor: _green,
-              bgColor: _card,
-              labelColor: Colors.white54,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: const BorderSide(color: Colors.redAccent),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 10),
             ),
           ),
-        ],
-      ),
-    );
+        );
+      }
+
+      Widget followBtn;
+      if (friend) {
+        followBtn = OutlinedButton(
+          onPressed: loading ? null : () {
+            Get.defaultDialog(
+              title: 'Arkadaşlıktan Çıkar',
+              titleStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+              ),
+              middleText: 'Bu kişiyi arkadaş listenizden çıkarmak istediğinize emin misiniz?',
+              middleTextStyle: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+              backgroundColor: const Color(0xFF16221A),
+              radius: 16,
+              barrierDismissible: true,
+              cancel: TextButton(
+                onPressed: () => Get.back(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'İptal',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              confirm: TextButton(
+                onPressed: () {
+                  Get.back();
+                  _ctrl.removeFriend();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red.withOpacity(0.4)),
+                  ),
+                  child: const Text(
+                    'Çıkar',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.text(context),
+            side: BorderSide(color: AppColors.border(context)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          child: const Text(
+            'Arkadaşsınız',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+        );
+      } else if (reqSent) {
+        followBtn = OutlinedButton(
+          onPressed: loading ? null : _ctrl.cancelFollowRequest,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.subText(context),
+            side: BorderSide(color: AppColors.border(context)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          child: const Text(
+            'İstek Gönderildi',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+        );
+      } else {
+        followBtn = ElevatedButton(
+          onPressed: loading ? null : _ctrl.sendFollowRequest,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _green,
+            foregroundColor: const Color(0xFF0F1712),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          child: const Text(
+            'Arkadaş Ekle',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+        );
+      }
+
+      return SizedBox(width: double.infinity, child: followBtn);
+    });
   }
 
-  Widget _statBox({
-    required String value,
-    required String label,
-    required double valueFontSize,
-    required Color valueColor,
-    required Color bgColor,
-    required Color labelColor,
+
+  Widget _buildAvatarWidget(
+    dynamic avatarData,
+    String? avatarUrl, {
+    double size = 82,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: valueColor,
-              fontSize: valueFontSize,
-              fontWeight: FontWeight.bold,
-              decoration: TextDecoration.none,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: labelColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-              decoration: TextDecoration.none,
-            ),
-          ),
-        ],
-      ),
-    );
+    final textColor = AppColors.text(context);
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: avatarUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorWidget: (_, _, _) =>
+            Icon(Icons.person, color: textColor, size: size * 0.4),
+      );
+    } else {
+      final iconIndex = int.tryParse(avatarData.toString()) ?? 0;
+      const defaultIcons = [
+        Icons.person,
+        Icons.sports_soccer,
+        Icons.sports_martial_arts,
+        Icons.face,
+      ];
+      return Container(
+        width: size,
+        height: size,
+        color: AppColors.overlay(context),
+        child: Icon(
+          defaultIcons[iconIndex % defaultIcons.length],
+          color: textColor,
+          size: size * 0.4,
+        ),
+      );
+    }
   }
 
-  // ── Menu Items ─────────────────────────────────────────────
   Widget _buildMenuItems() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -614,19 +1273,36 @@ class _ProfileViewState extends State<ProfileView> {
         children: [
           _menuItem(
             icon: Icons.settings_outlined,
-            iconColor: Colors.white70,
+            iconColor: AppColors.subText(context),
             label: 'Ayarlar',
-            onTap: () {},
+            onTap: () => Get.toNamed(Routes.SETTINGS),
           ),
           const SizedBox(height: 10),
+          if (!_ctrl.isGoogleUser) ...[
+            _menuItem(
+              icon: Icons.lock_outline,
+              iconColor: AppColors.subText(context),
+              label: 'Şifremi Değiştir',
+              onTap: _showChangePasswordSheet,
+            ),
+            const SizedBox(height: 10),
+          ],
           _menuItem(
             icon: Icons.history_rounded,
-            iconColor: Colors.white70,
+            iconColor: AppColors.subText(context),
             label: 'Maç Geçmişi',
             onTap: () => Get.offAll(
-              () => const MyMatchesView(),
+              () => MyMatchesView(),
               transition: Transition.noTransition,
             ),
+          ),
+          const SizedBox(height: 10),
+          // 🔥 YENİ: ENGELLENEN KİŞİLER BUTONU 🔥
+          _menuItem(
+            icon: Icons.block_flipped,
+            iconColor: Colors.orangeAccent,
+            label: 'Engellenen Kişiler',
+            onTap: () => Get.to(() => const BlockedUsersView()),
           ),
           const SizedBox(height: 10),
           _menuItem(
@@ -637,6 +1313,15 @@ class _ProfileViewState extends State<ProfileView> {
             showArrow: false,
             onTap: _showLogoutDialog,
           ),
+          const SizedBox(height: 10),
+          _menuItem(
+            icon: Icons.delete_forever,
+            iconColor: Colors.redAccent,
+            label: 'Hesabı Sil',
+            labelColor: Colors.redAccent,
+            showArrow: false,
+            onTap: _showDeleteAccountSheet,
+          ),
         ],
       ),
     );
@@ -646,10 +1331,11 @@ class _ProfileViewState extends State<ProfileView> {
     required IconData icon,
     required Color iconColor,
     required String label,
-    Color labelColor = Colors.white,
+    Color? labelColor,
     bool showArrow = true,
     required VoidCallback onTap,
   }) {
+    final textColor = labelColor ?? AppColors.text(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -658,7 +1344,7 @@ class _ProfileViewState extends State<ProfileView> {
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          border: Border.all(color: AppColors.border(context)),
         ),
         child: Row(
           children: [
@@ -675,7 +1361,7 @@ class _ProfileViewState extends State<ProfileView> {
             Text(
               label,
               style: TextStyle(
-                color: labelColor,
+                color: textColor,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 decoration: TextDecoration.none,
@@ -685,7 +1371,7 @@ class _ProfileViewState extends State<ProfileView> {
             if (showArrow)
               Icon(
                 Icons.chevron_right,
-                color: Colors.white.withOpacity(0.3),
+                color: AppColors.subText(context),
                 size: 20,
               ),
           ],
@@ -694,12 +1380,15 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  // ── Bottom Nav (Profil aktif) ──────────────────────────────
+  // (Diğer metodlar aynen devam eder...)
+  // ... _showDeleteAccountSheet, _buildBottomNav vb.
+  // ── Bottom Nav (Eksik olan kısım) ─────────────────────────────
   Widget _buildBottomNav() {
+    final navBg = AppColors.navBg(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF16221A),
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: navBg,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
         ),
@@ -710,11 +1399,11 @@ class _ProfileViewState extends State<ProfileView> {
           topRight: Radius.circular(24),
         ),
         child: BottomAppBar(
-          color: const Color(0xFF16221A),
+          color: navBg,
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           height: 70,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -733,7 +1422,7 @@ class _ProfileViewState extends State<ProfileView> {
                 'Maçlarım',
                 false,
                 onTap: () => Get.offAll(
-                  () => const MyMatchesView(),
+                  () => MyMatchesView(),
                   transition: Transition.noTransition,
                 ),
               ),
@@ -743,7 +1432,7 @@ class _ProfileViewState extends State<ProfileView> {
                 'Keşfet',
                 false,
                 onTap: () => Get.offAll(
-                  () => const DiscoverView(),
+                  () => DiscoverView(),
                   transition: Transition.noTransition,
                 ),
               ),
@@ -761,24 +1450,24 @@ class _ProfileViewState extends State<ProfileView> {
     bool isActive, {
     required VoidCallback onTap,
   }) {
-    final color = isActive ? _green : Colors.white.withOpacity(0.4);
+    final color = isActive ? _green : AppColors.navInactive(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       splashColor: _green.withOpacity(0.15),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 26),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 decoration: TextDecoration.none,
               ),
@@ -795,133 +1484,255 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
   }
-}
 
-// ============================================================
-// RADAR CHART — CustomPainter
-// ============================================================
-class _RadarPainter extends CustomPainter {
-  // Keys must be in clockwise order starting from top:
-  // ŞUT (top), HIZ (right), DEFANS (bottom), PAS (left)
-  final Map<String, double> values;
+  // ── Change Password Bottom Sheet ───────────────────────────
+  void _showChangePasswordSheet() {
+    final controller = _ctrl;
+    controller.currentPassword.value = '';
+    controller.newPassword.value = '';
+    controller.confirmPassword.value = '';
+    controller.isCurrentObscure.value = true;
+    controller.isNewObscure.value = true;
+    controller.isConfirmObscure.value = true;
 
-  const _RadarPainter({required this.values});
+    final currentPassCtrl = TextEditingController();
+    final newPassCtrl = TextEditingController();
+    final confirmPassCtrl = TextEditingController();
 
-  static const _labels = ['ŞUT', 'HIZ', 'DEFANS', 'PAS'];
+    Get.bottomSheet(
+      StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final isDark = AppColors.isDark(ctx);
+          final sheetBg = isDark ? const Color(0xFF16221A) : Colors.white;
+          final inputBg = isDark
+              ? const Color(0xFF0F1712)
+              : const Color(0xFFF0F4F1);
+          final neonGreen = const Color(0xFF2EED7B);
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final maxR = size.width / 2 * 0.72;
-    const sides = 4;
-    const angleStep = 2 * math.pi / sides;
-    // Start at top (-π/2)
-    const startAngle = -math.pi / 2;
-
-    // ── Grid circles ──
-    final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.09)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    for (int ring = 1; ring <= 4; ring++) {
-      final r = maxR * ring / 4;
-      final path = Path();
-      for (int i = 0; i < sides; i++) {
-        final angle = startAngle + i * angleStep;
-        final p = Offset(
-          center.dx + r * math.cos(angle),
-          center.dy + r * math.sin(angle),
-        );
-        if (i == 0)
-          path.moveTo(p.dx, p.dy);
-        else
-          path.lineTo(p.dx, p.dy);
-      }
-      path.close();
-      canvas.drawPath(path, gridPaint);
-    }
-
-    // ── Axis lines ──
-    final axisPaint = Paint()
-      ..color = Colors.white.withOpacity(0.09)
-      ..strokeWidth = 1;
-
-    for (int i = 0; i < sides; i++) {
-      final angle = startAngle + i * angleStep;
-      canvas.drawLine(
-        center,
-        Offset(
-          center.dx + maxR * math.cos(angle),
-          center.dy + maxR * math.sin(angle),
-        ),
-        axisPaint,
-      );
-    }
-
-    // ── Data polygon ──
-    final dataPoints = <Offset>[];
-    for (int i = 0; i < sides; i++) {
-      final label = _labels[i];
-      final v = (values[label] ?? 0.5).clamp(0.0, 1.0);
-      final angle = startAngle + i * angleStep;
-      dataPoints.add(
-        Offset(
-          center.dx + maxR * v * math.cos(angle),
-          center.dy + maxR * v * math.sin(angle),
-        ),
-      );
-    }
-
-    final fillPaint = Paint()
-      ..color = const Color(0xFF2EED7B).withOpacity(0.22)
-      ..style = PaintingStyle.fill;
-
-    final strokePaint = Paint()
-      ..color = const Color(0xFF2EED7B)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    final dataPath = Path();
-    for (int i = 0; i < dataPoints.length; i++) {
-      if (i == 0)
-        dataPath.moveTo(dataPoints[i].dx, dataPoints[i].dy);
-      else
-        dataPath.lineTo(dataPoints[i].dx, dataPoints[i].dy);
-    }
-    dataPath.close();
-    canvas.drawPath(dataPath, fillPaint);
-    canvas.drawPath(dataPath, strokePaint);
-
-    // ── Data dots ──
-    final dotPaint = Paint()..color = const Color(0xFF2EED7B);
-    for (final p in dataPoints) {
-      canvas.drawCircle(p, 5, dotPaint);
-    }
-
-    // ── Labels ──
-    final labelOffset = maxR * 1.22;
-    for (int i = 0; i < sides; i++) {
-      final angle = startAngle + i * angleStep;
-      final lp = Offset(
-        center.dx + labelOffset * math.cos(angle),
-        center.dy + labelOffset * math.sin(angle),
-      );
-      final tp = TextPainter(
-        text: TextSpan(
-          text: _labels[i],
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.55),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(lp.dx - tp.width / 2, lp.dy - tp.height / 2));
-    }
+          return Container(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
+            ),
+            decoration: BoxDecoration(
+              color: sheetBg,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: SingleChildScrollView(
+              child: Form(
+                key: controller.changePasswordFormKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border(ctx),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Şifremi Değiştir',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildPasswordFormField(
+                    'Mevcut Şifreniz',
+                    currentPassCtrl,
+                    ctx,
+                    inputBg,
+                    onChanged: (val) => controller.currentPassword.value = val,
+                    validator: (val) {
+                      if (val == null || val.isEmpty) return 'Mevcut şifre boş bırakılamaz.';
+                      return null;
+                    },
+                    isObscure: controller.isCurrentObscure,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPasswordFormField(
+                    'Yeni Şifre',
+                    newPassCtrl,
+                    ctx,
+                    inputBg,
+                    onChanged: (val) => controller.newPassword.value = val,
+                    validator: AppValidators.passwordValidator,
+                    isObscure: controller.isNewObscure,
+                    helperText: "En az 8 karakter, 1 büyük harf ve 1 özel karakter",
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPasswordFormField(
+                    'Yeni Şifre (Tekrar)',
+                    confirmPassCtrl,
+                    ctx,
+                    inputBg,
+                    onChanged: (val) => controller.confirmPassword.value = val,
+                    validator: (val) {
+                      if (val != controller.newPassword.value) {
+                        return 'Şifreler eşleşmiyor.';
+                      }
+                      return AppValidators.passwordValidator(val);
+                    },
+                    isObscure: controller.isConfirmObscure,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => controller.updateUserPassword(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: neonGreen,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Şifreyi Güncelle',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ),
+          );
+        },
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+    );
   }
 
-  @override
-  bool shouldRepaint(_RadarPainter old) => old.values != values;
+  // ── Delete Account Bottom Sheet ──────────────────────────────
+  void _showDeleteAccountSheet() {
+    final controller = _ctrl;
+    controller.deletePassword.value = '';
+    final delPassCtrl = TextEditingController();
+
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.isDark(context)
+              ? const Color(0xFF16221A)
+              : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Hesabı Sil',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Bu işlem geri alınamaz. Lütfen şifrenizi girin.'),
+            const SizedBox(height: 24),
+            _editField(
+              'Şifre',
+              delPassCtrl,
+              Icons.lock_outline,
+              context,
+              inputBg: AppColors.overlay(context),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => controller.deleteUserAccount(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                ),
+                child: const Text('Hesabımı Kalıcı Olarak Sil'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordFormField(
+    String label,
+    TextEditingController ctrl,
+    BuildContext ctx,
+    Color inputBg, {
+    required void Function(String) onChanged,
+    required String? Function(String?) validator,
+    required RxBool isObscure,
+    String? helperText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.subText(ctx),
+            fontSize: 12,
+            decoration: TextDecoration.none,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Obx(() => TextFormField(
+          controller: ctrl,
+          obscureText: isObscure.value,
+          onChanged: onChanged,
+          validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          style: TextStyle(color: AppColors.text(ctx), fontSize: 14),
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.lock_outline, color: AppColors.subText(ctx), size: 18),
+            suffixIcon: IconButton(
+              icon: Icon(
+                isObscure.value ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                color: AppColors.subText(ctx),
+              ),
+              onPressed: () => isObscure.value = !isObscure.value,
+            ),
+            filled: true,
+            fillColor: inputBg,
+            helperText: helperText,
+            helperStyle: TextStyle(
+              color: AppColors.subText(ctx),
+              fontSize: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border(ctx)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border(ctx)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF2EED7B)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+          ),
+        )),
+      ],
+    );
+  }
 }

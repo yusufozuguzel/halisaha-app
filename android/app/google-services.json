@@ -7,12 +7,41 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:2273283642:android:f98b47c2b3ed52dbb72f03",
+        "mobilesdk_app_id": "1:2273283642:android:0dc0f1ff47e805d7b72f03",
         "android_client_info": {
-          "package_name": "com.example.halisaha_app"
+          "package_name": "com.depar.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "2273283642-6jm196jmlodr6up53vamroigrtl0bphd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.depar.app",
+            "certificate_hash": "93a1b4173d964548faa796aee6d9aca1c942bbaf"
+          }
+        },
+        {
+          "client_id": "2273283642-8hl9ji7tetrmu0b20qkc85urkstcqaon.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.depar.app",
+            "certificate_hash": "b525a3ddc94b51f717292ba971ee368c7bf33d02"
+          }
+        },
+        {
+          "client_id": "2273283642-ruklnd58ggkrv55mkg3vdqdlp4jbtmgm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.depar.app",
+            "certificate_hash": "baca761ea3c30f556aa17f6047a2708701a29804"
+          }
+        },
+        {
+          "client_id": "2273283642-r17857chth2oqk6bv7oh74ptqgcq72cn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD3foQkszRJEWjnUNahyvliOl3beaGlmg0"
@@ -20,7 +49,55 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "2273283642-r17857chth2oqk6bv7oh74ptqgcq72cn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "2273283642-ke215fauar6ciloq25771n3v8kcjnag9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.depar.app"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2273283642:android:f98b47c2b3ed52dbb72f03",
+        "android_client_info": {
+          "package_name": "com.example.halisaha_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "2273283642-r17857chth2oqk6bv7oh74ptqgcq72cn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3foQkszRJEWjnUNahyvliOl3beaGlmg0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "2273283642-r17857chth2oqk6bv7oh74ptqgcq72cn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "2273283642-ke215fauar6ciloq25771n3v8kcjnag9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.depar.app"
+              }
+            }
+          ]
         }
       }
     }

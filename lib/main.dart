@@ -1,12 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'routes/app_pages.dart';
+import 'modules/auth/controllers/auth_controller.dart';
+import 'modules/home/controllers/notifications_controller.dart';
+import 'core/theme/app_theme.dart';
+
+import 'package:get_storage/get_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp();
+  await GetStorage.init();
+
+  Get.put(AuthController(), permanent: true);
+  Get.put(NotificationsController(), permanent: true);
+
   runApp(const MyApp());
 }
 
@@ -18,6 +30,9 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Halisaha App',
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: (GetStorage().read('isDarkMode') ?? true) ? ThemeMode.dark : ThemeMode.light,
       initialRoute: AppPages.initial,
       getPages: AppPages.routes,
     );

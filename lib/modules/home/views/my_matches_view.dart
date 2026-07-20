@@ -1,289 +1,331 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'home_view.dart';
 import 'discover_view.dart';
 import 'profile_view.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../match/controllers/my_matches_controller.dart';
+import '../../match/controllers/match_create_controller.dart';
+import '../../match/views/match_create_view.dart';
 
-class MyMatchesView extends StatefulWidget {
-  const MyMatchesView({super.key});
+// 👇 İŞTE EKSİK OLAN KAHRAMANLARIMIZ 👇
+import '../../match/views/match_detail_view.dart';
 
-  @override
-  State<MyMatchesView> createState() => _MyMatchesViewState();
-}
+class MyMatchesView extends GetView<MyMatchesController> {
+  MyMatchesView({super.key}) {
+    // Controller hafızada yoksa oluştur (Örn: doğrudan sayfaya gidildiğinde)
+    Get.put(MyMatchesController());
+  }
 
-class _MyMatchesViewState extends State<MyMatchesView> {
-  bool _isUpcoming = true;
-
-  static const Color _bgColor = Color(0xFF0F1712);
-  static const Color _cardBg = Color(0xFF16221A);
-  static const Color _neonGreen = Color(0xFF2EED7B);
-  static const Color _textWhite = Colors.white;
-  static const Color _textGrey = Color(0xFF8A9E94);
+  final RxBool _isUpcoming = true.obs;
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = AppColors.bg(context);
+    final neonGreen = const Color(0xFF2EED7B);
+    final navBg = AppColors.navBg(context);
+
     return Scaffold(
-      backgroundColor: _bgColor,
-      floatingActionButton: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: _neonGreen,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: _neonGreen.withValues(alpha: 0.4),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: GestureDetector(
-          onTap: () {},
-          child: const Icon(Icons.add, size: 32, color: Color(0xFF0F1712)),
+      backgroundColor: bgColor,
+      floatingActionButton: GestureDetector(
+        onTap: () {
+          Get.delete<MatchCreateController>();
+          Get.to(
+            () => const MatchCreateView(),
+            binding: BindingsBuilder(() {
+              Get.lazyPut<MatchCreateController>(() => MatchCreateController());
+            }),
+            transition: Transition.downToUp,
+            duration: const Duration(milliseconds: 300),
+          );
+        },
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: neonGreen,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: neonGreen.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(Icons.add, size: 32, color: bgColor),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: _buildBottomNavigationBar(
+        context,
+        navBg: navBg,
+        neonGreen: neonGreen,
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 20),
-              _buildTabToggle(),
-              const SizedBox(height: 20),
-              _buildMatchCard(
-                leftBorderColor: _neonGreen,
-                icon: Icons.sports_soccer,
-                iconColor: _neonGreen,
-                venueName: 'Gold Arena Halı Saha',
-                location: 'Şişli, İstanbul',
-                time: '20:00',
-                dateLabel: 'Bugün',
-                showBubble: true,
-                avatarColors: [
-                  const Color(0xFF5E6AD2),
-                  const Color(0xFF8B5CF6),
-                  const Color(0xFFEC4899),
-                ],
-                extraCount: '+8',
-                statusText: 'kişi katılıyor',
-              ),
-              const SizedBox(height: 14),
-              _buildMatchCard(
-                leftBorderColor: const Color(0xFFF59E0B),
-                icon: Icons.stadium_outlined,
-                iconColor: const Color(0xFFF59E0B),
-                venueName: 'Vadi İstanbul Arena',
-                location: 'Sarıyer, İstanbul',
-                time: '21:30',
-                dateLabel: 'Yarın',
-                showBubble: false,
-                avatarColors: [
-                  const Color(0xFFEF4444),
-                  const Color(0xFF3B82F6),
-                ],
-                extraCount: '+3',
-                statusText: '5 kişi eksik',
-              ),
-              const SizedBox(height: 14),
-              _buildMatchCard(
-                leftBorderColor: const Color(0xFF3B82F6),
-                icon: Icons.sports_outlined,
-                iconColor: const Color(0xFF3B82F6),
-                venueName: 'Beşiktaş Çim Saha',
-                location: 'Beşiktaş, İstanbul',
-                time: '19:00',
-                dateLabel: 'Cuma',
-                showBubble: false,
-                avatarColors: [const Color(0xFF6B7280)],
-                extraCount: '+12',
-                statusText: 'Kadro Tamam',
-              ),
-              const SizedBox(height: 20),
-              _buildDashedAddButton(),
-              const SizedBox(height: 80),
-            ],
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+              child: _buildHeader(context),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildTabToggle(context, neonGreen: neonGreen),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: Obx(() {
+                if (controller.isLoading.value) {
+                  return Center(
+                    child: CircularProgressIndicator(color: neonGreen),
+                  );
+                }
+
+                final isUpcomingTab = _isUpcoming.value;
+                final displayedMatches = isUpcomingTab
+                    ? controller.upcomingMatches
+                    : controller.pastMatches;
+
+                if (displayedMatches.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isUpcomingTab
+                              ? Icons.sports_soccer_outlined
+                              : Icons.history,
+                          size: 64,
+                          color: neonGreen.withOpacity(0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          isUpcomingTab
+                              ? 'Henüz planlanmış bir maçın bulunmuyor.'
+                              : 'Henüz tamamlanmış bir maçın bulunmuyor.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.text(context).withOpacity(0.7),
+                            fontSize: 16,
+                          ),
+                        ),
+                        if (isUpcomingTab) ...[
+                          const SizedBox(height: 24),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 40),
+                            child: _buildDashedAddButton(
+                              context,
+                              neonGreen: neonGreen,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
+                  itemCount: displayedMatches.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 14),
+                  itemBuilder: (context, index) {
+                    final match = displayedMatches[index];
+
+                    final title = match['title'] ?? 'Bilinmeyen Maç';
+                    final venue = match['venue'] ?? 'Bilinmeyen Saha';
+                    final price = match['price']?.toString() ?? '0';
+                    final maxPlayers = match['maxPlayers']?.toString() ?? '?';
+                    final currentPlayers =
+                        match['currentPlayers'] as List<dynamic>?;
+                    final currentCount =
+                        currentPlayers?.length.toString() ?? '1';
+                    final timestamp = match['date'];
+
+                    final dateString = controller.formatDate(timestamp);
+
+                    return _buildMatchCard(
+                      context: context,
+                      neonGreen: neonGreen,
+                      title: title,
+                      venue: venue,
+                      dateText: dateString,
+                      quotaText: '$currentCount / $maxPlayers',
+                      priceText: '$price TL',
+                      matchId: match['id']?.toString() ?? '',
+                      currentPlayers: currentPlayers ?? [],
+                      matchData: match, // <-- Tüm veriyi geçiyoruz
+                    );
+                  },
+                );
+              }),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────
-  Widget _buildHeader() {
+  // ── Header ──────────────────────────────────────────────────
+  Widget _buildHeader(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
+        Text(
           'Maçlarım',
           style: TextStyle(
-            color: _textWhite,
+            color: AppColors.text(context),
             fontSize: 28,
             fontWeight: FontWeight.bold,
-          ),
-        ),
-        GestureDetector(
-          onTap: () {},
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: _cardBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.tune, color: _textWhite, size: 22),
           ),
         ),
       ],
     );
   }
 
-  // ── Tab Toggle ─────────────────────────────────────────────
-  Widget _buildTabToggle() {
+  // ── Tab Toggle ──────────────────────────────────────────────
+  Widget _buildTabToggle(BuildContext context, {required Color neonGreen}) {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: AppColors.card(context),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          _buildTab('Gelecek Maçlar', true),
-          _buildTab('Geçmiş Maçlar', false),
+          _buildTab(context, 'Gelecek Maçlar', true, neonGreen),
+          _buildTab(context, 'Geçmiş Maçlar', false, neonGreen),
         ],
       ),
     );
   }
 
-  Widget _buildTab(String label, bool isUpcoming) {
-    final isActive = _isUpcoming == isUpcoming;
+  Widget _buildTab(
+    BuildContext context,
+    String label,
+    bool isUpcoming,
+    Color neonGreen,
+  ) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _isUpcoming = isUpcoming),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive ? _neonGreen : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isActive ? _bgColor : _textGrey,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              fontSize: 14,
+        onTap: () => _isUpcoming.value = isUpcoming,
+        child: Obx(() {
+          final isActive = _isUpcoming.value == isUpcoming;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: isActive ? neonGreen : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
             ),
-          ),
-        ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isActive
+                    ? const Color(0xFF0F1712)
+                    : AppColors.labelColor(context),
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                fontSize: 14,
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
 
-  // ── Match Card ─────────────────────────────────────────────
+  // ── Match Card ──────────────────────────────────────────────
   Widget _buildMatchCard({
-    required Color leftBorderColor,
-    required IconData icon,
-    required Color iconColor,
-    required String venueName,
-    required String location,
-    required String time,
-    required String dateLabel,
-    required bool showBubble,
-    required List<Color> avatarColors,
-    required String extraCount,
-    required String statusText,
+    required BuildContext context,
+    required Color neonGreen,
+    required String title,
+    required String venue,
+    required String dateText,
+    required String quotaText,
+    required String priceText,
+    required String matchId,
+    required List<dynamic> currentPlayers,
+    required Map<String, dynamic> matchData,
   }) {
+    final isDark = AppColors.isDark(context);
+    final cardBg = AppColors.card(context);
+    final textWhite = AppColors.text(context);
+    final textGrey = AppColors.labelColor(context);
+    final darkGreenBlack = const Color(0xFF0F1712);
+
+    final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    // Kullanıcının ID'si ile maçın kurucusunun ID'sini (createdBy) karşılaştır
+    final bool isCreator = matchData['createdBy'] == currentUserId;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: isDark ? darkGreenBlack : cardBg.withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppColors.border(context)),
       ),
       child: IntrinsicHeight(
         child: Row(
           children: [
-            // Sol renkli dikey çizgi
             Container(
               width: 4,
               decoration: BoxDecoration(
-                color: leftBorderColor,
+                color: neonGreen,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   bottomLeft: Radius.circular(16),
                 ),
               ),
             ),
-            // İçerik
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Üst satır: ikon + isim + saat/gün
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(icon, color: iconColor, size: 18),
+                        Icon(Icons.sports_soccer, color: neonGreen, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            venueName,
-                            style: const TextStyle(
-                              color: _textWhite,
+                            title,
+                            style: TextStyle(
+                              color: textWhite,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              time,
-                              style: const TextStyle(
-                                color: _textWhite,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: neonGreen.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: neonGreen.withOpacity(0.5),
                             ),
-                            if (showBubble)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _neonGreen,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  dateLabel,
-                                  style: const TextStyle(
-                                    color: _bgColor,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              )
-                            else
-                              Text(
-                                dateLabel,
-                                style: const TextStyle(
-                                  color: _textGrey,
-                                  fontSize: 12,
-                                ),
-                              ),
-                          ],
+                          ),
+                          child: Text(
+                            dateText,
+                            style: TextStyle(
+                              color: neonGreen,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -291,46 +333,158 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                     Padding(
                       padding: const EdgeInsets.only(left: 26),
                       child: Text(
-                        location,
-                        style: const TextStyle(color: _textGrey, fontSize: 12),
+                        venue,
+                        style: TextStyle(color: textGrey, fontSize: 13),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // Alt satır: avatarlar + durum + detaylar
-                    Row(
+                    Column(
                       children: [
-                        _buildAvatarStack(avatarColors, extraCount),
-                        const SizedBox(width: 8),
-                        Text(
-                          statusText,
-                          style: const TextStyle(
-                            color: _textGrey,
-                            fontSize: 12,
-                          ),
+                        // 1. Satır: Kontenjan ve Fiyat (Sola dayalı)
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              color: textGrey,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Kontenjan: $quotaText',
+                              style: TextStyle(color: textGrey, fontSize: 12),
+                            ),
+                            const SizedBox(width: 16),
+                            Icon(
+                              Icons.payments_outlined,
+                              color: textGrey,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              priceText,
+                              style: TextStyle(color: textGrey, fontSize: 12),
+                            ),
+                          ],
                         ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: () {},
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.2),
+                        const SizedBox(height: 12),
+                        // 2. Satır: Aksiyon Butonları (Sağa dayalı)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            // 👇 DETAY BUTONUNA FİREBASE BAĞLANDI 👇
+                            GestureDetector(
+                              onTap: () {
+                                Get.to(
+                                  () => const MatchDetailView(),
+                                  arguments: matchId,
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 7,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: darkGreenBlack,
+                                  border: Border.all(
+                                    color: neonGreen.withOpacity(0.4),
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Detaylar',
+                                  style: TextStyle(
+                                    color: neonGreen,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text(
-                              'Detaylar',
-                              style: TextStyle(
-                                color: _textWhite,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+
+                            // 👇 KURUCU İSE DÜZENLE VE SİL, OYUNCU İSE AYRIL BUTONU 👇
+                            if (isCreator) ...[
+                              const SizedBox(width: 8),
+                              // ✏️ DÜZENLE BUTONU
+                              GestureDetector(
+                                onTap: () {
+                                  Get.delete<MatchCreateController>();
+                                  Get.to(
+                                    () => const MatchCreateView(),
+                                    binding: BindingsBuilder(() {
+                                      Get.lazyPut<MatchCreateController>(
+                                        () => MatchCreateController(),
+                                      );
+                                    }),
+                                    arguments: matchData,
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: darkGreenBlack,
+                                    border: Border.all(
+                                      color: Colors.blueAccent.withOpacity(0.4),
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Colors.blueAccent,
+                                    size: 16,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => controller.cancelMatch(matchId),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: darkGreenBlack,
+                                    border: Border.all(
+                                      color: Colors.red.withOpacity(0.4),
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => controller.leaveMatch(matchId),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: darkGreenBlack,
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.4),
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.exit_to_app,
+                                    color: Colors.orange,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -344,65 +498,27 @@ class _MyMatchesViewState extends State<MyMatchesView> {
     );
   }
 
-  Widget _buildAvatarStack(List<Color> colors, String extra) {
-    const double size = 26;
-    const double overlap = 16;
-    final width = size + (colors.length - 1) * overlap + 30;
-    return SizedBox(
-      width: width,
-      height: size,
-      child: Stack(
-        children: [
-          for (int i = 0; i < colors.length; i++)
-            Positioned(
-              left: i * overlap,
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  color: colors[i],
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF16221A),
-                    width: 1.5,
-                  ),
-                ),
-              ),
-            ),
-          Positioned(
-            left: colors.length * overlap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5),
-              height: size,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D3E36),
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: const Color(0xFF16221A), width: 1.5),
-              ),
-              child: Center(
-                child: Text(
-                  extra,
-                  style: const TextStyle(
-                    color: _textWhite,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Dashed Add Button ──────────────────────────────────────
-  Widget _buildDashedAddButton() {
+  // ── Dashed Add Button ───────────────────────────────────────
+  Widget _buildDashedAddButton(
+    BuildContext context, {
+    required Color neonGreen,
+  }) {
+    final textGrey = AppColors.labelColor(context);
     return GestureDetector(
-      onTap: () {},
+      onTap: () {
+        Get.delete<MatchCreateController>();
+        Get.to(
+          () => const MatchCreateView(),
+          binding: BindingsBuilder(() {
+            Get.lazyPut<MatchCreateController>(() => MatchCreateController());
+          }),
+          transition: Transition.downToUp,
+          duration: const Duration(milliseconds: 300),
+        );
+      },
       child: CustomPaint(
         painter: _DashedBorderPainter(
-          color: _textGrey.withValues(alpha: 0.4),
+          color: textGrey.withOpacity(0.4),
           borderRadius: 16,
         ),
         child: Container(
@@ -415,15 +531,15 @@ class _MyMatchesViewState extends State<MyMatchesView> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: _neonGreen.withValues(alpha: 0.12),
+                  color: neonGreen.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.add, color: _neonGreen, size: 28),
+                child: Icon(Icons.add, color: neonGreen, size: 28),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Yeni maç planla',
-                style: TextStyle(color: _textGrey, fontSize: 14),
+                style: TextStyle(color: textGrey, fontSize: 14),
               ),
             ],
           ),
@@ -433,11 +549,15 @@ class _MyMatchesViewState extends State<MyMatchesView> {
   }
 
   // ── Bottom Nav (Maçlarım aktif) ────────────────────────────
-  Widget _buildBottomNavigationBar() {
+  Widget _buildBottomNavigationBar(
+    BuildContext context, {
+    required Color navBg,
+    required Color neonGreen,
+  }) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF16221A),
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: navBg,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
         ),
@@ -448,44 +568,52 @@ class _MyMatchesViewState extends State<MyMatchesView> {
           topRight: Radius.circular(24),
         ),
         child: BottomAppBar(
-          color: const Color(0xFF16221A),
+          color: navBg,
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           height: 70,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildNavBarItem(
+                context,
                 Icons.home_filled,
                 'Ana Sayfa',
                 false,
+                neonGreen,
                 onTap: () => Get.offAll(
-                  () => const HomeView(userName: 'Onur'),
+                  () => const HomeView(userName: 'Oyuncu'),
                   transition: Transition.noTransition,
                 ),
               ),
               _buildNavBarItem(
+                context,
                 Icons.sports_soccer,
                 'Maçlarım',
                 true,
+                neonGreen,
                 onTap: () {},
               ),
               const SizedBox(width: 48),
               _buildNavBarItem(
+                context,
                 Icons.explore_outlined,
                 'Keşfet',
                 false,
+                neonGreen,
                 onTap: () => Get.offAll(
-                  () => const DiscoverView(),
+                  () => DiscoverView(),
                   transition: Transition.noTransition,
                 ),
               ),
               _buildNavBarItem(
+                context,
                 Icons.person_outline,
                 'Profil',
                 false,
+                neonGreen,
                 onTap: () => Get.offAll(
                   () => const ProfileView(),
                   transition: Transition.noTransition,
@@ -499,30 +627,31 @@ class _MyMatchesViewState extends State<MyMatchesView> {
   }
 
   Widget _buildNavBarItem(
+    BuildContext context,
     IconData icon,
     String label,
-    bool isActive, {
+    bool isActive,
+    Color neonGreen, {
     required VoidCallback onTap,
   }) {
-    final color = isActive ? _neonGreen : Colors.white.withValues(alpha: 0.4);
-
+    final color = isActive ? neonGreen : AppColors.navInactive(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: _neonGreen.withValues(alpha: 0.15),
+      splashColor: neonGreen.withOpacity(0.15),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 26),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -540,7 +669,7 @@ class _MyMatchesViewState extends State<MyMatchesView> {
   }
 }
 
-// ── Dashed Border Painter ──────────────────────────────────────
+// ── Dashed Border Painter ───────────────────────────────────────
 class _DashedBorderPainter extends CustomPainter {
   final Color color;
   final double borderRadius;

@@ -14,6 +14,30 @@
       },
       "oauth_client": [
         {
+          "client_id": "2273283642-6jm196jmlodr6up53vamroigrtl0bphd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.depar.app",
+            "certificate_hash": "93a1b4173d964548faa796aee6d9aca1c942bbaf"
+          }
+        },
+        {
+          "client_id": "2273283642-8hl9ji7tetrmu0b20qkc85urkstcqaon.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.depar.app",
+            "certificate_hash": "b525a3ddc94b51f717292ba971ee368c7bf33d02"
+          }
+        },
+        {
+          "client_id": "2273283642-ruklnd58ggkrv55mkg3vdqdlp4jbtmgm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.depar.app",
+            "certificate_hash": "baca761ea3c30f556aa17f6047a2708701a29804"
+          }
+        },
+        {
           "client_id": "2273283642-r17857chth2oqk6bv7oh74ptqgcq72cn.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -31,10 +55,10 @@
               "client_type": 3
             },
             {
-              "client_id": "2273283642-n76p6ql1hj8q40jam1963cqalt014cb1.apps.googleusercontent.com",
+              "client_id": "2273283642-ke215fauar6ciloq25771n3v8kcjnag9.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.halisahaApp"
+                "bundle_id": "com.depar.app"
               }
             }
           ]
@@ -50,30 +74,6 @@
       },
       "oauth_client": [
         {
-          "client_id": "2273283642-7op4af2tj5pi70tif7pqdvcoe536gi0d.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.halisaha_app",
-            "certificate_hash": "b525a3ddc94b51f717292ba971ee368c7bf33d02"
-          }
-        },
-        {
-          "client_id": "2273283642-ef71okt87nl3gfeo1gbpf39d01roephq.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.halisaha_app",
-            "certificate_hash": "baca761ea3c30f556aa17f6047a2708701a29804"
-          }
-        },
-        {
-          "client_id": "2273283642-tvprk9fla1fgubm204ia18vta9362o1i.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.halisaha_app",
-            "certificate_hash": "93a1b4173d964548faa796aee6d9aca1c942bbaf"
-          }
-        },
-        {
           "client_id": "2273283642-r17857chth2oqk6bv7oh74ptqgcq72cn.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -91,10 +91,10 @@
               "client_type": 3
             },
             {
-              "client_id": "2273283642-n76p6ql1hj8q40jam1963cqalt014cb1.apps.googleusercontent.com",
+              "client_id": "2273283642-ke215fauar6ciloq25771n3v8kcjnag9.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.halisahaApp"
+                "bundle_id": "com.depar.app"
               }
             }
           ]

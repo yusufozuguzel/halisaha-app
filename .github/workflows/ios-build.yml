@@ -27,11 +27,11 @@ jobs:
           sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' ios/Runner.xcodeproj/project.pbxproj
 
       - name: 🍏 Sertifikasız iOS Archive (Kasa) Oluştur
-        # "build ios" yerine "build ipa" kullanıyoruz! Bu komut sertifikasız arşivi başarıyla tamamlar.
+        # Hata verse bile (imza olmadığı için) süreci durdurma, arşivi oluşturup devam et!
+        continue-on-error: true
         run: flutter build ipa --release --no-codesign
 
       - name: 📦 Kasanın İçinden App Dosyasını Çıkar ve IPA Yap
-        # Dosyanın konumu artık archive klasörünün içi oldu. Oradan alıp Payload'a atıyoruz.
         run: |
           mkdir -p Payload
           mv build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/

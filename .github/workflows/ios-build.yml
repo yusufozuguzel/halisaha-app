@@ -18,8 +18,7 @@ jobs:
       - name: 📦 Paketleri indir
         run: flutter pub get
 
-      - name: 🧹 Temizlik, iOS 15.0 ve İmza Manipülasyonu
-        # Podları siliyoruz, iOS 15.0'a sabitliyoruz ve Xcode'un imza zorunluluğunu hackliyoruz.
+      - name: 🧹 Temizlik ve iOS 15.0 Manipülasyonu
         run: |
           rm -f ios/Podfile
           rm -f ios/Podfile.lock
@@ -27,15 +26,15 @@ jobs:
           sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' ios/Runner.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' ios/Runner.xcodeproj/project.pbxproj
 
-      - name: 🍏 Sertifikasız iOS Build Al
-        # İşte sihir burada! Hata verse bile (Apple imza istese bile) işlemi durdurmayıp devam edecek.
-        continue-on-error: true
-        run: flutter build ios --release --no-codesign
+      - name: 🍏 Sertifikasız iOS Archive (Kasa) Oluştur
+        # "build ios" yerine "build ipa" kullanıyoruz! Bu komut sertifikasız arşivi başarıyla tamamlar.
+        run: flutter build ipa --release --no-codesign
 
-      - name: 📦 Çıktıyı IPA Formatına Çevir
+      - name: 📦 Kasanın İçinden App Dosyasını Çıkar ve IPA Yap
+        # Dosyanın konumu artık archive klasörünün içi oldu. Oradan alıp Payload'a atıyoruz.
         run: |
           mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload/
+          mv build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
           zip -r -9 app.ipa Payload/
 
       - name: 🚀 IPA Dosyasını İndirilebilir Yap

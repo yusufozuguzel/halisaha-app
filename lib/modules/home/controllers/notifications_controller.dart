@@ -1,9 +1,21 @@
+import '../../../core/services/match_participation.dart';
+import 'dart:async';
+import '../../friends/controllers/block_controller.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/services/social_interactions.dart';
 
 class NotificationsController extends GetxController {
+  final _blocks = BlockController.shared;
+  final List<StreamSubscription> _subscriptions = [];
+  final RxList<QueryDocumentSnapshot> _unread = <QueryDocumentSnapshot>[].obs;
+  final RxList<QueryDocumentSnapshot> _allInvites = <QueryDocumentSnapshot>[].obs;
+  bool visibleNotification(QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return _blocks.visible((data['senderUid'] ?? data['senderId'] ?? data['fromUid'] ?? data['from']) as String?);
+  }
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -13,10 +25,10 @@ class NotificationsController extends GetxController {
   final RxMap<String, RxBool> followingStatus = <String, RxBool>{}.obs;
 
   // Yeni Eklenecek: Maç davetleri için
-  final RxList<QueryDocumentSnapshot> matchInvites = <QueryDocumentSnapshot>[].obs;
+  List<QueryDocumentSnapshot> get matchInvites => _allInvites.where(visibleNotification).toList();
 
   // Yeni Özellikler: Geri alma, okunmamış sayacı
-  final RxInt unreadCount = 0.obs;
+  int get unreadCount => _unread.where(visibleNotification).length;
   final RxList<String> hiddenNotificationIds = <String>[].obs;
 
   @override
@@ -26,33 +38,39 @@ class NotificationsController extends GetxController {
     _listenToUnreadNotifications();
   }
 
+  @override
+  void onClose() {
+    for (final subscription in _subscriptions) { subscription.cancel(); }
+    super.onClose();
+  }
+
   void _listenToUnreadNotifications() {
     final uid = _uid;
     if (uid == null) return;
 
-    _firestore
+    _subscriptions.add(_firestore
         .collection('users')
         .doc(uid)
         .collection('notifications')
         .where('isRead', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
-      unreadCount.value = snapshot.docs.length;
-    });
+      if (!isClosed) _unread.assignAll(snapshot.docs);
+    }, onError: (_) { if (!isClosed) _unread.clear(); }));
   }
 
   void _listenToMatchInvites() {
     final uid = _uid;
     if (uid == null) return;
     
-    _firestore
+    _subscriptions.add(_firestore
         .collection('notifications')
         .where('receiverId', isEqualTo: uid)
         .where('status', isEqualTo: 'pending')
         .snapshots()
         .listen((snapshot) {
-      matchInvites.value = snapshot.docs;
-    });
+      if (!isClosed) _allInvites.assignAll(snapshot.docs);
+    }, onError: (_) { if (!isClosed) _allInvites.clear(); }));
   }
 
   /// Belirtilen kullanıcıyı takip edip etmediğimizi kontrol eder
@@ -262,11 +280,7 @@ class NotificationsController extends GetxController {
 
   // ── FOLLOW REQUEST — Accept ────────────────────────────────────────────
 
-  /// SADECE SADECE ŞU 4 İŞLEMİ YAPAR:
-  /// 1. users/{currentUser}/followers/{senderUid} set
-  /// 2. users/{senderUid}/following/{currentUser} set
-  /// 3. users/{currentUser}/followRequests/{senderUid} delete
-  /// 4. users/{currentUser}/notifications/{notificationDocId} update
+  /// Geçerli istek ve iki yönlü engel kontrolüyle arkadaşlığı ve bildirimi günceller.
   Future<void> acceptFollowRequest({
     required String senderUid,
     required String notificationDocId,
@@ -274,64 +288,13 @@ class NotificationsController extends GetxController {
     final myUid = _uid;
     if (myUid == null) return;
 
-    final db = _firestore;
     try {
-      final myDoc = await db.collection('users').doc(myUid).get();
-      final senderDoc = await db.collection('users').doc(senderUid).get();
-
-      final myData = myDoc.data() ?? {};
-      final senderData = senderDoc.data() ?? {};
-
-      final batch = db.batch();
-
-      // B'nin (Kabul eden) friends koleksiyonuna A'yı ekle
-      batch.set(
-        db.collection('users').doc(myUid).collection('friends').doc(senderUid),
-        {
-          'uid': senderUid,
-          'fullName': senderData['fullName'] ?? senderData['name'] ?? '',
-          'avatarUrl': senderData['avatarUrl'] ?? '',
-          'avatarData': senderData['avatarData'] ?? '0',
-          'position': senderData['position'] ?? '',
-          'since': FieldValue.serverTimestamp()
-        },
-      );
-
-      // A'nın (İstek gönderen) friends koleksiyonuna B'yi ekle
-      batch.set(
-        db.collection('users').doc(senderUid).collection('friends').doc(myUid),
-        {
-          'uid': myUid,
-          'fullName': myData['fullName'] ?? myData['name'] ?? '',
-          'avatarUrl': myData['avatarUrl'] ?? '',
-          'avatarData': myData['avatarData'] ?? '0',
-          'position': myData['position'] ?? '',
-          'since': FieldValue.serverTimestamp()
-        },
-      );
-
-      // 3. users/{currentUser}/followRequests/{senderUid} dökümanını delete et.
-      batch.delete(
-        db.collection('users').doc(myUid).collection('followRequests').doc(senderUid),
-      );
-
-      // 4. Mevcut kullanıcının users/{currentUser}/notifications/{notificationId} dökümanını update et.
-      batch.update(
-        db.collection('users').doc(myUid).collection('notifications').doc(notificationDocId),
-        {'status': 'accepted'},
-      );
-
-      await batch.commit();
-      
-      checkIfFollowing(senderUid); // UI'ı güncelle
+      await SocialInteractions().acceptFollow(senderUid,
+          notificationId: notificationDocId);
+      followingStatus[senderUid] = true.obs;
     } catch (e) {
-      print('FIREBASE KABUL ETME HATASI: $e');
-      Get.snackbar(
-        'Hata', 
-        'İstek kabul edilemedi, yetki reddedildi: $e',
-        backgroundColor: Colors.red.shade900,
-        colorText: Colors.white,
-      );
+      Get.snackbar('Hata', e is SocialInteractionException
+          ? e.message : 'İstek kabul edilemedi.');
     }
   }
 
@@ -375,116 +338,31 @@ class NotificationsController extends GetxController {
   /// Karşı tarafa geri takip isteği gönder.
   /// Aynı sendFollowRequest mantığı — bildirim 'follow_request' payload'ı ile.
   Future<void> sendFollowBackRequest({required String targetUid}) async {
-    final myUid = _uid;
-    if (myUid == null) return;
-
-    final db = _firestore;
-
-    // followRequests'e yaz
-    await db
-        .collection('users')
-        .doc(targetUid)
-        .collection('followRequests')
-        .doc(myUid)
-        .set({
-          'from': myUid,
-          'status': 'pending',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-    // Kendi adımızı Firestore'dan al
-    final myDoc = await db.collection('users').doc(myUid).get();
-    final myName = myDoc.data()?['fullName'] ?? myDoc.data()?['name'] ?? 'Biri';
-
-    // Karşı tarafa bildirim gönder
-    await db
-        .collection('users')
-        .doc(targetUid)
-        .collection('notifications')
-        .add({
-          'title': 'Yeni Takip İsteği 👥',
-          'message': '$myName seninle arkadaş olmak istiyor.',
-          'type': 'follow_request',
-          'senderUid': myUid,
-          'senderName': myName,
-          'createdAt': FieldValue.serverTimestamp(),
-          'status': 'pending',
-        });
+    try {
+      await SocialInteractions().requestFollow(targetUid);
+    } catch (e) {
+      Get.snackbar('Hata', e is SocialInteractionException
+          ? e.message : 'İstek gönderilemedi.');
+    }
   }
 
   // ── MATCH INVITES ────────────────────────────────────────────────────────────
 
   Future<void> acceptInvite(String notificationId, String matchId, String positionId) async {
-    final myUid = _uid;
-    if (myUid == null) return;
-
-    final batch = _firestore.batch();
-    
-    // 1. Update notification status to accepted
-    batch.update(
-      _firestore.collection('notifications').doc(notificationId),
-      {'status': 'accepted'}
-    );
-
-    // 2. Update matches doc
-    final matchRef = _firestore.collection('matches').doc(matchId);
-    batch.update(matchRef, {
-      'currentPlayers': FieldValue.arrayUnion([myUid]),
-      'positions.$positionId': myUid,
-      'pendingPositions.$positionId': FieldValue.delete(),
-    });
-
     try {
-      await batch.commit();
-      Get.snackbar(
-        'Başarılı', 
-        'Maç davetini kabul ettin!', 
-        backgroundColor: const Color(0xFF1E2A22), 
-        colorText: const Color(0xFF2EED7B),
-        snackPosition: SnackPosition.BOTTOM
-      );
-    } catch(e) {
-      Get.snackbar('Hata', 'İşlem başarısız: $e', backgroundColor: Colors.red.shade900, colorText: Colors.white);
+      await MatchParticipation().respond(matchId, notificationId, positionId, accept: true);
+      Get.snackbar('Başarılı', 'Maç davetini kabul ettiniz.');
+    } catch (e) {
+      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
     }
   }
 
   Future<void> rejectInvite(String notificationId, String matchId, String positionId) async {
-    final myUid = _uid;
-    if (myUid == null) return;
-    
     try {
-      final matchDoc = await _firestore.collection('matches').doc(matchId).get();
-      final creatorId = matchDoc.data()?['createdBy'] as String?;
-
-      final batch = _firestore.batch();
-      
-      // 1. Delete notification
-      batch.delete(_firestore.collection('notifications').doc(notificationId));
-
-      // 2. Update matches doc (remove pending position and from invitedPlayers list)
-      final matchRef = _firestore.collection('matches').doc(matchId);
-      batch.update(matchRef, {
-        'pendingPositions.$positionId': FieldValue.delete(),
-        'invitedPlayers': FieldValue.arrayRemove([myUid]),
-      });
-
-      // 3. Bildirimi kurucuya ilet
-      if (creatorId != null && creatorId != myUid) {
-        final notifRef = _firestore.collection('notifications').doc();
-        batch.set(notifRef, {
-          'receiverId': creatorId,
-          'senderId': myUid,
-          'type': 'invite_rejected',
-          'matchId': matchId,
-          'createdAt': FieldValue.serverTimestamp(),
-          'status': 'unread'
-        });
-      }
-
-      await batch.commit();
-      Get.snackbar('Bilgi', 'Maç daveti reddedildi.', backgroundColor: Colors.black87, colorText: Colors.white, snackPosition: SnackPosition.BOTTOM);
-    } catch(e) {
-      Get.snackbar('Hata', 'İşlem başarısız: $e', backgroundColor: Colors.red.shade900, colorText: Colors.white);
+      await MatchParticipation().respond(matchId, notificationId, positionId, accept: false);
+      Get.snackbar('Bilgi', 'Maç daveti reddedildi.');
+    } catch (e) {
+      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
     }
   }
 }

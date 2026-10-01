@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import '../../../core/services/profile_photo_upload.dart';
+import '../../../core/services/account_deletion.dart';
+import '../../../core/services/firebase_account_deletion.dart';
+import '../../../core/services/safety_api.dart';
+import '../../../core/services/social_interactions.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../../friends/controllers/block_controller.dart';
 
 class ProfileController extends GetxController {
   // ── Kimlik ────────────────────────────────────────────────
@@ -49,10 +54,6 @@ class ProfileController extends GetxController {
   final RxBool isNewObscure = true.obs;
   final RxBool isConfirmObscure = true.obs;
 
-  // ── Hesap Silme Durumu ─────────────────────────────────────
-  final RxString deletePassword = "".obs;
-  final RxBool isDeleteObscure = true.obs;
-
   // Using Form validation now, old manual computed values not needed but keeping for compatibility if used elsewhere
   bool get isLengthValid => newPassword.value.length >= 8;
   bool get isComplexValid => RegExp(r'[A-Z]').hasMatch(newPassword.value) && RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(newPassword.value);
@@ -63,11 +64,18 @@ class ProfileController extends GetxController {
   final _auth = FirebaseAuth.instance;
   String? get _myUid => _auth.currentUser?.uid;
 
-  bool get isGoogleUser =>
-      FirebaseAuth.instance.currentUser?.providerData.any(
-        (info) => info.providerId == 'google.com',
+  bool get hasPasswordProvider =>
+      _auth.currentUser?.providerData.any(
+        (info) => info.providerId == 'password',
       ) ??
       false;
+
+  bool get deletionRequiresPassword =>
+      deletionProvider(
+        _auth.currentUser?.providerData.map((p) => p.providerId) ??
+            const <String>[],
+      ) ==
+      DeletionProvider.password;
 
   // ── Subscriptions ──────────────────────────────────────────
   final List<Function()> _subs = [];
@@ -86,6 +94,16 @@ class ProfileController extends GetxController {
     final myUid = _myUid ?? '';
     targetUid = argUid ?? myUid;
     isOwnProfile = targetUid == myUid || targetUid.isEmpty;
+    if (!isOwnProfile) {
+      final blocks = BlockController.shared;
+      isBlocked.value = blocks.isBlocked(targetUid);
+      final worker = ever(blocks.blockedUserIds, (_) {
+        if (isClosed) return;
+        isBlocked.value = blocks.isBlocked(targetUid);
+        if (isBlocked.value) { isFriend.value = false; isPending.value = false; }
+      });
+      _subs.add(worker.dispose);
+    }
 
     _subscribeToProfile();
     _subscribeToStats();
@@ -153,11 +171,7 @@ class ProfileController extends GetxController {
     if (myUid == null || myUid.isEmpty || targetUid.isEmpty) return;
 
     // Engelledi mi? (Engel varsa takip bilgisi gerekmez)
-    final myDoc = await _db.collection('users').doc(myUid).get();
-    if (myDoc.exists) {
-      final blockedList = List<String>.from(myDoc.data()?['blockedUsers'] ?? []);
-      isBlocked.value = blockedList.contains(targetUid);
-    }
+    isBlocked.value = BlockController.shared.isBlocked(targetUid);
 
     // Engellenmişse takip durumunu kontrol etmeye gerek yok
     if (isBlocked.value) return;
@@ -169,6 +183,7 @@ class ProfileController extends GetxController {
         .collection('friends')
         .doc(myUid)
         .get();
+    if (isClosed || _myUid != myUid || BlockController.shared.isBlocked(targetUid)) return;
     isFriend.value = followerDoc.exists;
 
     // İstek gönderildi mi?
@@ -179,6 +194,7 @@ class ProfileController extends GetxController {
           .collection('followRequests')
           .doc(myUid)
           .get();
+      if (isClosed || _myUid != myUid || BlockController.shared.isBlocked(targetUid)) return;
       isPending.value = reqDoc.exists;
     }
   }
@@ -189,27 +205,10 @@ class ProfileController extends GetxController {
     if (myUid == null || myUid.isEmpty || targetUid.isEmpty) return;
     try {
       isLoading.value = true;
-      final batch = _db.batch();
-
-      final targetIsFriend = await _db
-          .collection('users').doc(myUid).collection('friends').doc(targetUid).get();
-      if (targetIsFriend.exists) {
-        batch.delete(_db.collection('users').doc(myUid).collection('friends').doc(targetUid));
-        batch.delete(_db.collection('users').doc(targetUid).collection('friends').doc(myUid));
-        // NOT: friendsCount Cloud Function'a bırakıldı
-      }
-
-      // 3. Bekleyen followRequest'leri sil (her iki yön)
-      batch.delete(_db.collection('users').doc(myUid).collection('followRequests').doc(targetUid));
-      batch.delete(_db.collection('users').doc(targetUid).collection('followRequests').doc(myUid));
-
-      // 4. Engelle: kendi dokümanıma hedefin UID'sini ekle
-      // (Arkadaşlık / Following bağı zaten yukarıdaki 1. ve 2. adımlarda delete ile siliniyor)
-      batch.update(_db.collection('users').doc(myUid), {
-        'blockedUsers': FieldValue.arrayUnion([targetUid]),
-      });
-
-      await batch.commit();
+      await SocialInteractions().block(targetUid);
+      if (isClosed || _myUid != myUid) return;
+      final blocks = BlockController.shared;
+      if (!blocks.isBlocked(targetUid)) blocks.blockedUserIds.add(targetUid);
 
       // Lokal state güncelle
       isBlocked.value = true;
@@ -218,13 +217,13 @@ class ProfileController extends GetxController {
 
       Get.snackbar(
         'Engellendi',
-        'Kullanıcı engellendi ve tüm bağlar koparıldı.',
+        'Kullanıcı engellendi; arkadaşlık ve bekleyen istekler kaldırıldı.',
         backgroundColor: const Color(0xFF1E2A22),
         colorText: const Color(0xFF2EED7B),
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      Get.snackbar('Hata', 'Engelleme işlemi başarısız: $e',
+      Get.snackbar('Hata', e is SocialInteractionException ? e.message : 'Engelleme işlemi başarısız.',
           backgroundColor: Colors.red.shade700, colorText: Colors.white);
     } finally {
       isLoading.value = false;
@@ -240,6 +239,8 @@ class ProfileController extends GetxController {
       await _db.collection('users').doc(myUid).update({
         'blockedUsers': FieldValue.arrayRemove([targetUid]),
       });
+      if (isClosed || _myUid != myUid) return;
+      BlockController.shared.blockedUserIds.remove(targetUid);
       isBlocked.value = false;
       Get.snackbar(
         'Engel Kaldırıldı',
@@ -262,41 +263,10 @@ class ProfileController extends GetxController {
     }
     isLoading.value = true;
     try {
-      // followRequests alt koleksiyonuna yaz
-      await _db
-          .collection('users')
-          .doc(targetUid)
-          .collection('followRequests')
-          .doc(myUid)
-          .set({
-            'from': myUid,
-            'status': 'pending',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+      await SocialInteractions().requestFollow(targetUid);
       isPending.value = true;
-
-      // ── Düzeltme: bildirimi atan KENDİ adımızı Firestore'dan al ──
-      final myDoc = await _db.collection('users').doc(myUid).get();
-      final myName =
-          myDoc.data()?['fullName'] ?? myDoc.data()?['name'] ?? 'Biri';
-
-      // Karşı tarafa tam payload'lı bildirim gönder
-      await _db
-          .collection('users')
-          .doc(targetUid)
-          .collection('notifications')
-          .add({
-            'title': 'Yeni Takip İsteği 👥',
-            'message': '$myName seninle arkadaş olmak istiyor.',
-            'type': 'follow_request',
-            'senderUid': myUid,
-            'senderName': myName,
-            'isRead': false,
-            'createdAt': FieldValue.serverTimestamp(),
-            'status': 'pending',
-          });
     } catch (e) {
-      Get.snackbar('Hata', 'Takip isteği gönderilemedi: $e');
+      Get.snackbar('Hata', e is SocialInteractionException ? e.message : 'Takip isteği gönderilemedi.');
     } finally {
       isLoading.value = false;
     }
@@ -364,64 +334,21 @@ class ProfileController extends GetxController {
   }
 
   // ── Accept Follow Request (gelen istek kabul) ──────────────────
-  /// SADECE SADECE ŞU 3 İŞLEMİ YAPAR:
-  /// 1. users/{currentUser}/followers/{fromUid} set
-  /// 2. users/{fromUid}/following/{currentUser} set
-  /// 3. users/{currentUser}/followRequests/{fromUid} delete
+  /// İki yönlü engel ve geçerli istek kontrolüyle arkadaşlığı kaydeder.
   Future<void> acceptFollowRequest(String fromUid) async {
     final myUid = _myUid;
     if (myUid == null || myUid.isEmpty || fromUid.isEmpty) return;
     
     try {
-      final myDoc = await _db.collection('users').doc(myUid).get();
-      final fromDoc = await _db.collection('users').doc(fromUid).get();
-
-      final myData = myDoc.data() ?? {};
-      final fromData = fromDoc.data() ?? {};
-      
-      final batch = _db.batch();
-
-      // B'nin (Kabul eden) friends koleksiyonuna A'yı ekle
-      batch.set(
-        _db.collection('users').doc(myUid).collection('friends').doc(fromUid),
-        {
-          'uid': fromUid,
-          'fullName': fromData['fullName'] ?? fromData['name'] ?? '',
-          'avatarUrl': fromData['avatarUrl'] ?? '',
-          'avatarData': fromData['avatarData'] ?? '0',
-          'position': fromData['position'] ?? '',
-          'since': FieldValue.serverTimestamp()
-        },
-      );
-
-      // A'nın (İstek gönderen) friends koleksiyonuna B'yi ekle
-      batch.set(
-        _db.collection('users').doc(fromUid).collection('friends').doc(myUid),
-        {
-          'uid': myUid,
-          'fullName': myData['fullName'] ?? myData['name'] ?? '',
-          'avatarUrl': myData['avatarUrl'] ?? '',
-          'avatarData': myData['avatarData'] ?? '0',
-          'position': myData['position'] ?? '',
-          'since': FieldValue.serverTimestamp()
-        },
-      );
-
-      // 3. users/{currentUser}/followRequests/{fromUid} dökümanını delete et.
-      batch.delete(
-        _db.collection('users').doc(myUid).collection('followRequests').doc(fromUid),
-      );
-
-      await batch.commit();
+      await SocialInteractions().acceptFollow(fromUid);
 
       if (fromUid == targetUid) {
         isFriend.value = true;
       }
     } catch (e) {
-      print('FIREBASE KABUL ETME HATASI: $e');
       Get.snackbar(
         'Hata', 
-        'İstek kabul edilemedi, yetki reddedildi: $e',
+        e is SocialInteractionException ? e.message : 'İstek kabul edilemedi.',
         backgroundColor: Colors.red.shade900,
         colorText: Colors.white,
       );
@@ -434,6 +361,10 @@ class ProfileController extends GetxController {
     required String newPosition,
     File? newAvatarFile,
   }) async {
+    if (newName.trim().length > 100 || newPosition.trim().length > 40) {
+      Get.snackbar('Hata', 'Ad en fazla 100, pozisyon en fazla 40 karakter olabilir.');
+      return;
+    }
     final user = _auth.currentUser;
     if (user == null || user.uid.isEmpty) return;
 
@@ -456,14 +387,10 @@ class ProfileController extends GetxController {
 
     if (newAvatarFile != null) {
       isUploading.value = true;
-      avatarFile.value = newAvatarFile;
       try {
-        final storageRef = FirebaseStorage.instance
-            .ref()
-            .child('profile_images/${user.uid}.jpg');
-            
-        await storageRef.putFile(newAvatarFile);
-        final downloadUrl = await storageRef.getDownloadURL();
+        final downloadUrl = await uploadProfilePhoto(newAvatarFile, user.uid);
+        if (isClosed || _auth.currentUser?.uid != user.uid) return;
+        avatarFile.value = newAvatarFile;
         
         updates['avatarUrl'] = downloadUrl;
         updates['avatarData'] = FieldValue.delete();
@@ -471,7 +398,8 @@ class ProfileController extends GetxController {
         
         avatarUrl.value = downloadUrl;
       } catch (e) {
-        Get.snackbar('Hata', 'Fotoğraf yüklenemedi: $e');
+        Get.snackbar('Fotoğraf yüklenemedi', e is ProfilePhotoException
+            ? e.message : 'Fotoğraf yüklenemedi. Bağlantınızı ve hesap durumunuzu kontrol edin.');
       } finally {
         isUploading.value = false;
       }
@@ -558,118 +486,46 @@ class ProfileController extends GetxController {
   }
 
   // ── Hesabı Kalıcı Olarak Sil ───────────────────────────────
-  Future<void> deleteUserAccount() async {
+  Future<void> deleteUserAccount(String password) async {
     final user = _auth.currentUser;
-    if (user == null) return;
-
-    if (!isGoogleUser && deletePassword.value.isEmpty) {
-      Get.snackbar(
-        'Uyarı',
-        'Lütfen mevcut şifrenizi girin.',
-        backgroundColor: Colors.orange.shade600,
-        colorText: Colors.white,
-      );
-      return;
-    }
-
+    if (user == null || !isOwnProfile || isLoading.value) return;
+    isLoading.value = true;
     try {
-      isLoading.value = true;
-
-      // 1. Re-authenticate user
-      if (isGoogleUser) {
-        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-        if (googleUser == null) {
-          isLoading.value = false;
-          return;
-        }
-
-        final GoogleSignInAuthentication googleAuth =
-            await googleUser.authentication;
-
-        final AuthCredential credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-
-        await user.reauthenticateWithCredential(credential);
-      } else {
-        if (user.email == null) return;
-        final credential = EmailAuthProvider.credential(
-          email: user.email!,
-          password: deletePassword.value,
-        );
-        await user.reauthenticateWithCredential(credential);
-      }
-
-      // 2. Kullanıcının kurduğu tüm maçları sil (createdBy == uid)
-      final matchesSnap = await _db
-          .collection('matches')
-          .where('createdBy', isEqualTo: user.uid)
-          .get();
-
-      if (matchesSnap.docs.isNotEmpty) {
-        final matchBatch = _db.batch();
-        for (final doc in matchesSnap.docs) {
-          matchBatch.delete(doc.reference);
-        }
-        await matchBatch.commit();
-      }
-
-      // 3. Firebase Storage'dan profil fotoğrafını sil
-      try {
-        final storageRef = FirebaseStorage.instance
-            .ref()
-            .child('profile_images/${user.uid}.jpg');
-        await storageRef.delete();
-      } catch (_) {
-        // Fotoğraf yoksa sessizce geç
-      }
-
-      // 4. Firestore'daki kullanıcı belgesini sil
-      await _db.collection('users').doc(user.uid).delete();
-
-      // 5. Firebase Auth'dan hesabı tamamen sil
-      await user.delete();
-
-      Get.snackbar(
-        'Hesap Silindi',
-        'Hesabınız ve tüm verileriniz kalıcı olarak silinmiştir.',
-        backgroundColor: Colors.greenAccent.shade700,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
+      final reauthentication = AccountReauthentication(user);
+      final accepted = await AccountDeletion(backend: FirebaseAccountDeletion()).run(
+        reauthenticate: () => reauthentication.authenticate(password),
+        revokeAppleConsent: reauthentication.revokeAppleConsent,
+        hasApple: user.providerData.any((p) => p.providerId == 'apple.com'),
       );
-
-      Get.offAllNamed('/auth');
-    } on FirebaseAuthException catch (e) {
-      // Re-auth başarısız olursa
-      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        Get.snackbar(
-          'Hata',
-          'Hatalı Şifre',
-          backgroundColor: Colors.red.shade600,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          margin: const EdgeInsets.all(16),
-        );
-      } else {
-        Get.snackbar(
-          'Hata',
-          'Hesap silinirken bir sorun oluştu: ${e.message}',
-          backgroundColor: Colors.red.shade600,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          margin: const EdgeInsets.all(16),
-        );
+      if (accepted) {
+        await Get.find<AuthController>().logout();
+        Get.snackbar('Silme talebiniz alındı',
+            'Oturumunuz kapatıldı. Hesabınız ve ilişkili verileriniz sunucuda siliniyor.');
       }
-    } catch (e) {
+    } on SafetyApiException catch (e) {
+      Get.snackbar('İşlem tamamlanamadı',
+          e.code == 'FAILED_PRECONDITION'
+              ? 'Lütfen yeniden giriş yapıp tekrar deneyin.'
+              : 'Silme hizmetine ulaşılamadı. Daha sonra tekrar deneyebilirsiniz.');
+    } on DeletionUnavailable {
       Get.snackbar(
-        'Hata',
-        'Beklenmeyen bir hata oluştu: $e',
-        backgroundColor: Colors.red.shade600,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
+        'Hesap silme şu anda kullanılamıyor',
+        'Güvenli hesap silme hizmeti henüz hazır değil. Hiçbir veriniz silinmedi. Lütfen daha sonra tekrar deneyin.',
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'canceled' ||
+          e.code == 'web-context-canceled' ||
+          e.code == 'user-cancelled') {
+        return;
+      }
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        'Kimliğiniz doğrulanamadı. Mevcut hesabınızın giriş bilgileriyle tekrar deneyin.',
+      );
+    } catch (_) {
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        'Lütfen bağlantınızı kontrol edip tekrar deneyin.',
       );
     } finally {
       isLoading.value = false;

@@ -1,4 +1,7 @@
+import '../../../core/services/match_participation.dart';
+import '../../../core/services/match_metadata.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/match_model.dart';
 
 class MatchService {
@@ -7,9 +10,22 @@ class MatchService {
 
   // Maç Oluşturma
   Future<String> createMatch(MatchModel match) async {
-    DocumentReference docRef = await _firestore
-        .collection('matches')
-        .add(match.toMap());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw StateError('Maç oluşturmak için giriş yapın.');
+    final data = <String, dynamic>{
+      ...match.toMap(),
+      'createdBy': uid,
+      'creatorId': uid,
+      'currentPlayers': [uid],
+      'createdAt': FieldValue.serverTimestamp(),
+      'status': 'open',
+    };
+    final issue = MatchMetadata.error(data);
+    if (issue != null) throw MatchActionException(issue);
+    if (!match.date.isAfter(DateTime.now())) {
+      throw const MatchActionException('Geçmiş tarihe maç kurulamaz.');
+    }
+    DocumentReference docRef = await _firestore.collection('matches').add(data);
     return docRef.id;
   }
 
@@ -26,18 +42,5 @@ class MatchService {
   }
 
   // 🔥 YENİ: Maçtan Ayrılma Fonksiyonu 🔥
-  Future<void> leaveMatch(String matchId) async {
-    try {
-      // Gerçek Auth entegre olana kadar şimdilik geçici ID kullanıyoruz.
-      final String currentUserId = 'temp_user_id';
-
-      // Firebase'de o maçın 'currentPlayers' listesinden bu kullanıcıyı sil
-      await _firestore.collection('matches').doc(matchId).update({
-        'currentPlayers': FieldValue.arrayRemove([currentUserId]),
-      });
-    } catch (e) {
-      print("Maçtan ayrılırken hata: $e");
-      rethrow;
-    }
-  }
+  Future<void> leaveMatch(String matchId) => MatchParticipation().leave(matchId);
 }

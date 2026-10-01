@@ -1,0 +1,18 @@
+// The fixed .jpg object key is retained for existing profile URLs and workers.
+// Actual MIME may also be PNG/WebP; the Flutter uploader sets it explicitly.
+function ownsProfilePhoto(fileName) {
+  return request.auth != null && fileName == request.auth.uid + '.jpg';
+}
+function validProfilePhoto() {
+  return request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024
+    && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
+}
+match /profile_images/{fileName} {
+  allow get: if request.auth != null && fileName.matches('.*[.]jpg');
+  allow list: if false;
+  allow create, update: if ownsProfilePhoto(fileName)
+    && safetyWritesAllowed() && validProfilePhoto();
+  // Deletion has no request.resource, and must work for legacy invalid files too.
+  allow delete: if ownsProfilePhoto(fileName) && safetyWritesAllowed();
+}
+match /{allPaths=**} { allow read, write: if false; }

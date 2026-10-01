@@ -1,0 +1,22 @@
+{
+  "private": true,
+  "scripts": {
+    "test:storage-rules": "firebase emulators:exec --config ../firebase.emulator.json --only firestore,storage --project demo-depar-review \"node --test --test-concurrency=1 provided-storage-rules.test.cjs storage-rules.test.cjs\"",
+    "test:moderation": "firebase emulators:exec --config functions.firebase.json --only firestore,auth,storage --project demo-depar-review \"node --test --test-concurrency=1 moderation.test.cjs backend.test.cjs storage-guards.test.cjs\"",
+    "test:combined-rules": "firebase emulators:exec --config ../firebase.emulator.json --only firestore --project demo-depar-review \"node --test match-rules.test.cjs profile-rules.test.cjs metadata-rules.test.cjs deletion-rules.test.cjs\"",
+    "test:storage-guards": "firebase emulators:exec --config functions.firebase.json --only firestore,storage --project demo-depar-review \"node --test storage-guards.test.cjs\"",
+    "test:deletion-integration": "firebase emulators:exec --config functions.firebase.json --only firestore,auth,storage --project demo-depar-review \"node --test --test-concurrency=1 backend.test.cjs storage-guards.test.cjs\"",
+    "test:private-login": "firebase emulators:exec --config backend.firebase.json --only firestore,auth --project demo-depar-review \"node --test private-login.test.cjs\"",
+    "test:profile-rules": "firebase emulators:exec --only firestore --project demo-depar-review \"node --test profile-rules.test.cjs\"",
+    "test:match-rules": "firebase emulators:exec --only firestore --project demo-depar-review \"node --test match-rules.test.cjs\"",
+    "test:social-rules": "firebase emulators:exec --only firestore --project demo-depar-review \"node --test social-rules.test.cjs\"",
+    "test:provided-rules": "firebase emulators:exec --only firestore --project demo-depar-review \"node --test provided-rules.test.cjs\"",
+    "test": "firebase emulators:exec --only firestore --project demo-depar-review \"node --test reports.test.cjs guards.test.cjs\"",
+    "test:backend": "firebase emulators:exec --config backend.firebase.json --only firestore,auth --project demo-depar-review \"node --test backend.test.cjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "3.0.4",
+    "firebase": "10.14.1",
+    "firebase-tools": "14.27.0"
+  }
+}

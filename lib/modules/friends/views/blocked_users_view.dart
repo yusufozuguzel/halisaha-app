@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -30,10 +31,18 @@ class BlockedUsersView extends StatefulWidget {
 class _BlockedUsersViewState extends State<BlockedUsersView> {
   static const _green = Color(0xFF2EED7B);
   late final BlockController _blockCtrl;
+  StreamSubscription? _blockSubscription;
+
+  @override
+  void dispose() {
+    _blockSubscription?.cancel();
+    super.dispose();
+  }
 
   // UID → profil bilgisi cache
   final Map<String, _BlockedUserInfo> _profileCache = {};
   bool _fetchingProfiles = false;
+  bool _profilesDirty = false;
 
   @override
   void initState() {
@@ -43,13 +52,14 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
         : Get.put(BlockController());
 
     // UIDs hazır olduğunda profilleri çek
-    _blockCtrl.blockedUserIds.listen((_) => _fetchProfiles());
+    _blockSubscription = _blockCtrl.blockedUserIds.listen((_) => _fetchProfiles());
     _fetchProfiles();
   }
 
   Future<void> _fetchProfiles() async {
-    if (_fetchingProfiles) return;
+    if (_fetchingProfiles) { _profilesDirty = true; return; }
     _fetchingProfiles = true;
+    _profilesDirty = false;
 
     final uids = List<String>.from(_blockCtrl.blockedUserIds);
     final db = FirebaseFirestore.instance;
@@ -87,6 +97,7 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
     }
 
     _fetchingProfiles = false;
+    if (mounted && _profilesDirty) _fetchProfiles();
   }
 
   @override

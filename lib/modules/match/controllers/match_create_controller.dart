@@ -1,3 +1,5 @@
+import '../../../core/services/match_participation.dart';
+import '../../../core/services/match_metadata.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -42,12 +44,6 @@ class MatchCreateController extends GetxController {
   final RxString searchQuery = ''.obs;
   final RxBool isEditing = false.obs;
   String? editingMatchId;
-
-  final List<Map<String, dynamic>> mockLocations = [
-    {'name': 'Şampiyonlar Halı Saha, Serdivan', 'lat': 40.7654, 'lng': 30.3712},
-    {'name': 'Erenler Spor Kompleksi, Sakarya', 'lat': 40.7589, 'lng': 30.4156},
-    {'name': 'Olimpiyat Halı Saha', 'lat': 40.7731, 'lng': 30.3948},
-  ];
 
   final RxList<Map<String, dynamic>> allVenues = <Map<String, dynamic>>[].obs;
   final RxList<Map<String, dynamic>> hybridVenues =
@@ -98,13 +94,14 @@ class MatchCreateController extends GetxController {
     } catch (e) {
       print("Sahalar çekilirken hata oluştu: $e");
       Future.microtask(() {
-        allVenues.value = mockLocations;
+        allVenues.clear();
         if (searchQuery.value.isEmpty) {
-          hybridVenues.value = mockLocations;
+          hybridVenues.clear();
         } else {
           applyFilters();
         }
       });
+      Get.snackbar('Sahalar yüklenemedi', 'Saha adını elle girebilir veya tekrar arayabilirsiniz.');
     }
   }
 
@@ -321,6 +318,7 @@ class MatchCreateController extends GetxController {
 
   @override
   void onClose() {
+    _debounce?.cancel();
     titleController.dispose();
     venueController.dispose();
     priceController.dispose();
@@ -356,6 +354,9 @@ class MatchCreateController extends GetxController {
       searchQuery.value = value;
       selectedLat.value = null;
       selectedLng.value = null;
+      selectedVenueId.value = '';
+      selectedVenueCity.value = '';
+      selectedPhotoUrl.value = '';
       applyFilters();
     });
 
@@ -584,6 +585,7 @@ class MatchCreateController extends GetxController {
   }
 
   Future<void> createAndShareMatch() async {
+    if (isLoading.value) return;
     final title = titleController.text.trim();
     final venue = venueController.text.trim();
     final priceStr = priceController.text.trim();
@@ -655,7 +657,7 @@ class MatchCreateController extends GetxController {
       return;
     }
 
-    final price = double.tryParse(priceStr) ?? 0.0;
+    final price = double.tryParse(priceStr.replaceAll(',', '.')) ?? double.nan;
     final n = int.tryParse(selectedFormat.value.split('x').first) ?? 7;
     final maxPlayers = n * 2;
 
@@ -665,32 +667,8 @@ class MatchCreateController extends GetxController {
       if (user == null) throw Exception('Oturum açmış kullanıcı bulunamadı.');
       final uid = user.uid;
 
-      final bool isFirebaseVenue = allVenues.any(
-        (v) => v['id'] == selectedVenueId.value,
-      );
-      if (!isFirebaseVenue) {
-        try {
-          final docRef = selectedVenueId.value.isNotEmpty
-              ? FirebaseFirestore.instance
-                    .collection('venues')
-                    .doc(selectedVenueId.value)
-              : FirebaseFirestore.instance.collection('venues').doc();
-          await docRef.set({
-            'name': venue,
-            'lat': selectedLat.value,
-            'lng': selectedLng.value,
-            'city': selectedVenueCity.value.isNotEmpty
-                ? selectedVenueCity.value
-                : 'Bilinmiyor',
-            'isActive': true,
-            'createdAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-          selectedVenueId.value = docRef.id;
-          fetchVenues();
-        } catch (e) {
-          print("Saha Firebase'e kaydedilirken hata oluştu: $e");
-        }
-      }
+      // Shared venues are curated. A selected Google/manual location belongs
+      // to this match and must never overwrite the shared catalog.
 
       final startTimestamp = Timestamp.fromDate(combinedStartDateTime);
       final endTimestamp = Timestamp.fromDate(
@@ -718,6 +696,9 @@ class MatchCreateController extends GetxController {
             : teamBController.text.trim(),
       };
 
+      final metadataIssue = MatchMetadata.error(matchData);
+      if (metadataIssue != null) throw MatchActionException(metadataIssue);
+
       String generatedMatchId;
       if (isEditing.value && editingMatchId != null) {
         final updateData = {
@@ -737,10 +718,7 @@ class MatchCreateController extends GetxController {
               ? 'B Takımı'
               : teamBController.text.trim(),
         };
-        await FirebaseFirestore.instance
-            .collection('matches')
-            .doc(editingMatchId)
-            .update(updateData);
+        await MatchParticipation().editDetails(editingMatchId!, updateData);
         generatedMatchId = editingMatchId!;
       } else {
         final docRef = await FirebaseFirestore.instance
@@ -783,7 +761,7 @@ class MatchCreateController extends GetxController {
     } catch (e) {
       Get.snackbar(
         'Hata',
-        'Maç oluşturulamadı: $e',
+        e is MatchActionException ? e.message : 'Maç kaydedilemedi. Lütfen tekrar deneyin.',
         backgroundColor: Colors.red[900],
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,

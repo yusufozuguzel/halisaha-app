@@ -1,0 +1,34 @@
+// Merge INSIDE /databases/{database}/documents. Not a deployable full ruleset.
+// Every existing client create/update/delete grant MUST also require this
+// helper. A separate deny cannot override an overlapping allow.
+function accountActive(uid) {
+  return uid is string && uid.size() > 0 && uid.size() <= 128
+    && !uid.matches('.*[/].*')
+    && !exists(/databases/$(database)/documents/accountDeletionJobs/$(uid));
+}
+function safetyWritesAllowed() {
+  return request.auth != null && accountActive(request.auth.uid)
+    && !exists(/databases/$(database)/documents/_moderationAccounts/$(request.auth.uid));
+}
+
+match /_moderationAccounts/{uid} {
+  allow get: if request.auth != null && request.auth.uid == uid;
+  allow list, write: if false;
+}
+match /_moderationRemovals/{document=**} { allow read, write: if false; }
+
+match /contentReports/{document=**} {
+  allow read, write: if false;
+}
+match /accountDeletionJobs/{document=**} {
+  allow read, write: if false;
+}
+match /_safetyLocks/{document=**} {
+  allow read, write: if false;
+}
+match /_reportLimits/{document=**} {
+  allow read, write: if false;
+}
+match /_retiredMatches/{document=**} {
+  allow read, write: if false;
+}

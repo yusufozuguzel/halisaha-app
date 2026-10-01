@@ -1,0 +1,140 @@
+// Merge inside /databases/{database}/documents, REPLACING the old grants for
+// these paths. Requires safetyWritesAllowed() from firestore.fragment.rules.
+// Never append under the old broad allows: Firestore combines grants with OR.
+function signedIn() { return request.auth != null; }
+function socialPairAllowed(a, b) {
+  return a != b
+    && exists(/databases/$(database)/documents/users/$(a))
+    && exists(/databases/$(database)/documents/users/$(b))
+    && !exists(/databases/$(database)/documents/accountDeletionJobs/$(a))
+    && !exists(/databases/$(database)/documents/accountDeletionJobs/$(b))
+    && !(b in getAfter(/databases/$(database)/documents/users/$(a)).data.get('blockedUsers', []))
+    && !(a in getAfter(/databases/$(database)/documents/users/$(b)).data.get('blockedUsers', []));
+}
+function acceptedPair(receiver, sender) {
+  let pending = /databases/$(database)/documents/users/$(receiver)/followRequests/$(sender);
+  return request.auth.uid == receiver
+    && exists(pending)
+    && get(pending).data.from == sender
+    && get(pending).data.status == 'pending'
+    && !existsAfter(pending)
+    && existsAfter(/databases/$(database)/documents/users/$(receiver)/friends/$(sender))
+    && existsAfter(/databases/$(database)/documents/users/$(sender)/friends/$(receiver));
+}
+match /users/{userId}/followRequests/{senderId} {
+  allow read: if signedIn() && (request.auth.uid == userId || request.auth.uid == senderId);
+  allow create: if safetyWritesAllowed() && request.auth.uid == senderId
+    && socialPairAllowed(senderId, userId)
+    && request.resource.data.keys().hasOnly(['from', 'status', 'createdAt'])
+    && request.resource.data.from == senderId
+    && request.resource.data.status == 'pending'
+    && request.resource.data.createdAt == request.time;
+  allow update: if false;
+  allow delete: if safetyWritesAllowed() && (request.auth.uid == userId || request.auth.uid == senderId);
+}
+match /users/{userId}/friends/{friendId} {
+  // Existing profile statistics and friends screens read this collection.
+  allow read: if signedIn();
+  allow create: if safetyWritesAllowed() && socialPairAllowed(userId, friendId)
+    && request.resource.data.keys().hasOnly(['uid', 'fullName', 'avatarUrl', 'avatarData', 'position', 'since'])
+    && request.resource.data.uid == friendId
+    && request.resource.data.since == request.time
+    && request.resource.data.fullName == get(/databases/$(database)/documents/users/$(friendId)).data.get('fullName', get(/databases/$(database)/documents/users/$(friendId)).data.get('name', ''))
+    && request.resource.data.avatarUrl == get(/databases/$(database)/documents/users/$(friendId)).data.get('avatarUrl', '')
+    && request.resource.data.avatarData == get(/databases/$(database)/documents/users/$(friendId)).data.get('avatarData', '0')
+    && request.resource.data.position == get(/databases/$(database)/documents/users/$(friendId)).data.get('position', '')
+    && (acceptedPair(userId, friendId) || acceptedPair(friendId, userId));
+  allow update: if false;
+  allow delete: if safetyWritesAllowed() && (request.auth.uid == userId || request.auth.uid == friendId);
+}
+// No active application writer was found for these legacy collections.
+match /users/{userId}/followers/{otherId} {
+  allow read: if signedIn();
+  allow write: if false;
+}
+match /users/{userId}/following/{otherId} {
+  allow read: if signedIn();
+  allow write: if false;
+}
+function followNotice(receiver) {
+  let d = request.resource.data;
+  let path = /databases/$(database)/documents/users/$(receiver)/followRequests/$(request.auth.uid);
+  return d.keys().hasOnly(['title', 'message', 'type', 'senderUid', 'senderName', 'isRead', 'status', 'createdAt'])
+    && d.type == 'follow_request' && d.senderUid == request.auth.uid
+    && d.senderName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('fullName', get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('name', 'Bir oyuncu'))
+    && d.title == 'Yeni Takip İsteği 👥'
+    && d.message == d.senderName + ' seninle arkadaş olmak istiyor.'
+    && d.status == 'pending' && d.isRead == false && d.createdAt == request.time
+    && !exists(path) && getAfter(path).data.from == request.auth.uid
+    && getAfter(path).data.status == 'pending';
+}
+function matchNotice() {
+  let d = request.resource.data;
+  let m = get(/databases/$(database)/documents/matches/$(d.matchId)).data;
+  return d.keys().hasOnly(['title', 'message', 'type', 'matchId', 'matchTitle', 'matchDate', 'fromUid', 'isRead', 'createdAt'])
+    && d.type == 'match_invite' && d.fromUid == request.auth.uid
+    && m.createdBy == request.auth.uid && m.date > request.time
+    && d.matchTitle == m.title && d.matchDate == m.date
+    && d.title == 'Maç Daveti ⚽' && d.message == 'Seni "' + m.title + '" maçına davet etti.'
+    && d.isRead == false && d.createdAt == request.time;
+}
+match /users/{userId}/notifications/{noticeId} {
+  allow read: if signedIn() && request.auth.uid == userId;
+  allow create: if safetyWritesAllowed()
+    && (socialPairAllowed(request.auth.uid, userId) && (followNotice(userId) || matchNotice())
+      || request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['title','message','isRead','createdAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
+        && request.resource.data.message is string && request.resource.data.message.size() <= 1000
+        && request.resource.data.isRead == false && request.resource.data.createdAt == request.time);
+  allow update: if safetyWritesAllowed() && request.auth.uid == userId
+    && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool
+      || resource.data.type == 'follow_request'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'isRead'])
+        && request.resource.data.isRead is bool
+        && (request.resource.data.status == 'accepted' && acceptedPair(userId, resource.data.senderUid)
+          || request.resource.data.status == 'rejected'
+            && !existsAfter(/databases/$(database)/documents/users/$(userId)/followRequests/$(resource.data.senderUid))));
+  allow delete: if safetyWritesAllowed() && request.auth.uid == userId;
+}
+function formationInvite() {
+  let d = request.resource.data;
+  let m = getAfter(/databases/$(database)/documents/matches/$(d.matchId)).data;
+  return d.keys().hasOnly(['type', 'senderId', 'receiverId', 'matchId', 'positionId', 'status', 'isRead', 'createdAt'])
+    && d.type == 'match_invite' && d.senderId == request.auth.uid
+    && d.status == 'pending' && d.isRead == false && d.createdAt == request.time
+    && socialPairAllowed(d.senderId, d.receiverId)
+    && m.createdBy == request.auth.uid
+    && m.pendingPositions[d.positionId] == d.receiverId
+    && d.receiverId in m.invitedPlayers;
+}
+function rejectionNotice() {
+  let d = request.resource.data;
+  let oldMatch = get(/databases/$(database)/documents/matches/$(d.matchId)).data;
+  let newMatch = getAfter(/databases/$(database)/documents/matches/$(d.matchId)).data;
+  return d.keys().hasOnly(['receiverId', 'senderId', 'type', 'matchId', 'createdAt', 'status'])
+    && d.type == 'invite_rejected' && d.senderId == request.auth.uid
+    && d.status == 'unread' && d.createdAt == request.time
+    && socialPairAllowed(d.senderId, d.receiverId)
+    && oldMatch.createdBy == d.receiverId
+    && d.senderId in oldMatch.get('invitedPlayers', [])
+    && !(d.senderId in newMatch.get('invitedPlayers', []));
+}
+match /notifications/{noticeId} {
+  allow read: if signedIn() && (resource.data.receiverId == request.auth.uid
+    || resource.data.senderId == request.auth.uid);
+  allow create: if safetyWritesAllowed() && (formationInvite() || rejectionNotice());
+  allow update: if safetyWritesAllowed() && resource.data.receiverId == request.auth.uid
+    && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool
+      || resource.data.type == 'match_invite' && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'isRead'])
+        && request.resource.data.get('isRead', false) is bool
+        && socialPairAllowed(resource.data.senderId, request.auth.uid)
+        && get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.pendingPositions[resource.data.positionId] == request.auth.uid
+        && getAfter(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.positions[resource.data.positionId] == request.auth.uid
+        && request.auth.uid in getAfter(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.currentPlayers);
+  allow delete: if safetyWritesAllowed() && resource.data.receiverId == request.auth.uid;
+}

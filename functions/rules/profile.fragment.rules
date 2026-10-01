@@ -1,0 +1,49 @@
+// Requires safetyWritesAllowed(). Replace every old /users/{uid} grant.
+// Version 2 is written atomically with removal of the old email field.
+// List queries MUST constrain profileVersion == 2; legacy documents remain
+// readable only by their owner until the reviewed migration is applied.
+function validProfile(p, uid) {
+  return p.keys().hasOnly(['uid','profileVersion','name','fullName','createdAt',
+      'position','preferredFoot','city','isProfileComplete','avatarUrl','avatarType',
+      'avatarData','blockedUsers'])
+    && p.profileVersion == 2 && p.get('uid', uid) == uid
+    && p.get('name', '') is string && p.get('name', '').size() <= 100
+    && p.get('fullName', '') is string && p.get('fullName', '').size() <= 100
+    && p.get('city', '') is string && p.get('city', '').size() <= 100
+    && p.get('position', '') is string && p.get('position', '').size() <= 40
+    && p.get('preferredFoot', '') in ['', 'Sağ', 'Sol', 'İki Ayak']
+    && p.get('isProfileComplete', false) is bool
+    && p.get('avatarUrl', '') is string && p.get('avatarUrl', '').size() <= 2048
+    && p.get('avatarType', '') in ['', 'icon']
+    && p.get('avatarData', '0') in ['0','1','2','3']
+    && p.get('createdAt', request.time) is timestamp
+    && p.get('blockedUsers', []) is list && p.get('blockedUsers', []).size() <= 500;
+}
+function validBlockChange() {
+  let before = resource.data.get('blockedUsers', []);
+  let after = request.resource.data.get('blockedUsers', []);
+  let added = after.removeAll(before is list ? before : []);
+  return after.toSet().size() == after.size()
+    && (added.size() == 0 || added.size() == 1
+      && accountActive(added[0]) && added[0] != request.auth.uid
+      && exists(/databases/$(database)/documents/users/$(added[0])));
+}
+match /users/{uid} {
+  allow get: if request.auth != null && (request.auth.uid == uid
+    || resource.data.profileVersion == 2);
+  allow list: if request.auth != null && resource.data.profileVersion == 2
+    && request.query.limit != null && request.query.limit <= 50;
+  allow create: if safetyWritesAllowed() && request.auth.uid == uid
+    && validProfile(request.resource.data, uid)
+    && request.resource.data.get('blockedUsers', []).size() == 0
+    && request.resource.data.get('createdAt', request.time) == request.time;
+  allow update: if safetyWritesAllowed() && request.auth.uid == uid
+    && validProfile(request.resource.data, uid)
+    && validBlockChange()
+    && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
+  // Account deletion is a server workflow; deleting only the profile or
+  // recreating it must not reset server state or orphan the account.
+  allow delete: if false;
+  match /private/{document=**} { allow read, write: if false; }
+}
+match /_loginLimits/{document=**} { allow read, write: if false; }

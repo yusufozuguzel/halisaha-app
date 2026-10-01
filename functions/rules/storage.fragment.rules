@@ -1,0 +1,7 @@
+// Merge inside /b/{bucket}/o; add this condition to EVERY existing write grant.
+// Keep existing ownership, size and MIME checks. This helper grants nothing.
+function safetyWritesAllowed() {
+  return request.auth != null
+    && !firestore.exists(/databases/(default)/documents/accountDeletionJobs/$(request.auth.uid))
+    && !firestore.exists(/databases/(default)/documents/_moderationAccounts/$(request.auth.uid));
+}

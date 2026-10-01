@@ -5,12 +5,14 @@ class MatchModel {
   final String title;
   final DateTime date;
   final int maxPlayers;
+  final String? ownerId;
 
   MatchModel({
     required this.id,
     required this.title,
     required this.date,
     required this.maxPlayers,
+    this.ownerId,
   });
 
   Map<String, dynamic> toMap() {
@@ -27,6 +29,7 @@ class MatchModel {
       title: map['title'],
       date: (map['date'] as Timestamp).toDate(),
       maxPlayers: map['maxPlayers'],
+      ownerId: map['createdBy'] ?? map['creatorId'],
     );
   }
 }

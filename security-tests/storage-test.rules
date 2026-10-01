@@ -1,0 +1,7 @@
+// Emulator only: Admin worker bypasses these; clients cannot touch test objects.
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{path=**} { allow read, write: if false; }
+  }
+}

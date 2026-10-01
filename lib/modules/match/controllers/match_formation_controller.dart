@@ -1,3 +1,6 @@
+import 'dart:async';
+import '../../../core/services/match_participation.dart';
+import '../../../core/utils/share_text.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +9,11 @@ import 'package:share_plus/share_plus.dart';
 import '../../../routes/app_routes.dart';
 
 class MatchFormationController extends GetxController {
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _matchSubscription;
+  int _snapshotVersion = 0;
+  Map<String, String>? _pendingBase;
+  bool _formationEdited = false;
+  final isSaving = false.obs;
   final String matchId;
   MatchFormationController({required this.matchId});
 
@@ -35,64 +43,41 @@ class MatchFormationController extends GetxController {
     _listenToMatch();
   }
 
+  @override
+  void onClose() {
+    _matchSubscription?.cancel();
+    super.onClose();
+  }
+
   void _listenToMatch() {
-    _firestore.collection('matches').doc(matchId).snapshots().listen((snapshot) async {
-      if (snapshot.exists) {
-        final data = snapshot.data()!;
-        matchData.value = data;
-
-        // Formasyonları kapasiteye göre hesapla
-        int maxP = data['maxPlayers'] ?? 14;
-        _calculateAvailableFormations(maxP);
-
-        // İlk girişte formasyonu ve pozisyonları DB'den al
-        if (isLoading.value) {
-            if (data.containsKey('formation') && availableFormations.contains(data['formation'])) {
-                selectedFormation.value = data['formation'];
-            }
-            if (data.containsKey('positions')) {
-              final Map<String, dynamic> posData = data['positions'] as Map<String, dynamic>;
-              positions.clear();
-              posData.forEach((key, value) {
-                positions[key] = value.toString();
-              });
-            }
-        } else {
-            // Şimdilik DB'den okumaya devam edelim, kendi hareketimiz Save ile gidecek.
-            if (data.containsKey('positions')) {
-              // Sadece bizim olmayan değişiklikleri yansıtabiliriz ama şu anlık basit tutuyoruz
-            }
-        }
-
-        // currentPlayers listesindeki kullanıcıları çek
-        final List<dynamic> currentPlayers = data['currentPlayers'] ?? [];
-        await _fetchPlayerDetails(currentPlayers);
-        
-        // pendingPositions'daki kullanıcıları çek ve pendingInvites map'ini doldur
-        if (data.containsKey('pendingPositions')) {
-           final Map<String, dynamic> pendingPosData = data['pendingPositions'] as Map<String, dynamic>;
-           List<dynamic> pendingUids = pendingPosData.values.toList();
-           await _fetchPlayerDetails(pendingUids);
-           
-           Map<String, dynamic> newPendingInvites = {};
-           pendingPosData.forEach((posKey, uidStr) {
-              final uid = uidStr.toString();
-              if (playerDetails.containsKey(uid)) {
-                 final pData = Map<String, dynamic>.from(playerDetails[uid]!);
-                 pData['uid'] = uid;
-                 newPendingInvites[posKey] = pData;
-              }
-           });
-           pendingInvites.value = newPendingInvites;
-        }
-        
-        // Eğer giren oyuncu henüz bir pozisyonda değilse boş bir yere (veya kaptansa özel yere) ata
-        // Bunu da sadece ilk seferde yapıyoruz, aksi halde sürekli update loop'a girebilir.
-        if (isLoading.value) {
-           _assignPlayersIfNeeded(currentPlayers, data['createdBy']);
-        }
+    _matchSubscription = _firestore.collection('matches').doc(matchId).snapshots().listen((snapshot) async {
+      final version = ++_snapshotVersion;
+      final data = snapshot.data();
+      if (data == null) {
+        matchData.value = null;
+        positions.clear();
+        pendingInvites.clear();
+        isLoading.value = false;
+        return;
+      }
+      matchData.value = data;
+      _calculateAvailableFormations(data['maxPlayers'] ?? 14);
+      if (!_formationEdited && data['formation'] is String) selectedFormation.value = data['formation'];
+      positions.assignAll(MatchParticipation.slots(data, 'positions'));
+      final pending = MatchParticipation.slots(data, 'pendingPositions');
+      await _fetchPlayerDetails([...MatchParticipation.players(data), ...pending.values]);
+      if (isClosed || version != _snapshotVersion) return;
+      if (_pendingBase == null) {
+        pendingInvites.assignAll({
+          for (final e in pending.entries)
+            e.key: {...?playerDetails[e.value], 'uid': e.value},
+        });
       }
       isLoading.value = false;
+    }, onError: (_) {
+      if (isClosed) return;
+      isLoading.value = false;
+      Get.snackbar('Hata', 'Güncel kadro yüklenemedi.');
     });
   }
 
@@ -147,232 +132,53 @@ class MatchFormationController extends GetxController {
     }
   }
 
-  void _assignPlayersIfNeeded(List<dynamic> currentPlayers, String? captainUid) {
-    if (currentPlayers.isEmpty) return;
-
-    bool madeChanges = false;
-    Map<String, String> updatedPositions = Map.from(positions);
-    Set<String> playersInPositions = updatedPositions.values.toSet();
-
-    for (var pUid in currentPlayers) {
-        String uid = pUid.toString();
-        if (!playersInPositions.contains(uid)) {
-            String? slot;
-            if (uid == captainUid) {
-               // Kaptanı kaleci yerine daha merkez bir pozisyona (örn. formasyonun ortasına) veya ilk boş forvete atamaya çalışalım.
-               // Şimdilik en büyük index (ilerideki) boş slotu veya ortalardaki boş slotu bulalım.
-               slot = _findCentralEmptySlot(updatedPositions);
-            } else {
-               slot = _findEmptySlot(updatedPositions);
-            }
-            
-            if (slot != null) {
-                updatedPositions[slot] = uid;
-                madeChanges = true;
-                playersInPositions.add(uid);
-            }
-        }
-    }
-
-    if (madeChanges) {
-        positions.value = updatedPositions;
-        // Sadece değişen slotları dot-notation ile güncelle (güvenlik kurallarına takılmaz)
-        final Map<String, dynamic> dotUpdates = {};
-        updatedPositions.forEach((slot, uid) {
-          dotUpdates['positions.$slot'] = uid;
-        });
-        if (dotUpdates.isNotEmpty) {
-          _firestore.collection('matches').doc(matchId).update(dotUpdates);
-        }
-    }
-  }
-
-  String? _findEmptySlot(Map<String, String> currentPositions) {
-      int maxPlayersPerTeam = (matchData.value?['maxPlayers'] ?? 14) ~/ 2; 
-      for (int i = 0; i < maxPlayersPerTeam; i++) {
-          if (!currentPositions.containsKey(i.toString())) {
-             return i.toString();
-          }
-      }
-      return null;
-  }
-
-  String? _findCentralEmptySlot(Map<String, String> currentPositions) {
-      int maxPlayersPerTeam = (matchData.value?['maxPlayers'] ?? 14) ~/ 2; 
-      // Kaptanı ortalara (örn maxPlayersPerTeam / 2 civarına) atamaya çalış
-      int centerIndex = maxPlayersPerTeam ~/ 2; // Örn 7 için 3, 11 için 5
-      
-      // Merkezden başlayıp dışarı doğru boş yer ara
-      if (!currentPositions.containsKey(centerIndex.toString())) {
-          return centerIndex.toString();
-      }
-      
-      // Merkez doluysa 1'den (GK hariç) başlayarak boş yer bul (Kaptan GK olmasın)
-      for (int i = 1; i < maxPlayersPerTeam; i++) {
-          if (!currentPositions.containsKey(i.toString())) {
-             return i.toString();
-          }
-      }
-      
-      // Hiç yer yoksa mecbur 0'a (GK) bak
-      if (!currentPositions.containsKey('0')) {
-          return '0';
-      }
-      return null;
-  }
-
   void changeFormation(String form) {
-      selectedFormation.value = form;
-      // Artık sadece lokalde güncelliyoruz, Kaydet'e basılınca DB'ye gidecek.
+    if (!isCaptain || isSaving.value) return;
+    _formationEdited = true;
+    selectedFormation.value = form;
   }
 
-  Future<void> moveToPosition(String newPositionKey) async {
-      String uid = currentUserId;
-      Map<String, String> updatedPositions = Map.from(positions);
-      
-      if (updatedPositions[newPositionKey] == uid) return;
-      
-      if (updatedPositions.containsKey(newPositionKey)) {
-         Get.snackbar('Hata', 'Bu pozisyon dolu', snackPosition: SnackPosition.BOTTOM);
-         return;
-      }
-
-      // Kullanıcının eski slotunu bul
-      String? oldSlot;
-      updatedPositions.forEach((key, value) {
-        if (value == uid) oldSlot = key;
-      });
-
-      // Lokalde güncelle
-      if (oldSlot != null) updatedPositions.remove(oldSlot);
-      updatedPositions[newPositionKey] = uid;
-      positions.value = updatedPositions;
-
-      // Firestore: sadece değişen iki alanı dot-notation ile yaz
-      // (Tüm map'i ezmek yerine sadece kendi slotlarını güncelle)
-      try {
-          final Map<String, dynamic> updates = {
-            'positions.$newPositionKey': uid,
-          };
-          if (oldSlot != null) {
-            updates['positions.$oldSlot'] = FieldValue.delete();
-          }
-          await _firestore.collection('matches').doc(matchId).update(updates);
-      } catch (e) {
-          print("Pozisyon güncellenirken hata: $e");
-          Get.snackbar('Hata', 'Konum değişikliği kaydedilemedi: $e', snackPosition: SnackPosition.BOTTOM);
-      }
+  Future<void> moveToPosition(String key) async {
+    if (isSaving.value) return;
+    try {
+      await MatchParticipation().move(matchId, key);
+    } catch (e) {
+      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Pozisyon kaydedilemedi.');
+    }
   }
 
   Future<void> saveFormation() async {
-      try {
-          final batch = _firestore.batch();
-          final matchRef = _firestore.collection('matches').doc(matchId);
-
-          Map<String, String> pendingToSave = {};
-          List<String> uidsToInvite = [];
-          
-          final Map<String, dynamic>? currentPendingPos = matchData.value?['pendingPositions'] as Map<String, dynamic>?;
-
-          pendingInvites.forEach((key, value) {
-             final uid = value['uid']?.toString();
-             if (uid != null && uid.isNotEmpty) {
-                 pendingToSave[key] = uid;
-                 if (!uidsToInvite.contains(uid)) {
-                     uidsToInvite.add(uid);
-                 }
-                 
-                 // Sadece yeni eklenen davetler için bildirim fırlat
-                 bool isNew = true;
-                 if (currentPendingPos != null && currentPendingPos[key] == uid) {
-                     isNew = false;
-                 }
-                 
-                 if (isNew) {
-                     final notifRef = _firestore.collection('notifications').doc();
-                     batch.set(notifRef, {
-                        'type': 'match_invite',
-                        'senderId': currentUserId,
-                        'receiverId': uid,
-                        'matchId': matchId,
-                        'positionId': key,
-                        'status': 'pending',
-                        'isRead': false,
-                        'createdAt': FieldValue.serverTimestamp(),
-                     });
-                 }
-             }
-          });
-
-          final Map<String, dynamic> updates = {
-              'formation': selectedFormation.value,
-              'positions': positions
-          };
-          
-          if (pendingToSave.isNotEmpty) {
-              updates['pendingPositions'] = pendingToSave;
-              updates['invitedPlayers'] = FieldValue.arrayUnion(uidsToInvite);
-          } else {
-              updates['pendingPositions'] = FieldValue.delete();
-          }
-
-          batch.update(matchRef, updates);
-          await batch.commit();
-
-          Get.snackbar(
-            'Başarılı', 
-            'Diziliş ve davetler kaydedildi', 
-            backgroundColor: const Color(0xFF1E2A22), 
-            colorText: const Color(0xFF2EED7B),
-            snackPosition: SnackPosition.BOTTOM
-          );
-          Get.offAllNamed(Routes.HOME); // Başarıyla kaydedilince ana sayfaya dön
-      } catch (e) {
-          Get.snackbar(
-            'Hata', 
-            'Kaydedilirken hata oluştu: $e', 
-            backgroundColor: const Color(0xFF8B0000), 
-            colorText: const Color(0xFFFFFFFF),
-            snackPosition: SnackPosition.BOTTOM
-          );
+    if (isSaving.value) return;
+    isSaving.value = true;
+    try {
+      final desired = <String, String>{
+        for (final e in pendingInvites.entries) e.key: e.value['uid'] as String,
+      };
+      final base = _pendingBase ?? MatchParticipation.slots(matchData.value ?? {}, 'pendingPositions');
+      await MatchParticipation().saveFormation(matchId, selectedFormation.value, base, desired);
+      _pendingBase = null;
+      _formationEdited = false;
+      if (!isClosed) {
+        Get.snackbar('Başarılı', 'Diziliş ve davetler kaydedildi.');
+        Get.offAllNamed(Routes.HOME);
       }
+    } catch (e) {
+      if (!isClosed) {
+        Get.snackbar('Kayıt tamamlanamadı',
+          '${e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.'} Bazı davetler kaydedilmiş olabilir; tekrar denemek bunları çoğaltmaz.');
+      }
+    } finally {
+      if (!isClosed) isSaving.value = false;
+    }
   }
 
   Future<void> kickPlayerFromFormation(String targetUid, String positionKey) async {
-      try {
-          if (!isCaptain) return;
-          
-          final docRef = _firestore.collection('matches').doc(matchId);
-          await docRef.update({
-              'currentPlayers': FieldValue.arrayRemove([targetUid]),
-              'invitedPlayers': FieldValue.arrayRemove([targetUid]),
-              'positions.$positionKey': FieldValue.delete(),
-              'pendingPositions.$positionKey': FieldValue.delete()
-          });
-          
-          // Lokal durumu hemen güncelle
-          Map<String, String> updatedPositions = Map.from(positions);
-          updatedPositions.remove(positionKey);
-          positions.value = updatedPositions;
-          playerDetails.remove(targetUid);
-          
-          Get.snackbar(
-            'Başarılı', 
-            'Oyuncu maçtan ve saha dizilişinden çıkarıldı.', 
-            backgroundColor: const Color(0xFF1E2A22), 
-            colorText: const Color(0xFF2EED7B),
-            snackPosition: SnackPosition.BOTTOM
-          );
-      } catch (e) {
-          print("Oyuncu atılırken hata: $e");
-          Get.snackbar(
-            'Hata', 
-            'Oyuncu çıkarılamadı: $e', 
-            backgroundColor: Colors.red[900], 
-            colorText: Colors.white,
-            snackPosition: SnackPosition.BOTTOM
-          );
-      }
+    try {
+      await MatchParticipation().kick(matchId, targetUid);
+      Get.snackbar('Başarılı', 'Oyuncu maçtan çıkarıldı.');
+    } catch (e) {
+      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Oyuncu çıkarılamadı.');
+    }
   }
 
   bool get isCaptain {
@@ -552,12 +358,16 @@ class MatchFormationController extends GetxController {
   }
 
   void cancelLocalInvite(String positionId) {
+    if (!isCaptain || isSaving.value) return;
+    _pendingBase ??= MatchParticipation.slots(matchData.value ?? {}, 'pendingPositions');
     if (pendingInvites.containsKey(positionId)) {
       pendingInvites.remove(positionId);
     }
   }
 
   void sendInvite(String friendUid, String positionId, Map<String, dynamic> friendData) {
+    if (!isCaptain || isSaving.value) return;
+    _pendingBase ??= MatchParticipation.slots(matchData.value ?? {}, 'pendingPositions');
     final currentUid = currentUserId;
     if (currentUid.isEmpty) return;
 
@@ -589,10 +399,12 @@ class MatchFormationController extends GetxController {
       }
     }
 
-    final String deepLink = 'https://halisaha.app/join/$matchId';
-
     await Share.share(
-      '⚽ Yeni bir maça davetlisin!\n\nMaç: $title\n📅 $formattedDate - ⏰ $timeStr\n📍 $venueName\n\nMaça katılmak için hemen tıkla:\n$deepLink',
+      matchInvitationText(
+        title: title,
+        date: '$formattedDate $timeStr',
+        venue: venueName,
+      ),
       subject: 'Halı Saha Maç Daveti',
     );
   }

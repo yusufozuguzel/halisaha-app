@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/settings_controller.dart';
+import '../../moderation/views/moderation_view.dart';
+import '../../../widgets/support_contact.dart';
 
 class SettingsView extends GetView<SettingsController> {
   const SettingsView({super.key});
@@ -88,6 +90,18 @@ class SettingsView extends GetView<SettingsController> {
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            ListTile(
+              leading: const Icon(Icons.support_agent),
+              title: const Text('Destek ve İtiraz'),
+              subtitle: const Text(SupportContact.email),
+              onTap: () => SupportContact.show(context),
+            ),
+            if (controller.isModerator.value)
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('Şikayetleri İncele'),
+                onTap: () => Get.to(() => const ModerationView()),
+              ),
             // Bölüm Başlığı
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 10),

@@ -1,4 +1,7 @@
+import '../../../core/utils/share_text.dart';
 import 'package:flutter/material.dart';
+import '../../../core/services/content_reports.dart';
+import '../../../widgets/report_content_dialog.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme/app_theme.dart';
@@ -116,6 +119,15 @@ class MatchDetailView extends StatelessWidget {
           // 👇 EKLENEN YENİ KISIM TAM OLARAK BURASI 👇
           actions: [
             IconButton(
+              tooltip: 'Şikayet Et',
+              icon: const Icon(Icons.flag_outlined),
+              onPressed: () => showReportContentDialog(
+                context,
+                type: ReportTarget.match,
+                targetId: Get.arguments as String,
+              ),
+            ),
+            IconButton(
               icon: const Icon(
                 Icons.share,
                 color: Color(0xFF2EED7B),
@@ -125,12 +137,8 @@ class MatchDetailView extends StatelessWidget {
                 final matchDate = controller.formatDate(
                   match['date'] as Timestamp?,
                 );
-                // Get.arguments bizim liste sayfasından yolladığımız maç ID'si
-                final matchLink =
-                    "https://bizimuygulama.com/mac/${Get.arguments}";
-
                 Share.share(
-                  'Sahaya çıkıyoruz! ⚽\n\n"$matchTitle" maçında kadroda yerini al.\n📅 Tarih: $matchDate\n\nHemen katılmak için tıkla:\n$matchLink',
+                  matchInvitationText(title: matchTitle, date: matchDate),
                 );
               },
             ),

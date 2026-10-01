@@ -1,0 +1,10 @@
+{
+  "firestore": { "rules": "functions/rules/firestore.candidate.rules" },
+  "storage": { "rules": "functions/rules/storage.candidate.rules" },
+  "emulators": {
+    "firestore": { "port": 8088 },
+    "storage": { "port": 9198 },
+    "ui": { "enabled": false },
+    "singleProjectMode": false
+  }
+}

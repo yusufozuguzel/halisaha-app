@@ -34,7 +34,7 @@ class NotificationsView extends StatelessWidget {
                   return Obx(() {
                     final hiddenIds = controller.hiddenNotificationIds;
                     final matchInvites = controller.matchInvites.where((d) => !hiddenIds.contains(d.id)).toList();
-                    final visibleDocs = docs.where((d) => !hiddenIds.contains(d.id)).toList();
+                    final visibleDocs = docs.where((d) => !hiddenIds.contains(d.id) && controller.visibleNotification(d)).toList();
 
                     if (visibleDocs.isEmpty && matchInvites.isEmpty) {
                       return _buildEmpty(context);

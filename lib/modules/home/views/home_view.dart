@@ -1,3 +1,5 @@
+import '../../../core/utils/share_text.dart';
+import '../../../widgets/account_restriction_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -61,6 +63,7 @@ class _HomeViewState extends State<HomeView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
+              const AccountRestrictionBanner(),
               const SizedBox(height: 24),
               _buildQuickActions(),
               const SizedBox(height: 32),
@@ -382,7 +385,7 @@ class _HomeViewState extends State<HomeView> {
                         size: 22,
                       ),
                       Obx(() {
-                        final unreadCount = Get.put(NotificationsController()).unreadCount.value;
+                        final unreadCount = Get.put(NotificationsController()).unreadCount;
                         if (unreadCount == 0) return const SizedBox.shrink();
 
                         return Positioned(
@@ -487,10 +490,7 @@ class _HomeViewState extends State<HomeView> {
             child: GestureDetector(
               onTap: () {
                 SharePlus.instance.share(
-                  ShareParams(
-                    text:
-                        'Halı saha ve futsal maçlarını efsane bir şekilde organize ettiğimiz yeni uygulamamızı denedin mi? Hemen katıl: https://bizimuygulama.com/indir',
-                  ),
+                  ShareParams(text: appInvitationText),
                 );
               },
               child: Container(

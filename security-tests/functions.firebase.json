@@ -1,0 +1,13 @@
+{
+  "functions": [{ "source": "../functions", "codebase": "depar-safety", "runtime": "nodejs22" }],
+  "firestore": { "rules": "firestore.rules" },
+  "storage": { "rules": "storage-test.rules" },
+  "emulators": {
+    "functions": { "port": 5008 },
+    "firestore": { "port": 8088 },
+    "auth": { "port": 9098 },
+    "storage": { "port": 9198 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}

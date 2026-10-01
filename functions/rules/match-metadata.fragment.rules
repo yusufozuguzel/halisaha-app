@@ -1,0 +1,45 @@
+// Validate at creation and whenever metadata changes. Roster-only updates
+// preserve metadata verbatim and avoid spending the rules expression budget twice.
+function matchFormations(cap) {
+  return cap == 10 ? ['1-2-1','2-1-1','1-1-2']
+    : cap == 12 ? ['2-2-1','1-3-1','2-1-2']
+    : cap == 14 ? ['2-3-1','3-2-1','2-2-2']
+    : cap == 16 ? ['3-3-1','2-4-1','3-2-2']
+    : cap == 18 ? ['3-4-1','4-3-1','3-3-2']
+    : cap == 20 ? ['4-4-1','3-5-1','4-3-2']
+    : cap == 22 ? ['4-4-2','4-3-3','3-5-2'] : [];
+}
+function boundedMatchText(value, maximum) {
+  return value is string && value.size() <= maximum;
+}
+function validMatchCoordinates(m) {
+  let lat = m.get('latitude', null);
+  let lng = m.get('longitude', null);
+  return lat == null && lng == null
+    || lat is number && lng is number && lat >= -90 && lat <= 90
+      && lng >= -180 && lng <= 180;
+}
+function validMatchMetadata(m) {
+  return m.keys().hasOnly(['title','venue','venuePhotoUrl','venueId','latitude','longitude',
+      'price','maxPlayers','date','endDate','createdBy','creatorId','createdAt','status',
+      'teamA_name','teamB_name','formation','currentPlayers','positions','pendingPositions',
+      'invitedPlayers','slotChange','inviteSlot'])
+    && boundedMatchText(m.title, 120) && m.title.matches('.*[^\\s].*')
+    && boundedMatchText(m.get('venue', ''), 200)
+    && boundedMatchText(m.get('venueId', ''), 256)
+    && !m.get('venueId', '').matches('.*[/].*')
+    && boundedMatchText(m.get('venuePhotoUrl', ''), 2048)
+    && (m.get('venuePhotoUrl', '') == '' || m.venuePhotoUrl.matches('https://.*'))
+    && boundedMatchText(m.get('teamA_name', ''), 60)
+    && boundedMatchText(m.get('teamB_name', ''), 60)
+    && m.get('price', 0) is number && m.get('price', 0) >= 0 && m.get('price', 0) <= 1000000
+    && m.maxPlayers is int && m.maxPlayers in [10,12,14,16,18,20,22]
+    && validMatchCoordinates(m)
+    && m.date is timestamp
+    && m.get('endDate', m.date + duration.value(1, 'h')) is timestamp
+    && m.get('endDate', m.date + duration.value(1, 'h')) >= m.date + duration.value(30, 'm')
+    && m.get('endDate', m.date + duration.value(1, 'h')) <= m.date + duration.value(24, 'h')
+    && m.status in ['open', 'closed']
+    && m.get('createdAt', request.time) is timestamp
+    && (m.get('formation', '') == '' || m.formation in matchFormations(m.maxPlayers));
+}

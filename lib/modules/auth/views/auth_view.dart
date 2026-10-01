@@ -1,5 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../../widgets/apple_sign_in_button.dart';
+import '../../../widgets/support_contact.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
 import 'package:get_storage/get_storage.dart';
@@ -13,6 +15,13 @@ class AuthView extends GetView<AuthController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF081C15),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: TextButton(
+          onPressed: () => SupportContact.show(context),
+          child: const Text('Destek ve İletişim', style: TextStyle(color: Colors.white70)),
+        ),
+      ),
       body: SafeArea(
         child: Obx(
           () => AnimatedSwitcher(
@@ -261,6 +270,9 @@ class _LoginFormState extends State<_LoginForm> {
           _GoogleButton(
             text: "Google ile Devam Et",
             onPressed: () => widget.controller.signInWithGoogle(),
+          ),
+          AppleSignInButton(
+            onPressed: () => widget.controller.signInWithApple(),
           ),
           const SizedBox(height: 40),
           Center(
@@ -563,6 +575,9 @@ class _RegisterFormState extends State<_RegisterForm> {
           _GoogleButton(
             text: "Google ile Devam Et",
             onPressed: () => widget.controller.signInWithGoogle(),
+          ),
+          AppleSignInButton(
+            onPressed: () => widget.controller.signInWithApple(),
           ),
           const SizedBox(height: 40),
           Center(

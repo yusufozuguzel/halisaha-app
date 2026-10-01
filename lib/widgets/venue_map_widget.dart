@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -24,6 +25,7 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
   Set<Marker> _markers = {};
   Map<String, dynamic>? _selectedVenue;
   BitmapDescriptor? _customIcon;
+  bool _mapsReady = kIsWeb || defaultTargetPlatform != TargetPlatform.iOS;
 
   static const _green = Color(0xFF2EED7B);
 
@@ -31,6 +33,20 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
   void initState() {
     super.initState();
     _loadCustomMarker();
+    if (!_mapsReady) _checkMapsConfiguration();
+  }
+
+  Future<void> _checkMapsConfiguration() async {
+    try {
+      final ready = await const MethodChannel(
+        'depar/maps_configuration',
+      ).invokeMethod<bool>('isConfigured');
+      if (mounted) setState(() => _mapsReady = ready == true);
+    } on PlatformException {
+      // Keep the list usable when the native map has not been configured.
+    } on MissingPluginException {
+      // Older/missing native integration must never instantiate an unsafe map.
+    }
   }
 
   @override
@@ -101,6 +117,7 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
   }
 
   void _buildMarkers() {
+    if (!mounted) return;
     final Set<Marker> markers = {};
     for (var venue in widget.venues) {
       final lat = venue['lat'];
@@ -127,6 +144,16 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_mapsReady) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Harita şu anda kullanılamıyor. Sahaları liste görünümünden inceleyebilirsiniz.',
+          ),
+        ),
+      );
+    }
     // Merkezi seç: kullanıcı konumu varsa o, yoksa ilk saha, yoksa İstanbul
     double initLat = 41.0082;
     double initLng = 28.9784;

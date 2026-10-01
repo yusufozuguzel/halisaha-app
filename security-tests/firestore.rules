@@ -1,0 +1,12 @@
+// Isolated emulator ruleset, NOT a replacement for the production ruleset.
+// Reports now use the authenticated callable; no direct client writes.
+// Firestore grants are additive: any overlapping broad allow must be removed.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /contentReports/{reportId} {
+      allow create: if false;
+      allow read, update, delete: if false;
+    }
+  }
+}

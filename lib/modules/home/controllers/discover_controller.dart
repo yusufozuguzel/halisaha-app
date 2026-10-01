@@ -1,3 +1,5 @@
+import '../../../core/services/match_participation.dart';
+import '../../friends/controllers/block_controller.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -9,7 +11,10 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class DiscoverController extends GetxController {
-  final RxList<Map<String, dynamic>> openMatches = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> _allMatches = <Map<String, dynamic>>[].obs;
+  final BlockController _blocks = BlockController.shared;
+  List<Map<String, dynamic>> get openMatches => _allMatches.where((m) =>
+      _blocks.visible((m['createdBy'] ?? m['creatorId']) as String?)).toList();
   final RxBool isLoading = true.obs;
   StreamSubscription<QuerySnapshot>? _matchSubscription;
 
@@ -100,6 +105,10 @@ class DiscoverController extends GetxController {
       if (!serviceEnabled ||
           permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        Get.snackbar(
+          'Konum kullanılamıyor',
+          'Sahalar mesafeye göre sıralanmadan gösteriliyor. Konum erişimini cihaz ayarlarından açabilirsiniz.',
+        );
         nearbyVenues.value = allVenues;
         isVenuesLoading.value = false;
         return;
@@ -348,6 +357,7 @@ class DiscoverController extends GetxController {
   }
 
   void fetchOpenMatches() {
+    _matchSubscription?.cancel();
     isLoading.value = true;
 
     _matchSubscription = FirebaseFirestore.instance
@@ -358,7 +368,8 @@ class DiscoverController extends GetxController {
         .snapshots()
         .listen(
           (QuerySnapshot querySnapshot) {
-            openMatches.value = querySnapshot.docs.map((doc) {
+            if (isClosed) return;
+            _allMatches.value = querySnapshot.docs.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
               data['id'] = doc.id;
               return data;
@@ -386,169 +397,21 @@ class DiscoverController extends GetxController {
         );
   }
 
-  Future<void> joinMatch(
-    String matchId,
-    List<dynamic> currentPlayers,
-    int maxPlayers,
-  ) async {
+  Future<void> joinMatch(String matchId, List<dynamic> currentPlayers, int maxPlayers) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        Get.snackbar(
-          'Oturum Hatası',
-          'İşlem yapabilmek için lütfen tekrar giriş yapın',
-          backgroundColor: Colors.red.shade600,
-          colorText: Colors.white,
-        );
-        return;
-      }
-
-      final uid = user.uid;
-
-      if (currentPlayers.contains(uid)) {
-        Get.snackbar(
-          'Zaten Kadrodasın',
-          'Bu maça daha önce kayıt oldunuz.',
-          backgroundColor: Colors.amber.shade700,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          margin: const EdgeInsets.all(16),
-        );
-        return;
-      }
-
-      if (currentPlayers.length >= maxPlayers) {
-        Get.snackbar(
-          'Kontenjan Dolu',
-          'Maalesef bu maç için yer kalmadı.',
-          backgroundColor: Colors.red.shade600,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          margin: const EdgeInsets.all(16),
-        );
-        return;
-      }
-
-      // 1. Hedef maçı bul
-      final index = openMatches.indexWhere((m) => m['id'] == matchId);
-      if (index == -1) return;
-      final targetMatch = openMatches[index];
-
-      // 2. Anında UI Güncellemesi (Optimistic Update)
-      final List<dynamic> oldPlayers = List.from(targetMatch['currentPlayers'] ?? []);
-      final List<dynamic> optimisticPlayers = List.from(oldPlayers)..add(uid);
-      targetMatch['currentPlayers'] = optimisticPlayers;
-      openMatches[index] = targetMatch; // UI tetiklemesi
-      openMatches.refresh(); // RxList'i zorla güncelle
-
-      // 3. Normal Snackbar (Geri alma yok)
-      Get.snackbar(
-        'Başarılı',
-        'Maça kadrosuna eklendiniz! Kramponları hazırlayın.',
-        backgroundColor: Colors.greenAccent.shade700,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      );
-
-      // 4. Asıl Firebase Görevi (Bekleme olmadan, anında)
-      await FirebaseFirestore.instance
-          .collection('matches')
-          .doc(matchId)
-          .update({
-        'currentPlayers': FieldValue.arrayUnion([uid]),
-      });
+      await MatchParticipation().join(matchId);
+      Get.snackbar('Başarılı', 'Maç kadrosuna katıldınız.');
     } catch (e) {
-      Get.snackbar(
-        'Hata',
-        'Bir hata oluştu: $e',
-        backgroundColor: Colors.red.shade600,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      Get.snackbar('Katılım tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
     }
   }
 
   Future<void> leaveMatch(String matchId, List<dynamic> currentPlayers) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        Get.snackbar(
-          'Oturum Hatası',
-          'İşlem yapabilmek için lütfen tekrar giriş yapın',
-          backgroundColor: Colors.red.shade600,
-          colorText: Colors.white,
-        );
-        return;
-      }
-
-      final uid = user.uid;
-
-      if (!currentPlayers.contains(uid)) {
-        return;
-      }
-
-      // 1. Hedef maçı bul
-      final index = openMatches.indexWhere((m) => m['id'] == matchId);
-      if (index == -1) return;
-      final targetMatch = openMatches[index];
-
-      // 2. Anında UI Güncellemesi (Optimistic Update)
-      final List<dynamic> oldPlayers = List.from(targetMatch['currentPlayers'] ?? []);
-      final List<dynamic> optimisticPlayers = List.from(oldPlayers)..remove(uid);
-      targetMatch['currentPlayers'] = optimisticPlayers;
-      openMatches[index] = targetMatch; // UI tetiklemesi
-      openMatches.refresh(); // RxList'i zorla güncelle
-
-      // 3. Geri alma statüsü
-      bool isUndone = false;
-
-      // 4. Geri Al butonlu Snackbar
-      Get.snackbar(
-        'Başarılı',
-        'Maçtan başarıyla ayrıldınız.',
-        backgroundColor: Colors.greenAccent.shade700,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-        mainButton: TextButton(
-          onPressed: () {
-            isUndone = true;
-            targetMatch['currentPlayers'] = oldPlayers;
-            openMatches[index] = targetMatch;
-            openMatches.refresh();
-            if (Get.isSnackbarOpen) Get.back();
-          },
-          child: const Text('Geri Al',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ),
-      );
-
-      // 5. Cayma payı (3 saniye)
-      await Future.delayed(const Duration(seconds: 3));
-
-      // 6. Asıl Firebase Görevi
-      if (!isUndone) {
-        await FirebaseFirestore.instance
-            .collection('matches')
-            .doc(matchId)
-            .update({
-          'currentPlayers': FieldValue.arrayRemove([uid]),
-        });
-      }
+      await MatchParticipation().leave(matchId);
+      Get.snackbar('Başarılı', 'Maçtan ayrıldınız.');
     } catch (e) {
-      Get.snackbar(
-        'Hata',
-        'Bir hata oluştu: $e',
-        backgroundColor: Colors.red.shade600,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
     }
   }
 

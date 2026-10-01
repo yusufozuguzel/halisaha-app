@@ -1,3 +1,4 @@
+import '../../../core/services/match_participation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -126,61 +127,10 @@ class MyMatchesController extends GetxController {
 
   Future<void> leaveMatch(String matchId) async {
     try {
-      final User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) return;
-
-      // 1. Hedef maçı ve listedeki indeksini yedekle
-      final targetMatch = myMatches.firstWhere((m) => m['id'] == matchId);
-      final index = myMatches.indexOf(targetMatch);
-
-      // 2. Anında UI'dan sök (Optimistic Update)
-      myMatches.removeAt(index);
-
-      // 3. Geri alma statüsünü tutacak bayrak
-      bool isUndone = false;
-
-      // 4. Geri Al butonlu Snackbar
-      Get.snackbar(
-        'İşlem Başarılı',
-        'Maçtan ayrıldınız.',
-        backgroundColor: Colors.greenAccent.shade700,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-        mainButton: TextButton(
-          onPressed: () {
-            isUndone = true;
-            myMatches.insert(index, targetMatch);
-            if (Get.isSnackbarOpen) Get.back();
-          },
-          child: const Text('Geri Al',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ),
-      );
-
-      // 5. 3 saniye cayma hakkını bekle
-      await Future.delayed(const Duration(seconds: 3));
-
-      // 6. Asıl Firebase Görevi
-      if (!isUndone) {
-        await FirebaseFirestore.instance
-            .collection('matches')
-            .doc(matchId)
-            .update({
-          'currentPlayers': FieldValue.arrayRemove([currentUser.uid]),
-        });
-      }
+      await MatchParticipation().leave(matchId);
+      Get.snackbar('Başarılı', 'Maçtan ayrıldınız.');
     } catch (e) {
-      Get.snackbar(
-        'Hata',
-        'Maçtan ayrılırken bir sorun oluştu: $e',
-        backgroundColor: Colors.red.shade600,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
     }
   }
 

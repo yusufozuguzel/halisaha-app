@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../home/controllers/notifications_controller.dart';
-import '../../home/controllers/profile_controller.dart';
+import '../../../core/services/social_interactions.dart';
+import 'block_controller.dart';
 
 // ── Data model ──────────────────────────────────────────────
 class UserModel {
@@ -39,9 +39,21 @@ class FriendsController extends GetxController {
   String? get _myUid => _auth.currentUser?.uid;
 
   // ── State ─────────────────────────────────────────────────
-  final RxList<UserModel> following = <UserModel>[].obs;
-  final RxList<UserModel> pendingRequests = <UserModel>[].obs;
-  final RxList<UserModel> searchResults = <UserModel>[].obs;
+  final _blocks = BlockController.shared;
+  final RxList<UserModel> _following = <UserModel>[].obs;
+  final RxList<UserModel> _pendingRequests = <UserModel>[].obs;
+  final RxList<UserModel> _searchResults = <UserModel>[].obs;
+  List<UserModel> get following => _following.where((u) => _blocks.visible(u.uid)).toList();
+  List<UserModel> get pendingRequests => _pendingRequests.where((u) => _blocks.visible(u.uid)).toList();
+  List<UserModel> get searchResults => _searchResults.where((u) => _blocks.visible(u.uid)).toList();
+  int _followingRevision = 0, _requestRevision = 0, _searchRevision = 0;
+  Worker? _searchWorker;
+  void clearSearch() {
+    ++_searchRevision;
+    searchQuery.value = '';
+    _searchResults.clear();
+    isSearching.value = false;
+  }
 
   final RxString searchQuery = ''.obs;
   final RxBool isSearching = false.obs;
@@ -58,7 +70,7 @@ class FriendsController extends GetxController {
     _subscribeRequests();
 
     // Debounce: arama 400ms sonra tetiklensin
-    debounce(
+    _searchWorker = debounce(
       searchQuery,
       (_) => _runSearch(),
       time: const Duration(milliseconds: 400),
@@ -67,6 +79,7 @@ class FriendsController extends GetxController {
 
   @override
   void onClose() {
+    _searchWorker?.dispose();
     for (final c in _subs) {
       c();
     }
@@ -88,6 +101,7 @@ class FriendsController extends GetxController {
         .snapshots()
         .listen(
           (snap) async {
+            final revision = ++_followingRevision;
             isLoading.value = true;
             errorMessage.value = '';
             final result = <UserModel>[];
@@ -100,7 +114,8 @@ class FriendsController extends GetxController {
                 }
               } catch (_) {}
             }
-            following.assignAll(result);
+            if (isClosed || revision != _followingRevision) return;
+            _following.assignAll(result);
             isLoading.value = false;
           },
           onError: (e) {
@@ -128,6 +143,7 @@ class FriendsController extends GetxController {
         .snapshots()
         .listen(
           (snap) async {
+            final revision = ++_requestRevision;
             final result = <UserModel>[];
             for (final doc in snap.docs) {
               final fromUid = doc['from'] as String? ?? doc.id;
@@ -140,7 +156,8 @@ class FriendsController extends GetxController {
                 }
               } catch (_) {}
             }
-            pendingRequests.assignAll(result);
+            if (isClosed || revision != _requestRevision) return;
+            _pendingRequests.assignAll(result);
           },
           onError: (e) {
             print('Arkadaşlık istekleri hatası: $e');
@@ -151,9 +168,10 @@ class FriendsController extends GetxController {
 
   // ── Firestore search (name prefix match) ──────────────────
   Future<void> _runSearch() async {
+    final revision = ++_searchRevision;
     final query = searchQuery.value.trim();
     if (query.length < 2) {
-      searchResults.clear();
+      _searchResults.clear();
       isSearching.value = false;
       return;
     }
@@ -165,6 +183,7 @@ class FriendsController extends GetxController {
       final snap = await _db
           .collection('users')
           .where('fullName', isGreaterThanOrEqualTo: query)
+          .where('profileVersion', isEqualTo: 2)
           .where('fullName', isLessThanOrEqualTo: '$query\uf8ff')
           .limit(20)
           .get();
@@ -175,11 +194,12 @@ class FriendsController extends GetxController {
           .map((d) => UserModel.fromFirestore(d.id, d.data()))
           .toList();
 
-      searchResults.assignAll(results);
+      if (isClosed || revision != _searchRevision || searchQuery.value.trim() != query) return;
+      _searchResults.assignAll(results);
     } catch (e) {
-      searchResults.clear();
+      if (!isClosed && revision == _searchRevision) _searchResults.clear();
     } finally {
-      isSearching.value = false;
+      if (!isClosed && revision == _searchRevision) isSearching.value = false;
     }
   }
 
@@ -211,57 +231,10 @@ class FriendsController extends GetxController {
   // ── Accept follow request ─────────────────────────────────
   Future<void> acceptRequest(String fromUid) async {
     try {
-      final ctrl = Get.find<ProfileController>();
-      await ctrl.acceptFollowRequest(fromUid);
-    } catch (_) {
-      // ProfileController yoksa doğrudan Firestore batch yap
-      // ✔ Sadece alt-koleksiyonlara yazılır — ana dökümana dokunulmaz
-      final myUid = _myUid;
-      if (myUid == null) return;
-      
-      final myDoc = await _db.collection('users').doc(myUid).get();
-      final fromDoc = await _db.collection('users').doc(fromUid).get();
-
-      final myData = myDoc.data() ?? {};
-      final fromData = fromDoc.data() ?? {};
-      
-      final batch = _db.batch();
-
-      // B'nin (Kabul eden) friends koleksiyonuna A'yı ekle
-      batch.set(
-        _db.collection('users').doc(myUid).collection('friends').doc(fromUid),
-        {
-          'uid': fromUid,
-          'fullName': fromData['fullName'] ?? fromData['name'] ?? '',
-          'avatarUrl': fromData['avatarUrl'] ?? '',
-          'avatarData': fromData['avatarData'] ?? '0',
-          'position': fromData['position'] ?? '',
-          'since': FieldValue.serverTimestamp()
-        },
-      );
-
-      // A'nın (İstek gönderen) friends koleksiyonuna B'yi ekle
-      batch.set(
-        _db.collection('users').doc(fromUid).collection('friends').doc(myUid),
-        {
-          'uid': myUid,
-          'fullName': myData['fullName'] ?? myData['name'] ?? '',
-          'avatarUrl': myData['avatarUrl'] ?? '',
-          'avatarData': myData['avatarData'] ?? '0',
-          'position': myData['position'] ?? '',
-          'since': FieldValue.serverTimestamp()
-        },
-      );
-
-      // Bekleyen isteği sil
-      batch.delete(
-        _db
-            .collection('users')
-            .doc(myUid)
-            .collection('followRequests')
-            .doc(fromUid),
-      );
-      await batch.commit();
+      await SocialInteractions().acceptFollow(fromUid);
+    } catch (e) {
+      Get.snackbar('Hata', e is SocialInteractionException
+          ? e.message : 'İstek kabul edilemedi.');
     }
   }
 
@@ -327,7 +300,7 @@ class FriendsController extends GetxController {
 }
 
 // ── Match Invite Bottom Sheet ────────────────────────────────
-class _MatchInviteSheet extends StatelessWidget {
+class _MatchInviteSheet extends StatefulWidget {
   final List<QueryDocumentSnapshot> matches;
   final String targetUid;
   final String targetName;
@@ -340,56 +313,38 @@ class _MatchInviteSheet extends StatelessWidget {
     required this.myUid,
   });
 
+  @override
+  State<_MatchInviteSheet> createState() => _MatchInviteSheetState();
+}
+
+class _MatchInviteSheetState extends State<_MatchInviteSheet> {
+  bool _sending = false;
+
   static const _green = Color(0xFF2EED7B);
 
   Future<void> _sendInvite(
     BuildContext context,
     QueryDocumentSnapshot matchDoc,
   ) async {
-    final data = matchDoc.data() as Map<String, dynamic>;
-    final matchId = matchDoc.id;
-    final title = data['title'] ?? 'Maç';
-    final date = data['date'] as Timestamp?;
-
-    // Notif gönder
+    if (_sending) return;
+    setState(() => _sending = true);
+    final title = (matchDoc.data() as Map<String, dynamic>)['title'] ?? 'Maç';
     try {
-      final notifCtrl = Get.isRegistered<NotificationsController>()
-          ? Get.find<NotificationsController>()
-          : Get.put(NotificationsController());
-      await notifCtrl.addNotificationToUser(
-        targetUid: targetUid,
-        title: 'Maç Daveti ⚽',
-        message: 'Seni "$title" maçına davet etti.',
-        // extra payload — addNotificationToUser imzamıza type/matchId ekleyeceğiz
-      );
-
-      // NotificationsController imzasını extend etmek yerine doğrudan Firestore
-      // üzerinden type ve matchId alanlarını da yazıyoruz:
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(targetUid)
-          .collection('notifications')
-          .add({
-            'title': 'Maç Daveti ⚽',
-            'message': 'Seni "$title" maçına davet etti.',
-            'type': 'match_invite',
-            'matchId': matchId,
-            'matchTitle': title,
-            'matchDate': date,
-            'fromUid': myUid,
-            'isRead': false,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+      await SocialInteractions().invite(widget.targetUid, matchDoc.id);
+      if (!mounted) return;
 
       Get.back(); // bottom sheet kapat
       Get.snackbar(
         'Davet Gönderildi ✅',
-        '$targetName adlı oyuncuya "$title" için davet gönderildi!',
+        '${widget.targetName} adlı oyuncuya "$title" için davet gönderildi!',
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 3),
       );
     } catch (e) {
-      Get.snackbar('Hata', 'Davet gönderilemedi: $e');
+      if (!mounted) return;
+      Get.snackbar('Hata', e is SocialInteractionException ? e.message : 'Davet gönderilemedi.');
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -433,7 +388,7 @@ class _MatchInviteSheet extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$targetName adlı oyuncuya davet gönderilecek',
+            '${widget.targetName} adlı oyuncuya davet gönderilecek',
             style: TextStyle(
               color: subColor,
               fontSize: 13,
@@ -441,7 +396,7 @@ class _MatchInviteSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          ...matches.map((doc) {
+          ...widget.matches.map((doc) {
             final d = doc.data() as Map<String, dynamic>;
             final title = d['title'] ?? 'İsimsiz Maç';
             final venue = d['venue'] ?? '';
@@ -455,7 +410,7 @@ class _MatchInviteSheet extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: InkWell(
-                onTap: () => _sendInvite(context, doc),
+                onTap: _sending ? null : () => _sendInvite(context, doc),
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
                   padding: const EdgeInsets.symmetric(

@@ -1,0 +1,7 @@
+// Shared catalog is curated by trusted Admin writers. A client cannot prove
+// its submitted name/coordinates came from Google merely by setting source.
+// Google/manual selections remain supported as metadata on the user's match.
+match /venues/{venueId} {
+  allow read: if request.auth != null;
+  allow write: if false;
+}

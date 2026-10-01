@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../controllers/profile_setup_controller.dart';
+import '../../../routes/app_routes.dart';
+import '../../../widgets/account_restriction_banner.dart';
 
 class ProfileSetupView extends GetView<ProfileSetupController> {
   const ProfileSetupView({super.key});
@@ -18,6 +20,13 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Hesap ayarları',
+            onPressed: () => Get.toNamed(Routes.SETTINGS),
+            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -25,6 +34,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const AccountRestrictionBanner(),
               const SizedBox(height: 16),
               const Text(
                 "Seni daha yakından tanıyalım ⚽",

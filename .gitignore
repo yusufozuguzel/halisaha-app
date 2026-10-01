@@ -118,3 +118,10 @@ app.*.symbols
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
 .env
+/analysis-output.txt
+/analysis-moderation-output.txt
+/flutter-test-output.txt
+/android-build-output.txt
+/support-analysis-output.txt
+/profile-photo-test-output.txt
+/profile-photo-analysis-output.txt

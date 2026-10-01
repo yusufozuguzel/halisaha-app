@@ -10,6 +10,7 @@ class ActivityModel {
   final Timestamp timestamp;
   final String? matchId;
   final bool isCreated;
+  final String? matchOwnerId;
 
   ActivityModel({
     required this.id,
@@ -21,5 +22,6 @@ class ActivityModel {
     required this.timestamp,
     this.matchId,
     required this.isCreated,
+    this.matchOwnerId,
   });
 }

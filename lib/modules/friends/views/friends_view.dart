@@ -178,7 +178,7 @@ class FriendsView extends StatelessWidget {
                 icon: Icon(Icons.clear, color: subText, size: 18),
                 onPressed: () {
                   ctrl.searchQuery.value = '';
-                  ctrl.searchResults.clear();
+                  ctrl.clearSearch();
                 },
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),

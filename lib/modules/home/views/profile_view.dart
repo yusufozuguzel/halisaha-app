@@ -1,4 +1,8 @@
 import 'dart:io';
+import '../../../core/services/content_reports.dart';
+import '../../../widgets/report_content_dialog.dart';
+import '../../../core/services/profile_image_picker.dart';
+import '../../../widgets/delete_account_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -418,10 +422,7 @@ class _ProfileViewState extends State<ProfileView> {
                   ctx: ctx,
                   onTap: () async {
                     Get.back();
-                    final picker = ImagePicker();
-                    final picked = await picker.pickImage(
-                      source: ImageSource.camera,
-                    );
+                    final picked = await pickProfileImage(ImageSource.camera);
                     if (picked != null) {
                       await _ctrl.updateProfile(
                         newName: _ctrl.name.value,
@@ -438,10 +439,7 @@ class _ProfileViewState extends State<ProfileView> {
                   ctx: ctx,
                   onTap: () async {
                     Get.back();
-                    final picker = ImagePicker();
-                    final picked = await picker.pickImage(
-                      source: ImageSource.gallery,
-                    );
+                    final picked = await pickProfileImage(ImageSource.gallery);
                     if (picked != null) {
                       await _ctrl.updateProfile(
                         newName: _ctrl.name.value,
@@ -753,6 +751,15 @@ class _ProfileViewState extends State<ProfileView> {
                           ),
                           padding: const EdgeInsets.all(8),
                           minimumSize: const Size(42, 42),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Şikayet Et',
+                        icon: const Icon(Icons.flag_outlined),
+                        onPressed: () => showReportContentDialog(
+                          context,
+                          type: ReportTarget.user,
+                          targetId: _ctrl.targetUid,
                         ),
                       ),
                       // Engelle menüsü
@@ -1278,7 +1285,7 @@ class _ProfileViewState extends State<ProfileView> {
             onTap: () => Get.toNamed(Routes.SETTINGS),
           ),
           const SizedBox(height: 10),
-          if (!_ctrl.isGoogleUser) ...[
+          if (_ctrl.hasPasswordProvider) ...[
             _menuItem(
               icon: Icons.lock_outline,
               iconColor: AppColors.subText(context),
@@ -1621,54 +1628,16 @@ class _ProfileViewState extends State<ProfileView> {
 
   // ── Delete Account Bottom Sheet ──────────────────────────────
   void _showDeleteAccountSheet() {
-    final controller = _ctrl;
-    controller.deletePassword.value = '';
-    final delPassCtrl = TextEditingController();
-
     Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.isDark(context)
-              ? const Color(0xFF16221A)
-              : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Hesabı Sil',
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text('Bu işlem geri alınamaz. Lütfen şifrenizi girin.'),
-            const SizedBox(height: 24),
-            _editField(
-              'Şifre',
-              delPassCtrl,
-              Icons.lock_outline,
-              context,
-              inputBg: AppColors.overlay(context),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => controller.deleteUserAccount(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                ),
-                child: const Text('Hesabımı Kalıcı Olarak Sil'),
-              ),
-            ),
-          ],
+      Material(
+        color: AppColors.card(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: DeleteAccountSheet(
+          requiresPassword: _ctrl.deletionRequiresPassword,
+          onDelete: _ctrl.deleteUserAccount,
         ),
       ),
+      isScrollControlled: true,
     );
   }
 

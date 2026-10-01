@@ -1,10 +1,11 @@
 import 'dart:io';
+import '../../../core/services/profile_image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import '../../../core/services/profile_photo_upload.dart';
 import '../../../routes/app_routes.dart';
 
 class ProfileSetupController extends GetxController {
@@ -81,14 +82,9 @@ class ProfileSetupController extends GetxController {
   }
 
   Future<void> pickImageFromGallery() async {
+    if (isLoading.value) return;
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        // Optional quick limit via ImagePicker natively
-        maxWidth: 800,
-        maxHeight: 800,
-      );
+      final XFile? image = await pickProfileImage(ImageSource.gallery);
 
       if (image == null) return;
       
@@ -101,18 +97,14 @@ class ProfileSetupController extends GetxController {
       isLoading.value = true;
       final File imageFile = File(image.path);
       
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images/${user.uid}.jpg');
-          
-      await storageRef.putFile(imageFile);
-      final downloadUrl = await storageRef.getDownloadURL();
+      final downloadUrl = await uploadProfilePhoto(imageFile, user.uid);
+      if (isClosed || _auth.currentUser?.uid != user.uid) return;
 
       avatarUrl.value = downloadUrl;
       Get.snackbar("Başarılı", "Fotoğraf eklendi.");
     } catch (e) {
-      Get.snackbar("Hata", "Fotoğraf seçilemedi: ${e.toString()}");
-      avatarUrl.value = '';
+      Get.snackbar('Fotoğraf yüklenemedi', e is ProfilePhotoException
+          ? e.message : 'Fotoğraf yüklenemedi. Bağlantınızı ve hesap durumunuzu kontrol edin.');
     } finally {
       isLoading.value = false;
     }
@@ -128,6 +120,11 @@ class ProfileSetupController extends GetxController {
       Get.snackbar("Hata", "Lütfen şehrinizi girin.");
       return;
     }
+    if (fullNameController.text.trim().length > 100 ||
+        cityController.text.trim().length > 100) {
+      Get.snackbar('Hata', 'Ad ve şehir en fazla 100 karakter olabilir.');
+      return;
+    }
 
     final user = _auth.currentUser;
     if (user == null) {
@@ -139,6 +136,8 @@ class ProfileSetupController extends GetxController {
       isLoading.value = true;
       
       Map<String, dynamic> updates = {
+        'profileVersion': 2,
+        'email': FieldValue.delete(),
         'fullName': fullNameController.text.trim(),
         'position': selectedPosition.value,
         'preferredFoot': selectedFoot.value,

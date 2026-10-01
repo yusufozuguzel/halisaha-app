@@ -1,7 +1,6 @@
+import '../../../core/services/match_participation.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 
 class MatchDetailController extends GetxController {
   // Yükleme animasyonu için
@@ -79,62 +78,13 @@ class MatchDetailController extends GetxController {
 
   // Kurucunun bir oyuncuyu maçtan atması
   Future<void> kickPlayer(String targetUid) async {
+    final id = Get.arguments as String?;
+    if (id == null) return;
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-      
-      final currentMatchId = Get.arguments as String?;
-      if (currentMatchId == null) return;
-
-      final docRef = FirebaseFirestore.instance.collection('matches').doc(currentMatchId);
-      final docSnap = await docRef.get();
-      if (!docSnap.exists) return;
-
-      final data = docSnap.data()!;
-      // Sadece kurucu kick atabilir
-      if (data['createdBy'] != user.uid) {
-        Get.snackbar("Yetkisiz İşlem", "Sadece maçı kuran kişi oyuncu çıkarabilir.", backgroundColor: Get.theme.colorScheme.error);
-        return;
-      }
-
-      final Map<String, dynamic> updates = {
-         'currentPlayers': FieldValue.arrayRemove([targetUid]),
-         'invitedPlayers': FieldValue.arrayRemove([targetUid]),
-      };
-
-      if (data.containsKey('positions')) {
-          final Map<String, dynamic> posData = data['positions'] as Map<String, dynamic>;
-          String? userSlot;
-          for (var entry in posData.entries) {
-              if (entry.value == targetUid) {
-                  userSlot = entry.key;
-                  break;
-              }
-          }
-          if (userSlot != null) {
-              updates['positions.$userSlot'] = FieldValue.delete();
-          }
-      }
-
-      if (data.containsKey('pendingPositions')) {
-          final Map<String, dynamic> pendingData = data['pendingPositions'] as Map<String, dynamic>;
-          String? pendingSlot;
-          for (var entry in pendingData.entries) {
-              if (entry.value == targetUid) {
-                  pendingSlot = entry.key;
-                  break;
-              }
-          }
-          if (pendingSlot != null) {
-              updates['pendingPositions.$pendingSlot'] = FieldValue.delete();
-          }
-      }
-
-      await docRef.update(updates);
-      Get.snackbar("Başarılı", "Oyuncu maçtan çıkarıldı.", backgroundColor: const Color(0xFF1E2A22), colorText: const Color(0xFF2EED7B));
+      await MatchParticipation().kick(id, targetUid);
+      Get.snackbar('Başarılı', 'Oyuncu maçtan çıkarıldı.');
     } catch (e) {
-      print("Oyuncu atılırken hata: $e");
-      Get.snackbar("Hata", "İşlem sırasında bir sorun oluştu: $e", backgroundColor: Get.theme.colorScheme.error);
+      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
     }
   }
 

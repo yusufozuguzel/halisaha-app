@@ -1,3 +1,4 @@
+import '../../../core/services/login_identifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -5,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:get_storage/get_storage.dart';
+import '../../../core/services/social_auth.dart';
 import '../../../routes/app_routes.dart';
 import '../../home/controllers/home_controller.dart';
 import '../../home/controllers/profile_controller.dart';
@@ -15,6 +17,7 @@ import '../../match/controllers/my_matches_controller.dart';
 import '../../match/controllers/match_detail_controller.dart';
 import '../../match/controllers/match_create_controller.dart';
 import '../../friends/controllers/friends_controller.dart';
+import '../../friends/controllers/block_controller.dart';
 import '../../settings/controllers/settings_controller.dart';
 
 class AuthController extends GetxController {
@@ -23,6 +26,7 @@ class AuthController extends GetxController {
 
   late Rx<User?> firebaseUser;
   var isLogin = true.obs;
+  bool _socialSignInBusy = false;
   final GlobalKey<FormState> registerFormKey = GlobalKey<FormState>();
 
   @override
@@ -68,31 +72,7 @@ class AuthController extends GetxController {
     bool rememberMe = false,
   }) async {
     try {
-      String emailToLogin = input.trim();
-
-      // Check if it's a username (no @ symbol)
-      if (!emailToLogin.contains('@')) {
-        final querySnapshot = await _firestore
-            .collection('users')
-            .where('fullName', isEqualTo: emailToLogin)
-            .limit(1)
-            .get();
-
-        if (querySnapshot.docs.isEmpty) {
-          Get.snackbar(
-            "Hata",
-            "Kullanıcı bulunamadı.",
-          );
-          return;
-        }
-
-        emailToLogin = querySnapshot.docs.first.data()['email'] ?? '';
-      }
-
-      await _auth.signInWithEmailAndPassword(
-        email: emailToLogin,
-        password: password.trim(),
-      );
+      await LoginIdentifier().signIn(input, password);
 
       if (rememberMe) {
         GetStorage().write('rememberedEmail', input.trim());
@@ -101,6 +81,8 @@ class AuthController extends GetxController {
       }
 
       Get.snackbar("Başarılı", "Giriş yapıldı");
+    } on LoginIdentifierException catch (e) {
+      Get.snackbar('Giriş Başarısız', e.message);
     } on FirebaseAuthException catch (e) {
       String message = "Bir hata oluştu. Lütfen tekrar deneyin.";
       if (e.code == 'network-request-failed') {
@@ -125,10 +107,9 @@ class AuthController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      print("SİSTEM HATASI: $e");
       Get.snackbar(
         "Hata", 
-        "Sistemsel bir sorun oluştu: $e",
+        "Giriş tamamlanamadı. Lütfen tekrar deneyin.",
         backgroundColor: Colors.red.shade600,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
@@ -140,19 +121,23 @@ class AuthController extends GetxController {
     if (!registerFormKey.currentState!.validate()) {
       return;
     }
+    if (fullName.trim().isEmpty || fullName.trim().length > 100) {
+      Get.snackbar('Kayıt Hatası', 'Adınız 1–100 karakter olmalıdır.');
+      return;
+    }
     
     try {
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(
             email: email.trim(),
-            password: password.trim(),
+            password: password,
           );
 
       await _firestore.collection("users").doc(userCredential.user!.uid).set({
         "uid": userCredential.user!.uid,
-        "email": email.trim(),
+        "profileVersion": 2,
         "name": fullName.trim(),
-        "createdAt": Timestamp.now(),
+        "createdAt": FieldValue.serverTimestamp(),
       });
 
       Get.snackbar("Başarılı", "Kayıt işlemi tamamlandı");
@@ -195,6 +180,7 @@ class AuthController extends GetxController {
       Get.delete<MatchDetailController>(force: true);
       Get.delete<MatchCreateController>(force: true);
       Get.delete<FriendsController>(force: true);
+      Get.delete<BlockController>(force: true);
       Get.delete<SettingsController>(force: true);
 
       isLogin.value = true;
@@ -206,8 +192,10 @@ class AuthController extends GetxController {
 
   // Google Sign-In logic
   Future<void> signInWithGoogle() async {
+    if (_socialSignInBusy) return;
+    _socialSignInBusy = true;
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final GoogleSignInAccount? googleUser = await createGoogleSignIn().signIn();
 
       // User canceled the sign-in
       if (googleUser == null) return;
@@ -227,21 +215,7 @@ class AuthController extends GetxController {
 
       if (user != null) {
         if (user.uid.isEmpty) return;
-        // Check if user exists in Firestore
-        final DocumentSnapshot doc = await _firestore
-            .collection("users")
-            .doc(user.uid)
-            .get();
-
-        if (!doc.exists) {
-          // If the user doesn't exist, create a new document
-          await _firestore.collection("users").doc(user.uid).set({
-            "uid": user.uid,
-            "email": user.email ?? "",
-            "name": user.displayName ?? "",
-            "createdAt": Timestamp.now(),
-          });
-        }
+        await _ensureSocialProfile(user);
 
         Get.snackbar("Başarılı", "Google ile giriş yapıldı");
       }
@@ -277,6 +251,10 @@ class AuthController extends GetxController {
       if (e.code == 'network-request-failed') {
         message = 'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
       }
+      if (e.code == 'account-exists-with-different-credential') {
+        message =
+            'Bu e-posta ile bir hesap mevcut. Daha önce kullandığınız giriş yöntemini seçin.';
+      }
       Get.snackbar(
         "Hata", 
         message,
@@ -292,52 +270,79 @@ class AuthController extends GetxController {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
+    } finally {
+      _socialSignInBusy = false;
     }
+  }
+
+  Future<void> signInWithApple() async {
+    if (_socialSignInBusy) return;
+    _socialSignInBusy = true;
+    try {
+      final provider = AppleAuthProvider()
+        ..addScope('email')
+        ..addScope('name');
+      final result = await _auth.signInWithProvider(provider);
+      final user = result.user;
+      if (user == null) return;
+      await _ensureSocialProfile(user);
+      // Apple may only supply name/email once. Never overwrite an existing
+      // profile with empty values; profile setup asks for any missing name.
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'canceled' ||
+          e.code == 'web-context-canceled' ||
+          e.code == 'user-cancelled') {
+        return;
+      }
+      Get.snackbar(
+        'Apple ile giriş yapılamadı',
+        e.code == 'account-exists-with-different-credential'
+            ? 'Bu e-posta ile bir hesap mevcut. Daha önce kullandığınız giriş yöntemini seçin.'
+            : 'Giriş tamamlanamadı. Bağlantınızı kontrol edip tekrar deneyin.',
+      );
+    } catch (_) {
+      Get.snackbar('Apple ile giriş yapılamadı', 'Lütfen tekrar deneyin.');
+    } finally {
+      _socialSignInBusy = false;
+    }
+  }
+
+  Future<void> _ensureSocialProfile(User user) async {
+    // Use the authenticated UID only, never silently link by email.
+    final ref = _firestore.collection('users').doc(user.uid);
+    await _firestore.runTransaction((transaction) async {
+      final existing = await transaction.get(ref);
+      if (!existing.exists) {
+        final initialName = user.displayName ?? '';
+        transaction.set(ref, {
+          'uid': user.uid,
+          'profileVersion': 2,
+          // Auth retains the original; profile setup asks for a valid length.
+          'name': initialName.length <= 100 ? initialName : '',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
   }
 
   Future<void> resetPassword(String input) async {
     try {
-      String targetEmail;
-
-      if (!input.contains('@')) {
-        String trimmedUsername = input.trim();
-        final querySnapshot = await _firestore
-            .collection('users')
-            .where('name', isEqualTo: trimmedUsername)
-            .limit(1)
-            .get();
-
-        if (querySnapshot.docs.isEmpty) {
-          Get.snackbar(
-            'Kullanıcı Bulunamadı',
-            'Bu kullanıcı adıyla eşleşen bir hesap bulunamadı.',
-            backgroundColor: Colors.red.shade600,
-            colorText: Colors.white,
-            snackPosition: SnackPosition.BOTTOM,
-            margin: const EdgeInsets.all(16),
-          );
-          return;
-        }
-
-        targetEmail = querySnapshot.docs.first.data()['email'] ?? '';
-      } else {
-        targetEmail = input.trim();
-      }
-
-      await _auth.sendPasswordResetEmail(email: targetEmail);
+      await LoginIdentifier().resetPassword(input);
 
       Get.snackbar(
-        'Sıfırlama Bağlantısı Gönderildi',
-        'Lütfen e-posta kutunuzu kontrol edin.',
+        'Talebiniz Alındı',
+        'Bilgiler bir hesapla eşleşiyorsa sıfırlama e-postası gönderilecektir. Gelen kutunuzu ve spam klasörünü kontrol edin.',
         backgroundColor: Colors.greenAccent.shade700,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
       );
+    } on LoginIdentifierException catch (e) {
+      Get.snackbar('İşlem tamamlanamadı', e.message);
     } catch (e) {
       Get.snackbar(
         'Hata',
-        'İşlem sırasında bir hata oluştu: $e',
+        'İşlem tamamlanamadı. Lütfen bağlantınızı kontrol edip tekrar deneyin.',
         backgroundColor: Colors.red.shade600,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,

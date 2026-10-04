@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../controllers/profile_setup_controller.dart';
 import '../../../routes/app_routes.dart';
 import '../../../widgets/account_restriction_banner.dart';
+import '../../../widgets/delete_account_sheet.dart';
+import '../../auth/controllers/auth_controller.dart';
 
 class ProfileSetupView extends GetView<ProfileSetupController> {
   const ProfileSetupView({super.key});
@@ -165,10 +167,111 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
                 ),
               ),
               const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: _showLogoutDialog,
+                    icon: const Icon(Icons.logout, color: Colors.white70, size: 18),
+                    label: const Text(
+                      'Çıkış Yap',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  TextButton.icon(
+                    onPressed: _showDeleteAccountSheet,
+                    icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 18),
+                    label: const Text(
+                      'Hesabımı Sil',
+                      style: TextStyle(color: Colors.redAccent, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    Get.defaultDialog(
+      title: 'Çıkış Yap',
+      titleStyle: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+        fontSize: 17,
+      ),
+      middleText: 'Uygulamadan çıkmak istediğinize emin misiniz?',
+      middleTextStyle: TextStyle(
+        color: Colors.white70,
+        fontSize: 14,
+      ),
+      backgroundColor: const Color(0xFF16221A),
+      radius: 16,
+      barrierDismissible: true,
+      cancel: TextButton(
+        onPressed: () => Get.back(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Text(
+            'İptal',
+            style: TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+      confirm: TextButton(
+        onPressed: () {
+          Get.back();
+          Get.find<AuthController>().logout();
+          Get.snackbar(
+            'Çıkış',
+            'Güvenli şekilde çıkış yapıldı.',
+            backgroundColor: const Color(0xFF16221A),
+            colorText: Colors.white70,
+            borderRadius: 12,
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.redAccent.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Text(
+            'Çıkış Yap',
+            style: TextStyle(
+              color: Colors.redAccent,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountSheet() {
+    Get.bottomSheet(
+      Material(
+        color: const Color(0xFF16221A),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: DeleteAccountSheet(
+          requiresPassword: controller.deletionRequiresPassword,
+          onDelete: controller.deleteUserAccount,
+        ),
+      ),
+      isScrollControlled: true,
     );
   }
 

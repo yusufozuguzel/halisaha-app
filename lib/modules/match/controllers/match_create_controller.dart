@@ -1,5 +1,6 @@
 import '../../../core/services/match_participation.dart';
 import '../../../core/services/match_metadata.dart';
+import '../../../core/services/content_filter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -600,6 +601,20 @@ class MatchCreateController extends GetxController {
       Get.snackbar(
         'Eksik Bilgi',
         'Lütfen tüm alanları doldurun ve başlangıç/bitiş saati seçin.',
+        backgroundColor: Colors.red[900],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    try {
+      final contentFilter = Get.put(ContentFilterService());
+      contentFilter.validateTexts([title, venue]);
+    } on ContentFilterException catch (e) {
+      Get.snackbar(
+        'Uygunsuz İçerik',
+        e.message,
         backgroundColor: Colors.red[900],
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,

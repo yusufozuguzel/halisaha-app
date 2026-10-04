@@ -7,6 +7,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/profile_photo_upload.dart';
 import '../../../routes/app_routes.dart';
+import '../../../core/services/account_deletion.dart';
+import '../../../core/services/firebase_account_deletion.dart';
+import '../../../core/services/safety_api.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../../../core/services/content_filter.dart';
 
 class ProfileSetupController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -133,6 +138,13 @@ class ProfileSetupController extends GetxController {
     }
 
     try {
+      // İçerik Filtreleme Kontrolü
+      final contentFilter = Get.put(ContentFilterService());
+      contentFilter.validateTexts([
+        fullNameController.text,
+        cityController.text,
+      ]);
+      
       isLoading.value = true;
       
       Map<String, dynamic> updates = {
@@ -161,6 +173,11 @@ class ProfileSetupController extends GetxController {
       );
 
       Get.offAllNamed(Routes.HOME);
+    } on ContentFilterException catch (e) {
+      Get.snackbar('Uygunsuz İçerik', e.message,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.redAccent,
+          colorText: Colors.white);
     } catch (e) {
       Get.snackbar(
         "Hata",
@@ -170,4 +187,58 @@ class ProfileSetupController extends GetxController {
       isLoading.value = false;
     }
   }
+
+  bool get deletionRequiresPassword =>
+      deletionProvider(
+        _auth.currentUser?.providerData.map((p) => p.providerId) ??
+            const Iterable.empty(),
+      ) ==
+      DeletionProvider.password;
+
+  Future<void> deleteUserAccount(String password) async {
+    final user = _auth.currentUser;
+    if (user == null || isLoading.value) return;
+    isLoading.value = true;
+    try {
+      final reauthentication = AccountReauthentication(user);
+      final accepted = await AccountDeletion(backend: FirebaseAccountDeletion()).run(
+        reauthenticate: () => reauthentication.authenticate(password),
+        revokeAppleConsent: reauthentication.revokeAppleConsent,
+        hasApple: user.providerData.any((p) => p.providerId == 'apple.com'),
+      );
+      if (accepted) {
+        await Get.find<AuthController>().logout();
+        Get.snackbar('Silme talebiniz alındı',
+            'Oturumunuz kapatıldı. Hesabınız ve ilişkili verileriniz sunucuda siliniyor.');
+      }
+    } on SafetyApiException catch (e) {
+      Get.snackbar('İşlem tamamlanamadı',
+          e.code == 'FAILED_PRECONDITION'
+              ? 'Lütfen yeniden giriş yapıp tekrar deneyin.'
+              : 'Silme hizmetine ulaşılamadı. Daha sonra tekrar deneyebilirsiniz.');
+    } on DeletionUnavailable {
+      Get.snackbar(
+        'Hesap silme şu anda kullanılamıyor',
+        'Güvenli hesap silme hizmeti henüz hazır değil. Hiçbir veriniz silinmedi. Lütfen daha sonra tekrar deneyin.',
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'canceled' ||
+          e.code == 'web-context-canceled' ||
+          e.code == 'user-cancelled') {
+        return;
+      }
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        'Kimliğiniz doğrulanamadı. Mevcut hesabınızın giriş bilgileriyle tekrar deneyin.',
+      );
+    } catch (_) {
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        'Lütfen bağlantınızı kontrol edip tekrar deneyin.',
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
 }
+

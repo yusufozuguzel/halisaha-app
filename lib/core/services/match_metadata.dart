@@ -72,8 +72,9 @@ class MatchMetadata {
         duration > const Duration(hours: 24)) {
       return 'Maç süresi 30 dakika ile 24 saat arasında olmalıdır.';
     }
-    if (!{'open', 'closed'}.contains(data['status']))
+    if (!{'open', 'closed'}.contains(data['status'])) {
       return 'Geçersiz maç durumu.';
+    }
     return null;
   }
 }

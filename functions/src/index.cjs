@@ -9,6 +9,7 @@ const { createSafetyService } = require('./safety.cjs');
 const { createModerationService } = require('./moderation.cjs');
 const { identity, exactFields } = require('./policy.cjs');
 const { createPrivateLogin, createAuthRest } = require('./private-login.cjs');
+const { filterImage } = require('./content-filter.cjs');
 
 initializeApp();
 const deletionEnabled = process.env.DELETION_RULES_VERIFIED === 'true';
@@ -76,3 +77,15 @@ exports.removeLateProfileUpload = onObjectFinalized({
   try { await service.removeLateProfileUpload(event.data); }
   catch (_) { throw new Error('Late profile cleanup incomplete; retry required'); }
 });
+
+exports.analyzeImageContent = onObjectFinalized({
+  region: 'europe-west1', 
+  retry: true, 
+  maxInstances: 5, 
+  timeoutSeconds: 60,
+}, async event => {
+  if (!reportsEnabled) return;
+  try { await filterImage(event.data); }
+  catch (_) { throw new Error('Image analysis incomplete; retry required'); }
+});
+

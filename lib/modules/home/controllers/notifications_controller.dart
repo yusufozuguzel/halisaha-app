@@ -34,8 +34,17 @@ class NotificationsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _listenToMatchInvites();
-    _listenToUnreadNotifications();
+    _auth.authStateChanges().listen((user) {
+      for (final subscription in _subscriptions) { subscription.cancel(); }
+      _subscriptions.clear();
+      _unread.clear();
+      _allInvites.clear();
+      
+      if (user != null) {
+        _listenToMatchInvites();
+        _listenToUnreadNotifications();
+      }
+    });
   }
 
   @override

@@ -127,20 +127,25 @@ class MatchDetailView extends StatelessWidget {
                 targetId: Get.arguments as String,
               ),
             ),
-            IconButton(
-              icon: const Icon(
-                Icons.share,
-                color: Color(0xFF2EED7B),
-              ), // Neon Yeşil İkon
-              onPressed: () {
-                final matchTitle = match['title'] ?? 'Efsane Maç';
-                final matchDate = controller.formatDate(
-                  match['date'] as Timestamp?,
-                );
-                Share.share(
-                  matchInvitationText(title: matchTitle, date: matchDate),
-                );
-              },
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(
+                  Icons.share,
+                  color: Color(0xFF2EED7B),
+                ), // Neon Yeşil İkon
+                onPressed: () {
+                  final box = ctx.findRenderObject() as RenderBox?;
+                  final rect = box != null ? box.localToGlobal(Offset.zero) & box.size : null;
+                  final matchTitle = match['title'] ?? 'Efsane Maç';
+                  final matchDate = controller.formatDate(
+                    match['date'] as Timestamp?,
+                  );
+                  Share.share(
+                    matchInvitationText(title: matchTitle, date: matchDate),
+                    sharePositionOrigin: rect,
+                  );
+                },
+              ),
             ),
             const SizedBox(width: 8), // Sağdan biraz boşluk
           ],

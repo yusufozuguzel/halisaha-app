@@ -527,11 +527,26 @@ class _RegisterFormState extends State<_RegisterForm> {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => widget.controller.register(
-              emailController.text,
-              passwordController.text,
-              fullNameController.text,
-            ),
+            onPressed: () {
+              if (!isAgreed) {
+                Get.snackbar(
+                  'Uyarı',
+                  "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.redAccent,
+                  colorText: Colors.white,
+                );
+                return;
+              }
+              if (!widget.controller.registerFormKey.currentState!.validate()) {
+                return;
+              }
+              widget.controller.register(
+                emailController.text,
+                passwordController.text,
+                fullNameController.text,
+              );
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2EED7B),
               foregroundColor: Colors.black,
@@ -574,10 +589,34 @@ class _RegisterFormState extends State<_RegisterForm> {
           const SizedBox(height: 32),
           _GoogleButton(
             text: "Google ile Devam Et",
-            onPressed: () => widget.controller.signInWithGoogle(),
+            onPressed: () {
+              if (!isAgreed) {
+                Get.snackbar(
+                  'Uyarı',
+                  "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.redAccent,
+                  colorText: Colors.white,
+                );
+                return;
+              }
+              widget.controller.signInWithGoogle();
+            },
           ),
           AppleSignInButton(
-            onPressed: () => widget.controller.signInWithApple(),
+            onPressed: () {
+              if (!isAgreed) {
+                Get.snackbar(
+                  'Uyarı',
+                  "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.redAccent,
+                  colorText: Colors.white,
+                );
+                return;
+              }
+              widget.controller.signInWithApple();
+            },
           ),
           const SizedBox(height: 40),
           Center(

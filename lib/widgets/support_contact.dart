@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SupportContact {
-  static const email = 'depardestek@gmail.com';
+  static const email = 'destekdepar@gmail.com';
 
   static Future<void> show(BuildContext context) => showDialog<void>(
     context: context,
@@ -48,20 +48,22 @@ class _SupportContactBodyState extends State<_SupportContactBody> {
         final opened = await launchUrl(
           Uri(scheme: 'mailto', path: SupportContact.email),
         );
-        if (!opened)
+        if (!opened) {
           message =
               'E-posta uygulaması açılamadı. Adresi kopyalayarak bize yazabilirsiniz.';
+        }
       }
     } catch (_) {
       message = copy
           ? 'Adres kopyalanamadı. Yukarıdaki adresi seçerek kopyalayabilirsiniz.'
           : 'E-posta uygulaması açılamadı. Adresi kopyalayarak bize yazabilirsiniz.';
     }
-    if (mounted)
+    if (mounted) {
       setState(() {
         _busy = false;
         _message = message;
       });
+    }
   }
 
   @override

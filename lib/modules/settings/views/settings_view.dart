@@ -3,6 +3,10 @@ import 'package:get/get.dart';
 import '../controllers/settings_controller.dart';
 import '../../moderation/views/moderation_view.dart';
 import '../../../widgets/support_contact.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../../../widgets/delete_account_sheet.dart';
+
 
 class SettingsView extends GetView<SettingsController> {
   const SettingsView({super.key});
@@ -20,8 +24,8 @@ class SettingsView extends GetView<SettingsController> {
     final appBarBg = isDark ? const Color(0xFF16221A) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
     final borderColor = isDark
-        ? Colors.white.withOpacity(0.06)
-        : Colors.black.withOpacity(0.08);
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.08);
 
     return Obx(() {
       final darkMode = controller.isDarkMode.value;
@@ -37,7 +41,7 @@ class SettingsView extends GetView<SettingsController> {
               color: appBarBg,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
                   blurRadius: 12,
                   offset: const Offset(0, 2),
                 ),
@@ -57,8 +61,8 @@ class SettingsView extends GetView<SettingsController> {
                         height: 40,
                         decoration: BoxDecoration(
                           color: isDark
-                              ? Colors.white.withOpacity(0.05)
-                              : Colors.black.withOpacity(0.05),
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.black.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: borderColor),
                         ),
@@ -109,8 +113,8 @@ class SettingsView extends GetView<SettingsController> {
                 'GÖRÜNÜM',
                 style: TextStyle(
                   color: isDark
-                      ? Colors.white.withOpacity(0.4)
-                      : Colors.black.withOpacity(0.35),
+                      ? Colors.white.withValues(alpha: 0.4)
+                      : Colors.black.withValues(alpha: 0.35),
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,
@@ -136,8 +140,8 @@ class SettingsView extends GetView<SettingsController> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: darkMode
-                        ? _green.withOpacity(0.15)
-                        : Colors.orange.withOpacity(0.12),
+                        ? _green.withValues(alpha: 0.15)
+                        : Colors.orange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -173,9 +177,9 @@ class SettingsView extends GetView<SettingsController> {
                     value: darkMode,
                     onChanged: controller.toggleDarkMode,
                     activeThumbColor: _green,
-                    activeTrackColor: _green.withOpacity(0.25),
+                    activeTrackColor: _green.withValues(alpha: 0.25),
                     inactiveThumbColor: Colors.orange,
-                    inactiveTrackColor: Colors.orange.withOpacity(0.15),
+                    inactiveTrackColor: Colors.orange.withValues(alpha: 0.15),
                   ),
                 ),
                 shape: RoundedRectangleBorder(
@@ -183,6 +187,59 @@ class SettingsView extends GetView<SettingsController> {
                 ),
                 onTap: () => controller.toggleDarkMode(!darkMode),
               ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: const Text('Gizlilik Politikası ve Koşullar'),
+              onTap: () async {
+                final url = Uri.parse('https://yusufozuguzel.github.io/depar-web/gizlilik.html');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                }
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.orange),
+              title: const Text('Çıkış Yap', style: TextStyle(color: Colors.orange)),
+              onTap: () {
+                Get.dialog(
+                  AlertDialog(
+                    title: const Text('Çıkış Yap'),
+                    content: const Text('Hesabınızdan çıkış yapmak istediğinize emin misiniz?'),
+                    actions: [
+                      TextButton(onPressed: () => Get.back(), child: const Text('İptal')),
+                      TextButton(
+                        onPressed: () {
+                          Get.back();
+                          Get.find<AuthController>().logout();
+                        },
+                        child: const Text('Çıkış Yap', style: TextStyle(color: Colors.orange)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
+              title: const Text('Hesabı Sil', style: TextStyle(color: Colors.redAccent)),
+              onTap: () async {
+                try {
+                  final requiresPwd = controller.deletionRequiresPassword;
+                  Get.bottomSheet(
+                    DeleteAccountSheet(
+                      requiresPassword: requiresPwd,
+                      onDelete: controller.deleteUserAccount,
+                    ),
+                    backgroundColor: isDark ? const Color(0xFF16221A) : Colors.white,
+                    isScrollControlled: true,
+                  );
+                } catch (_) {
+                  Get.snackbar('Hata', 'İşlem gerçekleştirilemedi.');
+                }
+              },
             ),
           ],
         ),

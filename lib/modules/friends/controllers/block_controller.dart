@@ -20,7 +20,15 @@ class BlockController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    fetchBlockedUsers();
+    _auth.authStateChanges().listen((user) {
+      if (user != null) {
+        fetchBlockedUsers();
+      } else {
+        _blockedSubscription?.cancel();
+        blockedUserIds.clear();
+        ready.value = false;
+      }
+    });
   }
 
   // Engellenenleri getir

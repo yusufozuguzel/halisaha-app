@@ -103,7 +103,7 @@ class _LoginFormState extends State<_LoginForm> {
           ),
           const SizedBox(height: 40),
           const Text(
-            "Email veya Kullanıcı Adı",
+            "Email",
             style: TextStyle(
               color: Colors.white,
               fontSize: 14,
@@ -113,7 +113,7 @@ class _LoginFormState extends State<_LoginForm> {
           const SizedBox(height: 8),
           _CustomTextField(
             controller: emailController,
-            hintText: "ornek@email.com veya Kullanıcı Adı",
+            hintText: "ornek@email.com",
             prefixIcon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
           ),
@@ -146,7 +146,7 @@ class _LoginFormState extends State<_LoginForm> {
                           controller: resetController,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
-                            hintText: "Email veya Kullanıcı Adı",
+                            hintText: "Email",
                             hintStyle: TextStyle(
                               color: Colors.white.withOpacity(0.5),
                             ),

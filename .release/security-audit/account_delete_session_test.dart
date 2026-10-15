@@ -41,7 +41,8 @@ void main() {
       }),
     );
     final operation = AccountDeletion(
-      backend: FirebaseAccountDeletion(api: api),
+      backend: FirebaseAccountDeletion(api: api, currentUid: () => currentUid),
+      currentUid: () => currentUid,
     ).run(
       reauthenticate: () async => true,
       revokeAppleConsent: () async => fail('Not an Apple account'),
@@ -53,11 +54,10 @@ void main() {
     readinessResponse.complete(
       http.Response('{"result":{"ready":true}}', 200),
     );
-    expect(await operation, isTrue);
+    await expectLater(operation, throwsA(isA<DeletionUnavailable>()));
     expect(requests, [
       '/prepareAccountDeletion:alice',
-      '/requestAccountDeletion:bob',
     ]);
-    expect(deletedPrincipals, ['bob']);
+    expect(deletedPrincipals, isEmpty);
   });
 }

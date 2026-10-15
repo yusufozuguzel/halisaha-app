@@ -224,7 +224,7 @@ void main() {
         ),
         isEmpty,
       );
-      expect(store.docs['users/alice']!.containsKey('blockedUsers'), true);
+      expect(store.docs.containsKey('users/alice/blocks/bob'), true);
     },
   );
 

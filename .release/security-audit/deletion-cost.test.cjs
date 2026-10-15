@@ -128,7 +128,8 @@ test('fresh authenticated deletion jobs rescan and reread unrelated root records
   }
 
   const expectedDocsPerJob = recordsPerCollection * 3;
-  assert.equal(metrics.queryResultReads, expectedDocsPerJob * fakeIdentities);
+  assert.equal(metrics.queryResultReads, 0);
+  assert.equal(metrics.transactionReads, fakeIdentities * 3);
   console.log(JSON.stringify({
     syntheticUnrelatedDocs:expectedDocsPerJob,
     recentAuthOnlyIdentities:fakeIdentities,

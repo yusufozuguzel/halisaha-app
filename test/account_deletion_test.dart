@@ -6,9 +6,9 @@ class _Backend implements AccountDeletionBackend {
   _Backend(this.events);
   final List<String> events;
   @override
-  Future<void> prepareDeletion() async => events.add('prepare');
+  Future<void> prepareDeletion({String? expectedUid}) async => events.add('prepare');
   @override
-  Future<void> deleteCurrentAccount() async => events.add('backend');
+  Future<void> deleteCurrentAccount({String? expectedUid}) async => events.add('backend');
 }
 
 class _User extends Fake implements User {
@@ -30,9 +30,9 @@ class _Credential extends Fake implements UserCredential {}
 
 class _UnavailableBackend implements AccountDeletionBackend {
   @override
-  Future<void> prepareDeletion() async => throw const DeletionUnavailable();
+  Future<void> prepareDeletion({String? expectedUid}) async => throw const DeletionUnavailable();
   @override
-  Future<void> deleteCurrentAccount() async => fail('Deletion must not run');
+  Future<void> deleteCurrentAccount({String? expectedUid}) async => fail('Deletion must not run');
 }
 
 class _UserInfo extends Fake implements UserInfo {

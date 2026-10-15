@@ -166,8 +166,14 @@ class SettingsController extends GetxController {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     try {
+      final startingUid = user.uid;
       final reauthentication = AccountReauthentication(user);
-      final accepted = await AccountDeletion(backend: FirebaseAccountDeletion())
+      final accepted = await AccountDeletion(
+            backend: FirebaseAccountDeletion(
+              currentUid: () => FirebaseAuth.instance.currentUser?.uid,
+            ),
+            currentUid: () => FirebaseAuth.instance.currentUser?.uid,
+          )
           .run(
             reauthenticate: () => reauthentication.authenticate(password),
             revokeAppleConsent: reauthentication.revokeAppleConsent,

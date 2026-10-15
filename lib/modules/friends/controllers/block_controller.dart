@@ -10,8 +10,7 @@ class BlockController extends GetxController {
       : Get.put(BlockController());
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   FirebaseAuth get _auth => FirebaseAuth.instance;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
-  _blockedSubscription;
+  StreamSubscription<dynamic>? _blockedSubscription;
 
   // Engellenen kullanıcıların ID listesi
   var blockedUserIds = <String>[].obs;
@@ -50,15 +49,16 @@ class BlockController extends GetxController {
     _blockedSubscription = _firestore
         .collection('users')
         .doc(currentUser.uid)
+        .collection('blocks')
         .snapshots()
         .listen(
-          (doc) {
+          (snapshot) {
             if (isClosed ||
                 revision != _blockRevision ||
                 _auth.currentUser?.uid != currentUser.uid)
               return;
             blockedUserIds.assignAll(
-              (doc.data()?['blockedUsers'] as List? ?? []).whereType<String>(),
+              snapshot.docs.map((d) => d.id).whereType<String>(),
             );
             isLoading.value = false;
             ready.value = true;
@@ -103,9 +103,12 @@ class BlockController extends GetxController {
     if (currentUser == null) return;
 
     try {
-      await _firestore.collection('users').doc(currentUser.uid).update({
-        'blockedUsers': FieldValue.arrayRemove([targetUid]),
-      });
+      await _firestore
+          .collection('users')
+          .doc(currentUser.uid)
+          .collection('blocks')
+          .doc(targetUid)
+          .delete();
       if (isClosed || _auth.currentUser?.uid != currentUser.uid) return;
       blockedUserIds.remove(targetUid);
       Get.snackbar("Başarılı", "Engel kaldırıldı.");

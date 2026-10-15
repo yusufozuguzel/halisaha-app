@@ -1,7 +1,7 @@
 const { before, after, beforeEach, test } = require('node:test');
 const { readFileSync } = require('node:fs');
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp } = require('firebase/firestore');
+const { doc, collection, setDoc, getDoc, getDocs, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp } = require('firebase/firestore');
 let env;
 before(async () => {
   if (process.env.GCLOUD_PROJECT !== 'demo-depar-review' ||
@@ -76,6 +76,24 @@ test('third party cannot forge requests, friendship, notification or delete rela
   await assertFails(setDoc(doc(db, 'users/alice/friends/bob'), friend('bob', 'Bob')));
   await assertFails(deleteDoc(doc(db, 'users/alice/friends/bob')));
   await assertFails(setDoc(doc(db, 'users/alice/followers/bob'), { uid: 'bob' }));
+});
+test('social lists are readable by the owner and mutual friends only', async () => {
+  const relationship = friend('bob', 'Bob');
+  await seed({
+    'users/alice/friends/bob': relationship,
+    'users/bob/friends/alice': { ...relationship, uid: 'alice', fullName: 'Alice' },
+    'users/alice/followers/bob': { uid: 'bob' },
+    'users/alice/following/bob': { uid: 'bob' },
+  });
+
+  for (const group of ['friends', 'followers', 'following']) {
+    const path = `users/alice/${group}`;
+    await assertSucceeds(getDocs(collection(client('alice'), path)));
+    await assertSucceeds(getDocs(collection(client('bob'), path)));
+    await assertFails(getDocs(collection(client('mallory'), path)));
+  }
+  await assertFails(getDoc(doc(client('mallory'), 'users/alice/friends/bob')));
+  await assertSucceeds(getDoc(doc(client('mallory'), 'users/alice/friends/mallory')));
 });
 test('sender cannot self-accept, and receiver cannot accept cancelled or partial requests', async () => {
   await assertSucceeds(requestAndNotice(client('alice')).commit());

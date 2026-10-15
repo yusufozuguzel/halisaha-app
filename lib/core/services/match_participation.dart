@@ -1,3 +1,4 @@
+import 'write_policy.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'match_metadata.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,10 +12,15 @@ class MatchActionException implements Exception {
 /// Every operation reads the current match inside a retryable transaction.
 /// UI snapshots are never used as the authoritative roster.
 class MatchParticipation {
-  MatchParticipation({SocialStore? store, String? Function()? currentUid})
-    : _store = store ?? FirestoreSocialStore(FirebaseFirestore.instance),
-      _uid = currentUid ?? (() => FirebaseAuth.instance.currentUser?.uid);
+  MatchParticipation({
+    SocialStore? store,
+    String? Function()? currentUid,
+    Future<bool> Function(String uid)? prepareWrite,
+  }) : _store = store ?? FirestoreSocialStore(FirebaseFirestore.instance),
+       _prepareWrite = prepareWrite ?? WritePolicy().prepare,
+       _uid = currentUid ?? (() => FirebaseAuth.instance.currentUser?.uid);
   final SocialStore _store;
+  final Future<bool> Function(String uid) _prepareWrite;
   final String? Function() _uid;
   String get actor {
     final value = _uid();
@@ -268,6 +274,15 @@ class MatchParticipation {
     Map<String, String> desired,
   ) async {
     final uid = actor;
+    if (desired.entries.any((entry) => base[entry.key] != entry.value)) {
+      try {
+        await _prepareWrite(uid);
+        if (_uid() != uid) _fail('Oturum de\u011fi\u015fti.');
+      } on WritePolicyException catch (error) {
+        _fail(error.message);
+      }
+    }
+
     for (final slot in {...base.keys, ...desired.keys}) {
       if (base[slot] == desired[slot]) continue;
       final notificationId = _store.newId();

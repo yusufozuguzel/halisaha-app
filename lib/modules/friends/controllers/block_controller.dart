@@ -6,7 +6,8 @@ import '../../../core/services/social_interactions.dart';
 
 class BlockController extends GetxController {
   static BlockController get shared => Get.isRegistered<BlockController>()
-      ? Get.find<BlockController>() : Get.put(BlockController());
+      ? Get.find<BlockController>()
+      : Get.put(BlockController());
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   FirebaseAuth get _auth => FirebaseAuth.instance;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
@@ -17,13 +18,18 @@ class BlockController extends GetxController {
   var isLoading = true.obs;
   final ready = false.obs;
 
+  StreamSubscription<User?>? _authSubscription;
+  int _blockRevision = 0;
+
   @override
   void onInit() {
     super.onInit();
-    _auth.authStateChanges().listen((user) {
+    _authSubscription = _auth.authStateChanges().listen((user) {
+      if (isClosed) return;
       if (user != null) {
         fetchBlockedUsers();
       } else {
+        ++_blockRevision;
         _blockedSubscription?.cancel();
         blockedUserIds.clear();
         ready.value = false;
@@ -33,8 +39,9 @@ class BlockController extends GetxController {
 
   // Engellenenleri getir
   Future<void> fetchBlockedUsers() async {
+    final revision = ++_blockRevision;
     await _blockedSubscription?.cancel();
-    if (isClosed) return;
+    if (isClosed || revision != _blockRevision) return;
     ready.value = false;
     blockedUserIds.clear();
     final currentUser = _auth.currentUser;
@@ -46,7 +53,10 @@ class BlockController extends GetxController {
         .snapshots()
         .listen(
           (doc) {
-            if (isClosed || _auth.currentUser?.uid != currentUser.uid) return;
+            if (isClosed ||
+                revision != _blockRevision ||
+                _auth.currentUser?.uid != currentUser.uid)
+              return;
             blockedUserIds.assignAll(
               (doc.data()?['blockedUsers'] as List? ?? []).whereType<String>(),
             );
@@ -54,7 +64,10 @@ class BlockController extends GetxController {
             ready.value = true;
           },
           onError: (_) {
-            if (isClosed) return;
+            if (isClosed ||
+                revision != _blockRevision ||
+                _auth.currentUser?.uid != currentUser.uid)
+              return;
             isLoading.value = false;
             Get.snackbar('Hata', 'Engellenen kullanıcılar yüklenemedi.');
           },
@@ -63,6 +76,8 @@ class BlockController extends GetxController {
 
   @override
   void onClose() {
+    ++_blockRevision;
+    _authSubscription?.cancel();
     _blockedSubscription?.cancel();
     super.onClose();
   }

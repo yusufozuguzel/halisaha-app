@@ -1,7 +1,9 @@
+import '../../../widgets/venue_image.dart';
+import '../../../widgets/static_map_venue_card.dart';
+import '../../../widgets/places_attribution_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'home_view.dart';
 import 'my_matches_view.dart';
 import 'profile_view.dart';
@@ -62,7 +64,7 @@ class DiscoverView extends GetView<DiscoverController> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: _green.withOpacity(0.4),
+                color: _green.withValues(alpha: 0.4),
                 blurRadius: 20,
                 spreadRadius: 2,
                 offset: const Offset(0, 4),
@@ -82,10 +84,12 @@ class DiscoverView extends GetView<DiscoverController> {
                 _buildHeader(context),
                 const SizedBox(height: 10),
                 Expanded(
-                  child: Obx(() => VenueMapWidget(
-                        venues: controller.nearbyVenues.toList(),
-                        userPosition: controller.userPosition,
-                      )),
+                  child: Obx(
+                    () => VenueMapWidget(
+                      venues: controller.nearbyVenues.toList(),
+                      userPosition: controller.userPosition,
+                    ),
+                  ),
                 ),
               ],
             );
@@ -133,41 +137,47 @@ class DiscoverView extends GetView<DiscoverController> {
                 ),
               ),
               const Spacer(),
-              Obx(() => InkWell(
-                onTap: () => controller.toggleMapView(),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _green.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _green.withOpacity(0.35)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        controller.isMapView.value ? Icons.list : Icons.map_outlined, 
-                        color: _green, 
-                        size: 15
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        controller.isMapView.value ? 'Listede Göster' : 'Haritada Göster',
-                        style: const TextStyle(
+              Obx(
+                () => InkWell(
+                  onTap: () => controller.toggleMapView(),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _green.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _green.withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          controller.isMapView.value
+                              ? Icons.list
+                              : Icons.map_outlined,
                           color: _green,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
+                          size: 15,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 5),
+                        Text(
+                          controller.isMapView.value
+                              ? 'Listede Göster'
+                              : 'Haritada Göster',
+                          style: const TextStyle(
+                            color: _green,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              )),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -241,7 +251,7 @@ class DiscoverView extends GetView<DiscoverController> {
                 child: Text(
                   'Tümü',
                   style: TextStyle(
-                    color: _green.withOpacity(0.85),
+                    color: _green.withValues(alpha: 0.85),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     decoration: TextDecoration.none,
@@ -296,9 +306,12 @@ class DiscoverView extends GetView<DiscoverController> {
         : null;
 
     // Gerçek fotoğrafı çekmeye çalışıyoruz
-    String imageUrl =
-        venue['photoUrl']?.toString() ?? venue['image']?.toString() ?? '';
-    if (imageUrl == 'null') imageUrl = '';
+    if (venue['imageKind'] == 'staticMap') {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+        child: StaticMapVenueCard(venue: venue),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
@@ -316,29 +329,11 @@ class DiscoverView extends GetView<DiscoverController> {
               SizedBox(
                 height: 160,
                 width: double.infinity,
-                child: imageUrl.isNotEmpty
+                child: hasVenueImage(venue)
                     // EĞER GERÇEK FOTOĞRAF VARSA ONU GÖSTER
-                    ? CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: AppColors.overlay(context),
-                          child: const Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                color: _green,
-                                strokeWidth: 2,
-                              ),
-                            ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) =>
-                            _buildMapPlaceholder(
-                              context,
-                              name,
-                            ), // Hata olursa Harita'ya düş
+                    ? VenueImage(
+                        venue: venue,
+                        placeholder: _buildMapPlaceholder(context, name),
                       )
                     // EĞER GERÇEK FOTOĞRAF YOKSA ŞIK BİR HARİTA ÖNİZLEMESİ ÇİZ
                     : _buildMapPlaceholder(context, name),
@@ -355,7 +350,7 @@ class DiscoverView extends GetView<DiscoverController> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withOpacity(0.85),
+                        Colors.black.withValues(alpha: 0.85),
                       ],
                     ),
                   ),
@@ -376,7 +371,7 @@ class DiscoverView extends GetView<DiscoverController> {
                         children: [
                           Icon(
                             Icons.location_on,
-                            color: Colors.white.withOpacity(0.65),
+                            color: Colors.white.withValues(alpha: 0.65),
                             size: 13,
                           ),
                           const SizedBox(width: 3),
@@ -386,7 +381,7 @@ class DiscoverView extends GetView<DiscoverController> {
                                   ? '$city • 📍 $distanceStr'
                                   : city,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.65),
+                                color: Colors.white.withValues(alpha: 0.65),
                                 fontSize: 12,
                                 decoration: TextDecoration.none,
                               ),
@@ -402,6 +397,7 @@ class DiscoverView extends GetView<DiscoverController> {
               ),
             ],
           ),
+          PlacesAttributionWidget(venue: venue),
         ],
       ),
     );
@@ -423,9 +419,9 @@ class DiscoverView extends GetView<DiscoverController> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _green.withOpacity(0.15),
+                  color: _green.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
-                  border: Border.all(color: _green.withOpacity(0.3)),
+                  border: Border.all(color: _green.withValues(alpha: 0.3)),
                 ),
                 child: const Icon(
                   Icons.stadium_outlined,
@@ -441,7 +437,7 @@ class DiscoverView extends GetView<DiscoverController> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
@@ -524,7 +520,7 @@ class DiscoverView extends GetView<DiscoverController> {
                     Icon(
                       Icons.event_busy,
                       size: 48,
-                      color: _green.withOpacity(0.5),
+                      color: _green.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -604,7 +600,7 @@ class DiscoverView extends GetView<DiscoverController> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _green.withOpacity(0.15),
+                  color: _green.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
@@ -700,7 +696,7 @@ class DiscoverView extends GetView<DiscoverController> {
                         color: const Color(0xFF0F1712),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Colors.blueAccent.withOpacity(0.5),
+                          color: Colors.blueAccent.withValues(alpha: 0.5),
                         ),
                       ),
                       child: const Text(
@@ -729,7 +725,9 @@ class DiscoverView extends GetView<DiscoverController> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F1712),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.withOpacity(0.7)),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.7),
+                        ),
                       ),
                       child: const Text(
                         'İptal Et',
@@ -776,7 +774,7 @@ class DiscoverView extends GetView<DiscoverController> {
                       border: Border.all(
                         color: isUserJoined
                             ? Colors.orangeAccent.shade700
-                            : _green.withOpacity(0.5),
+                            : _green.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Text(
@@ -881,7 +879,7 @@ class DiscoverView extends GetView<DiscoverController> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: _green.withOpacity(0.15),
+      splashColor: _green.withValues(alpha: 0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
@@ -934,7 +932,7 @@ class _FilterSheetState extends State<_FilterSheet> {
     final textColor = AppColors.text(context);
     final subText = AppColors.subText(context);
     final card = AppColors.card(context);
-    
+
     final controller = Get.find<DiscoverController>();
 
     return Container(
@@ -993,12 +991,20 @@ class _FilterSheetState extends State<_FilterSheet> {
           Obx(() {
             return DropdownButtonFormField<String>(
               isExpanded: true,
-              value: controller.selectedCity.value.isEmpty ? null : controller.selectedCity.value,
-              hint: Text('Şehir seçin', style: TextStyle(color: subText, fontSize: 13)),
+              initialValue: controller.selectedCity.value.isEmpty
+                  ? null
+                  : controller.selectedCity.value,
+              hint: Text(
+                'Şehir seçin',
+                style: TextStyle(color: subText, fontSize: 13),
+              ),
               dropdownColor: card,
               style: TextStyle(color: textColor, fontSize: 13),
               decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide(color: AppColors.border(context)),
@@ -1011,7 +1017,11 @@ class _FilterSheetState extends State<_FilterSheet> {
               items: controller.availableCities.map((city) {
                 return DropdownMenuItem(
                   value: city,
-                  child: Text(city, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    city,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 );
               }).toList(),
               onChanged: (val) {
@@ -1026,12 +1036,20 @@ class _FilterSheetState extends State<_FilterSheet> {
           Obx(() {
             return DropdownButtonFormField<String>(
               isExpanded: true,
-              value: controller.selectedDistrict.value.isEmpty ? null : controller.selectedDistrict.value,
-              hint: Text('İlçe seçin', style: TextStyle(color: subText, fontSize: 13)),
+              initialValue: controller.selectedDistrict.value.isEmpty
+                  ? null
+                  : controller.selectedDistrict.value,
+              hint: Text(
+                'İlçe seçin',
+                style: TextStyle(color: subText, fontSize: 13),
+              ),
               dropdownColor: card,
               style: TextStyle(color: textColor, fontSize: 13),
               decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide(color: AppColors.border(context)),
@@ -1044,7 +1062,11 @@ class _FilterSheetState extends State<_FilterSheet> {
               items: controller.availableDistricts.map((district) {
                 return DropdownMenuItem(
                   value: district,
-                  child: Text(district, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    district,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 );
               }).toList(),
               onChanged: (val) {
@@ -1052,7 +1074,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               },
             );
           }),
-          
+
           const SizedBox(height: 32),
 
           SizedBox(
@@ -1118,7 +1140,7 @@ class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF2EED7B).withOpacity(0.05)
+      ..color = const Color(0xFF2EED7B).withValues(alpha: 0.05)
       ..strokeWidth = 1.0;
 
     const double step = 20.0;

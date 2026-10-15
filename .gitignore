@@ -1,6 +1,7 @@
 # Miscellaneous
 *.class
 *.lock
+!pubspec.lock
 *.log
 *.pyc
 *.swp
@@ -118,6 +119,12 @@ app.*.symbols
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
 .env
+.env.*
+!.env.example
+**/ios/Flutter/Secrets.xcconfig
+
+# Separate legal-site repository used during release preparation.
+.release/depar-web/
 /analysis-output.txt
 /analysis-moderation-output.txt
 /flutter-test-output.txt
@@ -125,3 +132,5 @@ app.*.symbols
 /support-analysis-output.txt
 /profile-photo-test-output.txt
 /profile-photo-analysis-output.txt
+/security-tests/.firebase-test-config/
+/.release/cloud-audit/

@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/services/content_filter.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,6 +39,7 @@ class ProfileController extends GetxController {
   // ── İstatistikler ──────────────────────────────────────────
   final RxInt matchesCount = 0.obs;
   final RxInt friendsCount = 0.obs;
+  final RxBool friendsCountPrivate = false.obs;
 
   // ── Upload durumu ──────────────────────────────────────────
   // ── Upload durumu ──────────────────────────────────────────
@@ -56,7 +58,9 @@ class ProfileController extends GetxController {
 
   // Using Form validation now, old manual computed values not needed but keeping for compatibility if used elsewhere
   bool get isLengthValid => newPassword.value.length >= 8;
-  bool get isComplexValid => RegExp(r'[A-Z]').hasMatch(newPassword.value) && RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(newPassword.value);
+  bool get isComplexValid =>
+      RegExp(r'[A-Z]').hasMatch(newPassword.value) &&
+      RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(newPassword.value);
   bool get isMatchValid => newPassword.value == confirmPassword.value;
 
   // ── Şifre Güncelle ──────────────────────────────────────────|──
@@ -100,7 +104,10 @@ class ProfileController extends GetxController {
       final worker = ever(blocks.blockedUserIds, (_) {
         if (isClosed) return;
         isBlocked.value = blocks.isBlocked(targetUid);
-        if (isBlocked.value) { isFriend.value = false; isPending.value = false; }
+        if (isBlocked.value) {
+          isFriend.value = false;
+          isPending.value = false;
+        }
       });
       _subs.add(worker.dispose);
     }
@@ -146,9 +153,18 @@ class ProfileController extends GetxController {
         .doc(targetUid)
         .collection('friends')
         .snapshots()
-        .listen((snap) {
-          friendsCount.value = snap.docs.length;
-        });
+        .listen(
+          (snap) {
+            if (isClosed) return;
+            friendsCountPrivate.value = false;
+            friendsCount.value = snap.docs.length;
+          },
+          onError: (_) {
+            if (isClosed) return;
+            friendsCount.value = 0;
+            friendsCountPrivate.value = true;
+          },
+        );
     _subs.add(friendsSub.cancel);
   }
 
@@ -159,9 +175,14 @@ class ProfileController extends GetxController {
         .collection('matches')
         .where('currentPlayers', arrayContains: targetUid)
         .snapshots()
-        .listen((snap) {
-          matchesCount.value = snap.docs.length;
-        });
+        .listen(
+          (snap) {
+            if (!isClosed) matchesCount.value = snap.docs.length;
+          },
+          onError: (_) {
+            if (!isClosed) matchesCount.value = 0;
+          },
+        );
     _subs.add(sub.cancel);
   }
 
@@ -177,25 +198,37 @@ class ProfileController extends GetxController {
     if (isBlocked.value) return;
 
     // Takip ediyor mu?
-    final followerDoc = await _db
-        .collection('users')
-        .doc(targetUid)
-        .collection('friends')
-        .doc(myUid)
-        .get();
-    if (isClosed || _myUid != myUid || BlockController.shared.isBlocked(targetUid)) return;
-    isFriend.value = followerDoc.exists;
-
-    // İstek gönderildi mi?
-    if (!isFriend.value) {
-      final reqDoc = await _db
+    try {
+      final followerDoc = await _db
           .collection('users')
           .doc(targetUid)
-          .collection('followRequests')
+          .collection('friends')
           .doc(myUid)
           .get();
-      if (isClosed || _myUid != myUid || BlockController.shared.isBlocked(targetUid)) return;
-      isPending.value = reqDoc.exists;
+      if (isClosed ||
+          _myUid != myUid ||
+          BlockController.shared.isBlocked(targetUid))
+        return;
+      isFriend.value = followerDoc.exists;
+
+      // İstek gönderildi mi?
+      if (!isFriend.value) {
+        final reqDoc = await _db
+            .collection('users')
+            .doc(targetUid)
+            .collection('followRequests')
+            .doc(myUid)
+            .get();
+        if (isClosed ||
+            _myUid != myUid ||
+            BlockController.shared.isBlocked(targetUid))
+          return;
+        isPending.value = reqDoc.exists;
+      }
+    } catch (_) {
+      if (isClosed || _myUid != myUid) return;
+      isFriend.value = false;
+      isPending.value = false;
     }
   }
 
@@ -223,8 +256,14 @@ class ProfileController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      Get.snackbar('Hata', e is SocialInteractionException ? e.message : 'Engelleme işlemi başarısız.',
-          backgroundColor: Colors.red.shade700, colorText: Colors.white);
+      Get.snackbar(
+        'Hata',
+        e is SocialInteractionException
+            ? e.message
+            : 'Engelleme işlemi başarısız.',
+        backgroundColor: Colors.red.shade700,
+        colorText: Colors.white,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -248,8 +287,12 @@ class ProfileController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      Get.snackbar('Hata', 'Engel kaldırılamadı: $e',
-          backgroundColor: Colors.red.shade700, colorText: Colors.white);
+      Get.snackbar(
+        'Hata',
+        'Engel kaldırılamadı: $e',
+        backgroundColor: Colors.red.shade700,
+        colorText: Colors.white,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -258,7 +301,10 @@ class ProfileController extends GetxController {
   // ── Send Follow Request ────────────────────────────────────
   Future<void> sendFollowRequest() async {
     final myUid = _myUid;
-    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value) {
+    if (myUid == null ||
+        myUid.isEmpty ||
+        targetUid.isEmpty ||
+        isLoading.value) {
       return;
     }
     isLoading.value = true;
@@ -266,7 +312,12 @@ class ProfileController extends GetxController {
       await SocialInteractions().requestFollow(targetUid);
       isPending.value = true;
     } catch (e) {
-      Get.snackbar('Hata', e is SocialInteractionException ? e.message : 'Takip isteği gönderilemedi.');
+      Get.snackbar(
+        'Hata',
+        e is SocialInteractionException
+            ? e.message
+            : 'Takip isteği gönderilemedi.',
+      );
     } finally {
       isLoading.value = false;
     }
@@ -275,7 +326,10 @@ class ProfileController extends GetxController {
   // ── Cancel Follow Request ──────────────────────────────────
   Future<void> cancelFollowRequest() async {
     final myUid = _myUid;
-    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value) {
+    if (myUid == null ||
+        myUid.isEmpty ||
+        targetUid.isEmpty ||
+        isLoading.value) {
       return;
     }
     isLoading.value = true;
@@ -297,7 +351,10 @@ class ProfileController extends GetxController {
   // ── Remove Friend ───────────────────────────────────────────────
   Future<void> removeFriend() async {
     final myUid = _myUid;
-    if (myUid == null || myUid.isEmpty || targetUid.isEmpty || isLoading.value) {
+    if (myUid == null ||
+        myUid.isEmpty ||
+        targetUid.isEmpty ||
+        isLoading.value) {
       return;
     }
     isLoading.value = true;
@@ -306,20 +363,12 @@ class ProfileController extends GetxController {
 
       // target.friends/{myUid}
       batch.delete(
-        _db
-            .collection('users')
-            .doc(targetUid)
-            .collection('friends')
-            .doc(myUid),
+        _db.collection('users').doc(targetUid).collection('friends').doc(myUid),
       );
 
       // my.friends/{targetUid}
       batch.delete(
-        _db
-            .collection('users')
-            .doc(myUid)
-            .collection('friends')
-            .doc(targetUid),
+        _db.collection('users').doc(myUid).collection('friends').doc(targetUid),
       );
 
       // NOT: followersCount / followingCount sayıçları Cloud Function'a bırakıldı.
@@ -338,7 +387,7 @@ class ProfileController extends GetxController {
   Future<void> acceptFollowRequest(String fromUid) async {
     final myUid = _myUid;
     if (myUid == null || myUid.isEmpty || fromUid.isEmpty) return;
-    
+
     try {
       await SocialInteractions().acceptFollow(fromUid);
 
@@ -347,7 +396,7 @@ class ProfileController extends GetxController {
       }
     } catch (e) {
       Get.snackbar(
-        'Hata', 
+        'Hata',
         e is SocialInteractionException ? e.message : 'İstek kabul edilemedi.',
         backgroundColor: Colors.red.shade900,
         colorText: Colors.white,
@@ -356,25 +405,28 @@ class ProfileController extends GetxController {
   }
 
   // ── Update Profile ─────────────────────────────────────────
-  Future<void> updateProfile({
+  Future<bool> updateProfile({
     required String newName,
     required String newPosition,
     File? newAvatarFile,
   }) async {
     if (newName.trim().length > 100 || newPosition.trim().length > 40) {
-      Get.snackbar('Hata', 'Ad en fazla 100, pozisyon en fazla 40 karakter olabilir.');
-      return;
+      Get.snackbar(
+        'Hata',
+        'Ad en fazla 100, pozisyon en fazla 40 karakter olabilir.',
+      );
+      return false;
+    }
+    try {
+      ContentFilterService().validateTexts([newName, newPosition]);
+    } on ContentFilterException catch (e) {
+      Get.snackbar('Hata', e.message);
+      return false;
     }
     final user = _auth.currentUser;
-    if (user == null || user.uid.isEmpty) return;
+    if (user == null || user.uid.isEmpty) return false;
 
     final docRef = _db.collection('users').doc(user.uid);
-
-    if (newName.trim().isNotEmpty) name.value = newName.trim();
-    if (newPosition.trim().isNotEmpty) {
-      position.value = newPosition.trim().toUpperCase();
-      selectedPosition.value = newPosition.trim();
-    }
 
     final Map<String, dynamic> updates = {};
     if (newName.trim().isNotEmpty) {
@@ -389,24 +441,45 @@ class ProfileController extends GetxController {
       isUploading.value = true;
       try {
         final downloadUrl = await uploadProfilePhoto(newAvatarFile, user.uid);
-        if (isClosed || _auth.currentUser?.uid != user.uid) return;
-        avatarFile.value = newAvatarFile;
-        
+        if (isClosed || _auth.currentUser?.uid != user.uid) return false;
+
         updates['avatarUrl'] = downloadUrl;
         updates['avatarData'] = FieldValue.delete();
         updates['avatarType'] = FieldValue.delete();
-        
-        avatarUrl.value = downloadUrl;
       } catch (e) {
-        Get.snackbar('Fotoğraf yüklenemedi', e is ProfilePhotoException
-            ? e.message : 'Fotoğraf yüklenemedi. Bağlantınızı ve hesap durumunuzu kontrol edin.');
+        Get.snackbar(
+          'Fotoğraf yüklenemedi',
+          e is ProfilePhotoException
+              ? e.message
+              : 'Fotoğraf yüklenemedi. Bağlantınızı ve hesap durumunuzu kontrol edin.',
+        );
+        return false;
       } finally {
         isUploading.value = false;
       }
     }
 
-    if (updates.isNotEmpty) {
-      await docRef.set(updates, SetOptions(merge: true));
+    if (isClosed || _auth.currentUser?.uid != user.uid) return false;
+    try {
+      if (updates.isNotEmpty)
+        await docRef.set(updates, SetOptions(merge: true));
+      if (isClosed || _auth.currentUser?.uid != user.uid) return false;
+      if (newName.trim().isNotEmpty) name.value = newName.trim();
+      if (newPosition.trim().isNotEmpty) {
+        position.value = newPosition.trim().toUpperCase();
+        selectedPosition.value = newPosition.trim();
+      }
+      if (updates['avatarUrl'] is String) {
+        avatarUrl.value = updates['avatarUrl'] as String;
+        avatarFile.value = newAvatarFile;
+      }
+      return true;
+    } catch (_) {
+      Get.snackbar(
+        'Profil kaydedilemedi',
+        'Ba\u011flant\u0131n\u0131z\u0131 kontrol edip tekrar deneyin.',
+      );
+      return false;
     }
   }
 
@@ -492,21 +565,26 @@ class ProfileController extends GetxController {
     isLoading.value = true;
     try {
       final reauthentication = AccountReauthentication(user);
-      final accepted = await AccountDeletion(backend: FirebaseAccountDeletion()).run(
-        reauthenticate: () => reauthentication.authenticate(password),
-        revokeAppleConsent: reauthentication.revokeAppleConsent,
-        hasApple: user.providerData.any((p) => p.providerId == 'apple.com'),
-      );
+      final accepted = await AccountDeletion(backend: FirebaseAccountDeletion())
+          .run(
+            reauthenticate: () => reauthentication.authenticate(password),
+            revokeAppleConsent: reauthentication.revokeAppleConsent,
+            hasApple: user.providerData.any((p) => p.providerId == 'apple.com'),
+          );
       if (accepted) {
         await Get.find<AuthController>().logout();
-        Get.snackbar('Silme talebiniz alındı',
-            'Oturumunuz kapatıldı. Hesabınız ve ilişkili verileriniz sunucuda siliniyor.');
+        Get.snackbar(
+          'Silme talebiniz alındı',
+          'Oturumunuz kapatıldı. Hesabınız ve ilişkili verileriniz sunucuda siliniyor.',
+        );
       }
     } on SafetyApiException catch (e) {
-      Get.snackbar('İşlem tamamlanamadı',
-          e.code == 'FAILED_PRECONDITION'
-              ? 'Lütfen yeniden giriş yapıp tekrar deneyin.'
-              : 'Silme hizmetine ulaşılamadı. Daha sonra tekrar deneyebilirsiniz.');
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        e.code == 'FAILED_PRECONDITION'
+            ? 'Lütfen yeniden giriş yapıp tekrar deneyin.'
+            : 'Silme hizmetine ulaşılamadı. Daha sonra tekrar deneyebilirsiniz.',
+      );
     } on DeletionUnavailable {
       Get.snackbar(
         'Hesap silme şu anda kullanılamıyor',

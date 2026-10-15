@@ -92,7 +92,7 @@ class ProfileSetupController extends GetxController {
       final XFile? image = await pickProfileImage(ImageSource.gallery);
 
       if (image == null) return;
-      
+
       final user = _auth.currentUser;
       if (user == null) {
         Get.snackbar("Hata", "Kullanıcı oturumu bulunamadı.");
@@ -101,15 +101,19 @@ class ProfileSetupController extends GetxController {
 
       isLoading.value = true;
       final File imageFile = File(image.path);
-      
+
       final downloadUrl = await uploadProfilePhoto(imageFile, user.uid);
       if (isClosed || _auth.currentUser?.uid != user.uid) return;
 
       avatarUrl.value = downloadUrl;
       Get.snackbar("Başarılı", "Fotoğraf eklendi.");
     } catch (e) {
-      Get.snackbar('Fotoğraf yüklenemedi', e is ProfilePhotoException
-          ? e.message : 'Fotoğraf yüklenemedi. Bağlantınızı ve hesap durumunuzu kontrol edin.');
+      Get.snackbar(
+        'Fotoğraf yüklenemedi',
+        e is ProfilePhotoException
+            ? e.message
+            : 'Fotoğraf yüklenemedi. Bağlantınızı ve hesap durumunuzu kontrol edin.',
+      );
     } finally {
       isLoading.value = false;
     }
@@ -144,9 +148,9 @@ class ProfileSetupController extends GetxController {
         fullNameController.text,
         cityController.text,
       ]);
-      
+
       isLoading.value = true;
-      
+
       Map<String, dynamic> updates = {
         'profileVersion': 2,
         'email': FieldValue.delete(),
@@ -167,17 +171,20 @@ class ProfileSetupController extends GetxController {
         updates['avatarUrl'] = FieldValue.delete();
       }
 
-      await _firestore.collection('users').doc(user.uid).set(
-        updates, 
-        SetOptions(merge: true)
-      );
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .set(updates, SetOptions(merge: true));
 
       Get.offAllNamed(Routes.HOME);
     } on ContentFilterException catch (e) {
-      Get.snackbar('Uygunsuz İçerik', e.message,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.redAccent,
-          colorText: Colors.white);
+      Get.snackbar(
+        'Uygunsuz İçerik',
+        e.message,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+      );
     } catch (e) {
       Get.snackbar(
         "Hata",
@@ -201,21 +208,26 @@ class ProfileSetupController extends GetxController {
     isLoading.value = true;
     try {
       final reauthentication = AccountReauthentication(user);
-      final accepted = await AccountDeletion(backend: FirebaseAccountDeletion()).run(
-        reauthenticate: () => reauthentication.authenticate(password),
-        revokeAppleConsent: reauthentication.revokeAppleConsent,
-        hasApple: user.providerData.any((p) => p.providerId == 'apple.com'),
-      );
+      final accepted = await AccountDeletion(backend: FirebaseAccountDeletion())
+          .run(
+            reauthenticate: () => reauthentication.authenticate(password),
+            revokeAppleConsent: reauthentication.revokeAppleConsent,
+            hasApple: user.providerData.any((p) => p.providerId == 'apple.com'),
+          );
       if (accepted) {
         await Get.find<AuthController>().logout();
-        Get.snackbar('Silme talebiniz alındı',
-            'Oturumunuz kapatıldı. Hesabınız ve ilişkili verileriniz sunucuda siliniyor.');
+        Get.snackbar(
+          'Silme talebiniz alındı',
+          'Oturumunuz kapatıldı. Hesabınız ve ilişkili verileriniz sunucuda siliniyor.',
+        );
       }
     } on SafetyApiException catch (e) {
-      Get.snackbar('İşlem tamamlanamadı',
-          e.code == 'FAILED_PRECONDITION'
-              ? 'Lütfen yeniden giriş yapıp tekrar deneyin.'
-              : 'Silme hizmetine ulaşılamadı. Daha sonra tekrar deneyebilirsiniz.');
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        e.code == 'FAILED_PRECONDITION'
+            ? 'Lütfen yeniden giriş yapıp tekrar deneyin.'
+            : 'Silme hizmetine ulaşılamadı. Daha sonra tekrar deneyebilirsiniz.',
+      );
     } on DeletionUnavailable {
       Get.snackbar(
         'Hesap silme şu anda kullanılamıyor',
@@ -241,4 +253,3 @@ class ProfileSetupController extends GetxController {
     }
   }
 }
-

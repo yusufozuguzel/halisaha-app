@@ -215,9 +215,21 @@ function createSafetyService({ db, auth, bucket, deletionEnabled = false, report
           try { await file.delete(); } catch (error) { if (Number(error.code) !== 404) throw error; }
         }
       }
+      const profileSnapshot = await db.doc(`users/${uid}`).get();
+      const username = profileSnapshot.get('username');
+      if (typeof username === 'string' && /^[a-z0-9_]{3,30}$/.test(username)) {
+        await db.runTransaction(async tx => {
+          const claim = await tx.get(db.doc(`_usernames/${username}`));
+          if (claim.exists && claim.get('uid') === uid) tx.delete(db.doc(`_usernames/${username}`));
+        });
+      }
       await db.recursiveDelete(db.doc(`users/${uid}`));
       await db.doc(`_reportLimits/${uid}`).delete();
+      await db.doc(`_profilePhotoLimits/${uid}`).delete();
       await db.doc(`_moderationAccounts/${uid}`).delete();
+      await db.recursiveDelete(db.doc(`_writeLimits/${uid}`));
+      await db.recursiveDelete(db.doc(`_usernameLimits/${uid}`));
+      await db.recursiveDelete(db.doc(`_placesLimits/${uid}`));
       while (true) {
         const removals = await db.collection('_moderationRemovals').where('uid', '==', uid).limit(100).get();
         if (removals.empty) break;

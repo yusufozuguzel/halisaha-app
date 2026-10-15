@@ -1,3 +1,4 @@
+import 'write_policy.dart';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -52,11 +53,27 @@ class _FirestoreSocialTransaction implements SocialTransaction {
 }
 
 class SocialInteractions {
-  SocialInteractions({SocialStore? store, String? Function()? currentUid})
-    : _store = store ?? FirestoreSocialStore(FirebaseFirestore.instance),
-      _currentUid =
-          currentUid ?? (() => FirebaseAuth.instance.currentUser?.uid);
+  SocialInteractions({
+    SocialStore? store,
+    String? Function()? currentUid,
+    Future<bool> Function(String uid)? prepareWrite,
+  }) : _store = store ?? FirestoreSocialStore(FirebaseFirestore.instance),
+       _prepareWrite = prepareWrite ?? WritePolicy().prepare,
+       _currentUid =
+           currentUid ?? (() => FirebaseAuth.instance.currentUser?.uid);
   final SocialStore _store;
+  final Future<bool> Function(String uid) _prepareWrite;
+  Future<bool> _writeGate(String uid) async {
+    try {
+      final enabled = await _prepareWrite(uid);
+      if (_currentUid() != uid)
+        throw const SocialInteractionException('Oturum de\u011fi\u015fti.');
+      return enabled;
+    } on WritePolicyException catch (error) {
+      throw SocialInteractionException(error.message);
+    }
+  }
+
   final String? Function() _currentUid;
 
   String _actor(String target) {
@@ -105,6 +122,7 @@ class SocialInteractions {
   Future<void> requestFollow(String target) async {
     final uid = _actor(target);
     final notification = _store.newId();
+    final limited = await _writeGate(uid);
     await _store.run((tx) async {
       final pair = await _pair(tx, uid, target);
       final path = 'users/$target/followRequests/$uid';
@@ -115,6 +133,8 @@ class SocialInteractions {
       }
       if (existing != null) return;
       final name = pair[0]['fullName'] ?? pair[0]['name'] ?? 'Bir oyuncu';
+      if (limited)
+        tx.set(writeLimitPath(uid, 'followRequest'), writeLimitData(target));
       tx.set(path, {
         'from': uid,
         'status': 'pending',
@@ -200,6 +220,7 @@ class SocialInteractions {
     if (matchId.isEmpty || matchId.length > 128 || matchId.contains('/')) {
       throw const SocialInteractionException('Geçersiz maç.');
     }
+    await _writeGate(uid);
     // Encoded tuple is collision-free and stays within Firestore ID limits.
     final id = base64Url.encode(utf8.encode(jsonEncode([matchId, uid])));
     await _store.run((tx) async {

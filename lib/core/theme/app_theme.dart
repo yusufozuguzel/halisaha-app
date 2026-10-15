@@ -33,7 +33,7 @@ final darkTheme = ThemeData(
     ),
     trackColor: WidgetStateProperty.resolveWith(
       (s) => s.contains(WidgetState.selected)
-          ? kGreen.withOpacity(0.3)
+          ? kGreen.withValues(alpha: 0.3)
           : Colors.white12,
     ),
   ),
@@ -68,8 +68,8 @@ final lightTheme = ThemeData(
     ),
     trackColor: WidgetStateProperty.resolveWith(
       (s) => s.contains(WidgetState.selected)
-          ? kGreen.withOpacity(0.3)
-          : Colors.grey.withOpacity(0.2),
+          ? kGreen.withValues(alpha: 0.3)
+          : Colors.grey.withValues(alpha: 0.2),
     ),
   ),
   textTheme: const TextTheme(
@@ -107,17 +107,17 @@ class AppColors {
 
   /// Bölüm başlık etiketi
   static Color sectionLabel(BuildContext context) => isDark(context)
-      ? Colors.white.withOpacity(0.4)
-      : Colors.black.withOpacity(0.35);
+      ? Colors.white.withValues(alpha: 0.4)
+      : Colors.black.withValues(alpha: 0.35);
 
   /// İnce kenar/border rengi
   static Color border(BuildContext context) => isDark(context)
-      ? Colors.white.withOpacity(0.06)
-      : Colors.black.withOpacity(0.08);
+      ? Colors.white.withValues(alpha: 0.06)
+      : Colors.black.withValues(alpha: 0.08);
 
   /// Inputlarda kullanılan border
   static Color inputBorder(BuildContext context) =>
-      isDark(context) ? kDarkCardBorder : Colors.black.withOpacity(0.12);
+      isDark(context) ? kDarkCardBorder : Colors.black.withValues(alpha: 0.12);
 
   /// Greenish-grey etiket rengi (input label vb.)
   static Color labelColor(BuildContext context) =>
@@ -129,17 +129,17 @@ class AppColors {
 
   /// Neon'un dim versiyonu (ikonların arka planı)
   static Color neonDim(BuildContext context) =>
-      isDark(context) ? const Color(0xFF1A3325) : kGreen.withOpacity(0.1);
+      isDark(context) ? const Color(0xFF1A3325) : kGreen.withValues(alpha: 0.1);
 
   /// Hafif overlay rengi
   static Color overlay(BuildContext context) => isDark(context)
-      ? Colors.white.withOpacity(0.05)
-      : Colors.black.withOpacity(0.04);
+      ? Colors.white.withValues(alpha: 0.05)
+      : Colors.black.withValues(alpha: 0.04);
 
   /// Nav item pasif renk
   static Color navInactive(BuildContext context) => isDark(context)
-      ? Colors.white.withOpacity(0.4)
-      : Colors.black.withOpacity(0.4);
+      ? Colors.white.withValues(alpha: 0.4)
+      : Colors.black.withValues(alpha: 0.4);
 
   /// Dropdown arkaplan
   static Color dropdownBg(BuildContext context) =>

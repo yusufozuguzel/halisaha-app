@@ -7,6 +7,38 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('callable forwards injected App Check attestation', () async {
+    final service = LoginIdentifier(
+      projectId: 'demo-depar-review',
+      appCheckToken: () async => 'test-attestation',
+      client: MockClient((request) async {
+        expect(request.headers['X-Firebase-AppCheck'], 'test-attestation');
+        return http.Response('{"result":{"accepted":true}}', 200);
+      }),
+    );
+    await service.resetPassword('player');
+  });
+
+  test(
+    'attestation failure prevents unauthenticated fallback request',
+    () async {
+      var requested = false;
+      final service = LoginIdentifier(
+        projectId: 'demo-depar-review',
+        appCheckToken: () async => throw StateError('attestation failed'),
+        client: MockClient((_) async {
+          requested = true;
+          return http.Response('{}', 200);
+        }),
+      );
+      await expectLater(
+        service.resetPassword('player'),
+        throwsA(isA<LoginIdentifierException>()),
+      );
+      expect(requested, isFalse);
+    },
+  );
+
   test(
     'email login bypasses lookup and preserves the exact password',
     () async {

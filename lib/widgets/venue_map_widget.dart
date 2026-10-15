@@ -1,20 +1,18 @@
+import '../widgets/venue_image.dart';
+import '../widgets/static_map_venue_card.dart';
+import '../widgets/places_attribution_widget.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class VenueMapWidget extends StatefulWidget {
   final List<Map<String, dynamic>> venues;
   final Position? userPosition;
 
-  const VenueMapWidget({
-    super.key,
-    required this.venues,
-    this.userPosition,
-  });
+  const VenueMapWidget({super.key, required this.venues, this.userPosition});
 
   @override
   State<VenueMapWidget> createState() => _VenueMapWidgetState();
@@ -105,7 +103,7 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
     try {
       // football_marker.png mevcutsa onu kullan
       await rootBundle.load('assets/images/football_marker.png');
-      _customIcon = await BitmapDescriptor.fromAssetImage(
+      _customIcon = await BitmapDescriptor.asset(
         const ImageConfiguration(size: Size(48, 48)),
         'assets/images/football_marker.png',
       );
@@ -126,7 +124,9 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
 
       markers.add(
         Marker(
-          markerId: MarkerId(venue['id'] ?? venue['name'] ?? DateTime.now().toString()),
+          markerId: MarkerId(
+            venue['id'] ?? venue['name'] ?? DateTime.now().toString(),
+          ),
           position: LatLng((lat as num).toDouble(), (lng as num).toDouble()),
           icon: _customIcon ?? BitmapDescriptor.defaultMarkerWithHue(120.0),
           onTap: () {
@@ -169,6 +169,7 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
     return Stack(
       children: [
         GoogleMap(
+          style: _darkMapStyle,
           initialCameraPosition: CameraPosition(
             target: LatLng(initLat, initLng),
             zoom: 12.5,
@@ -177,13 +178,12 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
           myLocationEnabled: true,
           myLocationButtonEnabled: true,
           mapToolbarEnabled: false,
-          zoomControlsEnabled: false, 
+          zoomControlsEnabled: false,
           onMapCreated: (GoogleMapController controller) {
             if (!_controller.isCompleted) {
               _controller.complete(controller);
             }
-            _setDarkMapStyle(controller);
-            
+
             // İlk açılışta animasyonu ve focus'u gecikmeli ver
             // (Google Maps layout tam yüklenmeden bounds atanırsa hata atar)
             Future.delayed(const Duration(milliseconds: 300), () {
@@ -196,7 +196,7 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
             }
           },
         ),
-        
+
         // CUSTOM MODULAR INFO WINDOW (SAHA BİLGİ KARTI)
         if (_selectedVenue != null)
           Positioned(
@@ -205,7 +205,7 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
             right: 20,
             child: _buildVenueCard(_selectedVenue!),
           ),
-          
+
         // RESET/FOCUS BUTTON TO RETURN TO VENUES
         Positioned(
           bottom: 24,
@@ -218,7 +218,7 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
             label: const Text(
               'Sahayı Bul',
               style: TextStyle(
-                color: Colors.black, 
+                color: Colors.black,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -229,9 +229,7 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
     );
   }
 
-  void _setDarkMapStyle(GoogleMapController controller) async {
-    // Koyu harita stili (isteğe bağlı varsayılan dark theme formatı)
-    const String darkMapStyle = '''
+  static const String _darkMapStyle = '''
     [
       {
         "elementType": "geometry",
@@ -335,10 +333,6 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
       }
     ]
     ''';
-    try {
-      await controller.setMapStyle(darkMapStyle);
-    } catch (_) {}
-  }
 
   Widget _buildVenueCard(Map<String, dynamic> venue) {
     final name = venue['name'] ?? 'Bilinmiyor Saha';
@@ -348,8 +342,18 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
         ? '${(distanceMeters / 1000).toStringAsFixed(1)} km'
         : null;
 
-    String imageUrl = venue['photoUrl']?.toString() ?? venue['image']?.toString() ?? '';
-    if (imageUrl == 'null') imageUrl = '';
+    if (venue['imageKind'] == 'staticMap') {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          StaticMapVenueCard(venue: venue),
+          TextButton(
+            onPressed: () => setState(() => _selectedVenue = null),
+            child: const Text('Kapat'),
+          ),
+        ],
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -357,92 +361,95 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-             color: _green.withOpacity(0.15),
-             blurRadius: 20,
-             spreadRadius: 2,
+            color: _green.withValues(alpha: 0.15),
+            blurRadius: 20,
+            spreadRadius: 2,
           ),
         ],
-        border: Border.all(color: _green.withOpacity(0.35)),
+        border: Border.all(color: _green.withValues(alpha: 0.35)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Fotoğraf Parçası
-          SizedBox(
-            width: 100,
-            height: 100,
-            child: imageUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      color: const Color(0xFF0D1B13),
-                      child: const Center(
-                        child: SizedBox(
-                          width: 20, height: 20,
-                          child: CircularProgressIndicator(color: _green, strokeWidth: 2),
-                        )
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => _buildPlaceholder(),
-                  )
-                : _buildPlaceholder(),
-          ),
-          
-          // Detay Kısmı
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Fotoğraf Parçası
+              SizedBox(
+                width: 100,
+                height: 100,
+                child: hasVenueImage(venue)
+                    ? VenueImage(venue: venue, placeholder: _buildPlaceholder())
+                    : _buildPlaceholder(),
+              ),
+
+              // Detay Kısmı
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.location_on, color: Colors.white.withOpacity(0.65), size: 14),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          distanceStr != null ? '$city • 📍 $distanceStr' : city,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.65),
-                            fontSize: 12,
-                            decoration: TextDecoration.none,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.none,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            color: Colors.white.withValues(alpha: 0.65),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              distanceStr != null
+                                  ? '$city • 📍 $distanceStr'
+                                  : city,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                fontSize: 12,
+                                decoration: TextDecoration.none,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+
+              // Kapat Butonu
+              IconButton(
+                icon: Icon(
+                  Icons.close,
+                  color: Colors.white.withValues(alpha: 0.5),
+                  size: 18,
+                ),
+                onPressed: () => setState(() => _selectedVenue = null),
+              ),
+            ],
           ),
-          
-          // Kapat Butonu
-          IconButton(
-            icon: Icon(Icons.close, color: Colors.white.withOpacity(0.5), size: 18),
-            onPressed: () => setState(() => _selectedVenue = null),
-          )
+          PlacesAttributionWidget(venue: venue),
         ],
       ),
     );

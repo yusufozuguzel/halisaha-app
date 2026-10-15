@@ -10,6 +10,10 @@
 		<string>DEPAR yakınınızdaki halı sahaları bulmak ve mesafelerini göstermek için konumunuzu kullanır.</string>
 		<key>GMSApiKey</key>
 		<string>$(MAPS_API_KEY)</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
+		<key>FirebaseCrashlyticsCollectionEnabled</key>
+		<false/>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>

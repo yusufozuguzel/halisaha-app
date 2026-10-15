@@ -96,9 +96,10 @@ class MyMatchesController extends GetxController {
             myMatches.insert(index, targetMatch);
             if (Get.isSnackbarOpen) Get.back();
           },
-          child: const Text('Geri Al',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          child: const Text(
+            'Geri Al',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
         ),
       );
 
@@ -130,7 +131,10 @@ class MyMatchesController extends GetxController {
       await MatchParticipation().leave(matchId);
       Get.snackbar('Başarılı', 'Maçtan ayrıldınız.');
     } catch (e) {
-      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.',
+      );
     }
   }
 

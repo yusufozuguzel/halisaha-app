@@ -33,8 +33,16 @@ class NotificationsView extends StatelessWidget {
 
                   return Obx(() {
                     final hiddenIds = controller.hiddenNotificationIds;
-                    final matchInvites = controller.matchInvites.where((d) => !hiddenIds.contains(d.id)).toList();
-                    final visibleDocs = docs.where((d) => !hiddenIds.contains(d.id) && controller.visibleNotification(d)).toList();
+                    final matchInvites = controller.matchInvites
+                        .where((d) => !hiddenIds.contains(d.id))
+                        .toList();
+                    final visibleDocs = docs
+                        .where(
+                          (d) =>
+                              !hiddenIds.contains(d.id) &&
+                              controller.visibleNotification(d),
+                        )
+                        .toList();
 
                     if (visibleDocs.isEmpty && matchInvites.isEmpty) {
                       return _buildEmpty(context);
@@ -45,7 +53,10 @@ class NotificationsView extends StatelessWidget {
                       children: [
                         // 1) Maç Davetleri
                         ...matchInvites.map((doc) {
-                          return _MatchInviteCard(doc: doc, controller: controller);
+                          return _MatchInviteCard(
+                            doc: doc,
+                            controller: controller,
+                          );
                         }),
 
                         // 2) Diğer Tüm Bildirimler
@@ -144,7 +155,7 @@ class NotificationsView extends StatelessWidget {
         children: [
           Icon(
             Icons.notifications_off_outlined,
-            color: AppColors.subText(context).withOpacity(0.5),
+            color: AppColors.subText(context).withValues(alpha: 0.5),
             size: 64,
           ),
           const SizedBox(height: 16),
@@ -199,96 +210,96 @@ class _GenericCard extends StatelessWidget {
         controller.deleteNotification(doc.id);
       },
       child: Container(
-
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(context)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: kGreen.withOpacity(0.12),
-                    shape: BoxShape.circle,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.card(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border(context)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: kGreen.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.notifications_outlined,
+                      color: kGreen,
+                      size: 20,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.notifications_outlined,
-                    color: kGreen,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: AppColors.text(context),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: AppColors.text(context),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        message,
-                        style: TextStyle(
-                          color: AppColors.subText(context),
-                          fontSize: 12,
-                          height: 1.4,
+                        const SizedBox(height: 2),
+                        Text(
+                          message,
+                          style: TextStyle(
+                            color: AppColors.subText(context),
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _formatTimestamp(timestamp),
-                  style: TextStyle(
-                    color: AppColors.subText(context),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: () => controller.deleteNotification(doc.id),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border(context)),
-                  ),
-                  child: Text(
-                    'Sil',
+                  const SizedBox(width: 8),
+                  Text(
+                    _formatTimestamp(timestamp),
                     style: TextStyle(
-                      color: AppColors.text(context),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      color: AppColors.subText(context),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: () => controller.deleteNotification(doc.id),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border(context)),
+                    ),
+                    child: Text(
+                      'Sil',
+                      style: TextStyle(
+                        color: AppColors.text(context),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ))
+      ),
     );
   }
 
@@ -361,281 +372,288 @@ class _FollowRequestCard extends StatelessWidget {
         controller.deleteNotification(doc.id);
       },
       child: Container(
-
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(context)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header row ──────────────────────────────────
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: kGreen.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.person_add_alt_1,
-                    color: kGreen,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Arkadaşlık İsteği 👥',
-                        style: TextStyle(
-                          color: AppColors.text(context),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        message,
-                        style: TextStyle(
-                          color: AppColors.subText(context),
-                          fontSize: 12,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _formatTimestamp(timestamp),
-                  style: TextStyle(
-                    color: AppColors.subText(context),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // ── Status branch ────────────────────────────────
-            if (reqStatus == 'pending') ...[
-              // Kabul Et / Reddet
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.card(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border(context)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header row ──────────────────────────────────
               Row(
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        await controller.acceptFollowRequest(
-                          senderUid: senderUid,
-                          notificationDocId: doc.id,
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: kGreen,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Kabul Et',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Color(0xFF0F1712),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: kGreen.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.person_add_alt_1,
+                      color: kGreen,
+                      size: 20,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        await controller.rejectFollowRequest(
-                          senderUid: senderUid,
-                          notificationDocId: doc.id,
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.isDark(context)
-                              ? const Color(0xFF2A2A2A)
-                              : const Color(0xFFEEEEEE),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Reddet',
-                          textAlign: TextAlign.center,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Arkadaşlık İsteği 👥',
                           style: TextStyle(
                             color: AppColors.text(context),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ] else if (reqStatus == 'accepted') ...[
-              // Kabul edildi + Geri Takip Et
-              Row(
-                children: [
-                  // Durum etiketi
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: kGreen.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: kGreen.withOpacity(0.3)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline,
-                          color: kGreen,
-                          size: 14,
-                        ),
-                        SizedBox(width: 4),
+                        const SizedBox(height: 2),
                         Text(
-                          'Kabul Edildi',
+                          message,
                           style: TextStyle(
-                            color: kGreen,
+                            color: AppColors.subText(context),
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            height: 1.4,
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
+                  Text(
+                    _formatTimestamp(timestamp),
+                    style: TextStyle(
+                      color: AppColors.subText(context),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
 
-                  // Takip etme durumu kontrolü
-                  Expanded(
-                    child: Obx(() {
-                      // Eğer bu kullanıcı için daha check yapılmadıysa veya verisi yoksa false döner
-                      final isFollowing =
-                          controller.followingStatus[senderUid]?.value ?? false;
-
-                      if (isFollowing) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: AppColors.card(context),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppColors.subText(
-                                context,
-                              ).withOpacity(0.2),
-                            ),
-                          ),
-                          child: Text(
-                            'Arkadaşsınız',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.subText(
-                                context,
-                              ).withOpacity(0.6),
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13,
-                            ),
-                          ),
-                        );
-                      }
-
-                      // Henüz takip etmiyorsa aktif buton göster
-                      return GestureDetector(
+              // ── Status branch ────────────────────────────────
+              if (reqStatus == 'pending') ...[
+                // Kabul Et / Reddet
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
                         onTap: () async {
-                          await controller.sendFollowBackRequest(
-                            targetUid: senderUid,
-                          );
-                          // Butona tıklandıktan sonra durumu simüle et (veya backend zaten takipçi listesine ekleyecek)
-                          controller.checkIfFollowing(senderUid);
-
-                          Get.snackbar(
-                            'Arkadaşlık İsteği Gönderildi',
-                            '$senderName adlı oyuncuya arkadaşlık isteği gönderildi.',
-                            snackPosition: SnackPosition.BOTTOM,
-                            duration: const Duration(seconds: 2),
+                          await controller.acceptFollowRequest(
+                            senderUid: senderUid,
+                            notificationDocId: doc.id,
                           );
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
-                            color: AppColors.card(context),
+                            color: kGreen,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: kGreen.withOpacity(0.5)),
                           ),
                           child: const Text(
-                            'Arkadaş Ekle',
+                            'Kabul Et',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: kGreen,
+                              color: Color(0xFF0F1712),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          await controller.rejectFollowRequest(
+                            senderUid: senderUid,
+                            notificationDocId: doc.id,
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.isDark(context)
+                                ? const Color(0xFF2A2A2A)
+                                : const Color(0xFFEEEEEE),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Reddet',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.text(context),
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
                           ),
                         ),
-                      );
-                    }),
-                  ),
-                ],
-              ),
-            ] else if (reqStatus == 'rejected') ...[
-              // Reddedildi + silebilir
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
-                    ),
-                    child: const Text(
-                      'Reddedildi',
-                      style: TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => controller.deleteNotification(doc.id),
-                    child: Text(
-                      'Sil',
-                      style: TextStyle(
-                        color: AppColors.subText(context),
-                        fontSize: 12,
+                  ],
+                ),
+              ] else if (reqStatus == 'accepted') ...[
+                // Kabul edildi + Geri Takip Et
+                Row(
+                  children: [
+                    // Durum etiketi
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: kGreen.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: kGreen.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            color: kGreen,
+                            size: 14,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Kabul Edildi',
+                            style: TextStyle(
+                              color: kGreen,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+
+                    // Takip etme durumu kontrolü
+                    Expanded(
+                      child: Obx(() {
+                        // Eğer bu kullanıcı için daha check yapılmadıysa veya verisi yoksa false döner
+                        final isFollowing =
+                            controller.followingStatus[senderUid]?.value ??
+                            false;
+
+                        if (isFollowing) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.card(context),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.subText(
+                                  context,
+                                ).withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Text(
+                              'Arkadaşsınız',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.subText(
+                                  context,
+                                ).withValues(alpha: 0.6),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }
+
+                        // Henüz takip etmiyorsa aktif buton göster
+                        return GestureDetector(
+                          onTap: () async {
+                            await controller.sendFollowBackRequest(
+                              targetUid: senderUid,
+                            );
+                            // Butona tıklandıktan sonra durumu simüle et (veya backend zaten takipçi listesine ekleyecek)
+                            controller.checkIfFollowing(senderUid);
+
+                            Get.snackbar(
+                              'Arkadaşlık İsteği Gönderildi',
+                              '$senderName adlı oyuncuya arkadaşlık isteği gönderildi.',
+                              snackPosition: SnackPosition.BOTTOM,
+                              duration: const Duration(seconds: 2),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.card(context),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: kGreen.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: const Text(
+                              'Arkadaş Ekle',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: kGreen,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ] else if (reqStatus == 'rejected') ...[
+                // Reddedildi + silebilir
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: const Text(
+                        'Reddedildi',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => controller.deleteNotification(doc.id),
+                      child: Text(
+                        'Sil',
+                        style: TextStyle(
+                          color: AppColors.subText(context),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ))
+      ),
     );
   }
 
@@ -676,10 +694,7 @@ class _MatchInviteCard extends StatelessWidget {
   final QueryDocumentSnapshot doc;
   final NotificationsController controller;
 
-  const _MatchInviteCard({
-    required this.doc,
-    required this.controller,
-  });
+  const _MatchInviteCard({required this.doc, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -706,132 +721,159 @@ class _MatchInviteCard extends StatelessWidget {
         controller.deleteNotification(doc.id);
       },
       child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.card(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border(context)),
+        ),
+        child: FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(senderId)
+              .get(),
+          builder: (context, snapshot) {
+            String senderName = "Bir oyuncu";
+            String? avatarUrl;
 
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(context)),
+            if (snapshot.hasData && snapshot.data!.exists) {
+              final userData =
+                  snapshot.data!.data() as Map<String, dynamic>? ?? {};
+              senderName =
+                  userData['fullName'] ?? userData['name'] ?? "Bir oyuncu";
+              avatarUrl =
+                  userData['avatarUrl'] ??
+                  userData['profileImageUrl'] ??
+                  userData['photoUrl'];
+            }
+
+            return Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: kGreen.withValues(alpha: 0.12),
+                        backgroundImage:
+                            (avatarUrl != null && avatarUrl.isNotEmpty)
+                            ? NetworkImage(avatarUrl)
+                            : null,
+                        child: (avatarUrl == null || avatarUrl.isEmpty)
+                            ? const Icon(
+                                Icons.sports_soccer,
+                                color: kGreen,
+                                size: 20,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Maç Daveti ⚽',
+                              style: TextStyle(
+                                color: AppColors.text(context),
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$senderName seni bir maça davet etti!',
+                              style: TextStyle(
+                                color: AppColors.subText(context),
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatTimestamp(timestamp),
+                        style: TextStyle(
+                          color: AppColors.subText(context),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            controller.acceptInvite(
+                              doc.id,
+                              matchId,
+                              positionId,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: kGreen,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Kabul Et',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Color(0xFF0F1712),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            controller.rejectInvite(
+                              doc.id,
+                              matchId,
+                              positionId,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.isDark(context)
+                                  ? const Color(0xFF2A2A2A)
+                                  : const Color(0xFFEEEEEE),
+                              border: Border.all(
+                                color: Colors.redAccent.withValues(alpha: 0.5),
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Reddet',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
-      child: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('users').doc(senderId).get(),
-        builder: (context, snapshot) {
-          String senderName = "Bir oyuncu";
-          String? avatarUrl;
-          
-          if (snapshot.hasData && snapshot.data!.exists) {
-            final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-            senderName = userData['fullName'] ?? userData['name'] ?? "Bir oyuncu";
-            avatarUrl = userData['avatarUrl'] ?? userData['profileImageUrl'] ?? userData['photoUrl'];
-          }
-
-          return Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: kGreen.withOpacity(0.12),
-                      backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
-                      child: (avatarUrl == null || avatarUrl.isEmpty) ? const Icon(Icons.sports_soccer, color: kGreen, size: 20) : null,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Maç Daveti ⚽',
-                            style: TextStyle(
-                              color: AppColors.text(context),
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '$senderName seni bir maça davet etti!',
-                            style: TextStyle(
-                              color: AppColors.subText(context),
-                              fontSize: 12,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _formatTimestamp(timestamp),
-                      style: TextStyle(
-                        color: AppColors.subText(context),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          controller.acceptInvite(doc.id, matchId, positionId);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: kGreen,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Kabul Et',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Color(0xFF0F1712),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          controller.rejectInvite(doc.id, matchId, positionId);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: AppColors.isDark(context)
-                                ? const Color(0xFF2A2A2A)
-                                : const Color(0xFFEEEEEE),
-                            border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Reddet',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }
-      ))
     );
   }
 
@@ -843,7 +885,21 @@ class _MatchInviteCard extends StatelessWidget {
     if (diff.inMinutes < 1) return 'Az önce';
     if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
     if (diff.inHours < 24) return '${diff.inHours} saat önce';
-    const months = ['', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    const months = [
+      '',
+      'Oca',
+      'Şub',
+      'Mar',
+      'Nis',
+      'May',
+      'Haz',
+      'Tem',
+      'Ağu',
+      'Eyl',
+      'Eki',
+      'Kas',
+      'Ara',
+    ];
     final d = date.day.toString().padLeft(2, '0');
     final m = months[date.month];
     final h = date.hour.toString().padLeft(2, '0');

@@ -11,11 +11,16 @@ class NotificationsController extends GetxController {
   final _blocks = BlockController.shared;
   final List<StreamSubscription> _subscriptions = [];
   final RxList<QueryDocumentSnapshot> _unread = <QueryDocumentSnapshot>[].obs;
-  final RxList<QueryDocumentSnapshot> _allInvites = <QueryDocumentSnapshot>[].obs;
+  final RxList<QueryDocumentSnapshot> _allInvites =
+      <QueryDocumentSnapshot>[].obs;
   bool visibleNotification(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    return _blocks.visible((data['senderUid'] ?? data['senderId'] ?? data['fromUid'] ?? data['from']) as String?);
+    return _blocks.visible(
+      (data['senderUid'] ?? data['senderId'] ?? data['fromUid'] ?? data['from'])
+          as String?,
+    );
   }
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -25,21 +30,29 @@ class NotificationsController extends GetxController {
   final RxMap<String, RxBool> followingStatus = <String, RxBool>{}.obs;
 
   // Yeni Eklenecek: Maç davetleri için
-  List<QueryDocumentSnapshot> get matchInvites => _allInvites.where(visibleNotification).toList();
+  List<QueryDocumentSnapshot> get matchInvites =>
+      _allInvites.where(visibleNotification).toList();
 
   // Yeni Özellikler: Geri alma, okunmamış sayacı
   int get unreadCount => _unread.where(visibleNotification).length;
   final RxList<String> hiddenNotificationIds = <String>[].obs;
 
+  StreamSubscription<User?>? _authSubscription;
+
   @override
   void onInit() {
     super.onInit();
-    _auth.authStateChanges().listen((user) {
-      for (final subscription in _subscriptions) { subscription.cancel(); }
+    _authSubscription = _auth.authStateChanges().listen((user) {
+      if (isClosed) return;
+      for (final subscription in _subscriptions) {
+        subscription.cancel();
+      }
       _subscriptions.clear();
       _unread.clear();
       _allInvites.clear();
-      
+      followingStatus.clear();
+      hiddenNotificationIds.clear();
+
       if (user != null) {
         _listenToMatchInvites();
         _listenToUnreadNotifications();
@@ -49,7 +62,10 @@ class NotificationsController extends GetxController {
 
   @override
   void onClose() {
-    for (final subscription in _subscriptions) { subscription.cancel(); }
+    _authSubscription?.cancel();
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
     super.onClose();
   }
 
@@ -57,29 +73,44 @@ class NotificationsController extends GetxController {
     final uid = _uid;
     if (uid == null) return;
 
-    _subscriptions.add(_firestore
-        .collection('users')
-        .doc(uid)
-        .collection('notifications')
-        .where('isRead', isEqualTo: false)
-        .snapshots()
-        .listen((snapshot) {
-      if (!isClosed) _unread.assignAll(snapshot.docs);
-    }, onError: (_) { if (!isClosed) _unread.clear(); }));
+    _subscriptions.add(
+      _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('notifications')
+          .where('isRead', isEqualTo: false)
+          .snapshots()
+          .listen(
+            (snapshot) {
+              if (!isClosed && _uid == uid) _unread.assignAll(snapshot.docs);
+            },
+            onError: (_) {
+              if (!isClosed && _uid == uid) _unread.clear();
+            },
+          ),
+    );
   }
 
   void _listenToMatchInvites() {
     final uid = _uid;
     if (uid == null) return;
-    
-    _subscriptions.add(_firestore
-        .collection('notifications')
-        .where('receiverId', isEqualTo: uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .listen((snapshot) {
-      if (!isClosed) _allInvites.assignAll(snapshot.docs);
-    }, onError: (_) { if (!isClosed) _allInvites.clear(); }));
+
+    _subscriptions.add(
+      _firestore
+          .collection('notifications')
+          .where('receiverId', isEqualTo: uid)
+          .where('status', isEqualTo: 'pending')
+          .snapshots()
+          .listen(
+            (snapshot) {
+              if (!isClosed && _uid == uid)
+                _allInvites.assignAll(snapshot.docs);
+            },
+            onError: (_) {
+              if (!isClosed && _uid == uid) _allInvites.clear();
+            },
+          ),
+    );
   }
 
   /// Belirtilen kullanıcıyı takip edip etmediğimizi kontrol eder
@@ -101,7 +132,8 @@ class NotificationsController extends GetxController {
         .doc(targetUid)
         .get()
         .then((doc) {
-          followingStatus[targetUid]!.value = doc.exists;
+          if (isClosed || _uid != myUid) return;
+          followingStatus[targetUid]?.value = doc.exists;
         });
   }
 
@@ -298,12 +330,16 @@ class NotificationsController extends GetxController {
     if (myUid == null) return;
 
     try {
-      await SocialInteractions().acceptFollow(senderUid,
-          notificationId: notificationDocId);
+      await SocialInteractions().acceptFollow(
+        senderUid,
+        notificationId: notificationDocId,
+      );
       followingStatus[senderUid] = true.obs;
     } catch (e) {
-      Get.snackbar('Hata', e is SocialInteractionException
-          ? e.message : 'İstek kabul edilemedi.');
+      Get.snackbar(
+        'Hata',
+        e is SocialInteractionException ? e.message : 'İstek kabul edilemedi.',
+      );
     }
   }
 
@@ -350,28 +386,54 @@ class NotificationsController extends GetxController {
     try {
       await SocialInteractions().requestFollow(targetUid);
     } catch (e) {
-      Get.snackbar('Hata', e is SocialInteractionException
-          ? e.message : 'İstek gönderilemedi.');
+      Get.snackbar(
+        'Hata',
+        e is SocialInteractionException ? e.message : 'İstek gönderilemedi.',
+      );
     }
   }
 
   // ── MATCH INVITES ────────────────────────────────────────────────────────────
 
-  Future<void> acceptInvite(String notificationId, String matchId, String positionId) async {
+  Future<void> acceptInvite(
+    String notificationId,
+    String matchId,
+    String positionId,
+  ) async {
     try {
-      await MatchParticipation().respond(matchId, notificationId, positionId, accept: true);
+      await MatchParticipation().respond(
+        matchId,
+        notificationId,
+        positionId,
+        accept: true,
+      );
       Get.snackbar('Başarılı', 'Maç davetini kabul ettiniz.');
     } catch (e) {
-      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.',
+      );
     }
   }
 
-  Future<void> rejectInvite(String notificationId, String matchId, String positionId) async {
+  Future<void> rejectInvite(
+    String notificationId,
+    String matchId,
+    String positionId,
+  ) async {
     try {
-      await MatchParticipation().respond(matchId, notificationId, positionId, accept: false);
+      await MatchParticipation().respond(
+        matchId,
+        notificationId,
+        positionId,
+        accept: false,
+      );
       Get.snackbar('Bilgi', 'Maç daveti reddedildi.');
     } catch (e) {
-      Get.snackbar('İşlem tamamlanamadı', e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.');
+      Get.snackbar(
+        'İşlem tamamlanamadı',
+        e is MatchActionException ? e.message : 'Lütfen tekrar deneyin.',
+      );
     }
   }
 }

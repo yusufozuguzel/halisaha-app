@@ -52,12 +52,17 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
         : Get.put(BlockController());
 
     // UIDs hazır olduğunda profilleri çek
-    _blockSubscription = _blockCtrl.blockedUserIds.listen((_) => _fetchProfiles());
+    _blockSubscription = _blockCtrl.blockedUserIds.listen(
+      (_) => _fetchProfiles(),
+    );
     _fetchProfiles();
   }
 
   Future<void> _fetchProfiles() async {
-    if (_fetchingProfiles) { _profilesDirty = true; return; }
+    if (_fetchingProfiles) {
+      _profilesDirty = true;
+      return;
+    }
     _fetchingProfiles = true;
     _profilesDirty = false;
 
@@ -83,14 +88,20 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
         } else {
           if (mounted) {
             setState(() {
-              _profileCache[uid] = _BlockedUserInfo(uid: uid, name: 'Silinmiş Hesap');
+              _profileCache[uid] = _BlockedUserInfo(
+                uid: uid,
+                name: 'Silinmiş Hesap',
+              );
             });
           }
         }
       } catch (_) {
         if (mounted) {
           setState(() {
-            _profileCache[uid] = _BlockedUserInfo(uid: uid, name: 'Erişilemiyor');
+            _profileCache[uid] = _BlockedUserInfo(
+              uid: uid,
+              name: 'Erişilemiyor',
+            );
           });
         }
       }
@@ -137,7 +148,11 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
     );
   }
 
-  Widget _buildBlockedUserTile(String uid, _BlockedUserInfo? info, BuildContext context) {
+  Widget _buildBlockedUserTile(
+    String uid,
+    _BlockedUserInfo? info,
+    BuildContext context,
+  ) {
     // Avatar widget
     Widget avatar;
     final avatarUrl = info?.avatarUrl ?? '';
@@ -150,7 +165,12 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
         errorWidget: (_, __, ___) => const Icon(Icons.person, color: _green),
       );
     } else {
-      const icons = [Icons.person, Icons.sports_soccer, Icons.sports_martial_arts, Icons.face];
+      const icons = [
+        Icons.person,
+        Icons.sports_soccer,
+        Icons.sports_martial_arts,
+        Icons.face,
+      ];
       final idx = int.tryParse(info?.avatarData ?? '0') ?? 0;
       avatar = Icon(icons[idx % icons.length], color: _green, size: 24);
     }
@@ -170,8 +190,8 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _green.withOpacity(0.15),
-              border: Border.all(color: _green.withOpacity(0.3)),
+              color: _green.withValues(alpha: 0.15),
+              border: Border.all(color: _green.withValues(alpha: 0.3)),
             ),
             child: ClipOval(child: avatar),
           ),
@@ -194,9 +214,10 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
                   ),
           ),
           ElevatedButton(
-            onPressed: () => _showUnblockDialog(uid, info?.name ?? uid, context),
+            onPressed: () =>
+                _showUnblockDialog(uid, info?.name ?? uid, context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.withOpacity(0.1),
+              backgroundColor: Colors.red.withValues(alpha: 0.1),
               foregroundColor: Colors.red,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -221,7 +242,7 @@ class _BlockedUsersViewState extends State<BlockedUsersView> {
           Icon(
             Icons.shield_outlined,
             size: 80,
-            color: AppColors.subText(context).withOpacity(0.3),
+            color: AppColors.subText(context).withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           Text(

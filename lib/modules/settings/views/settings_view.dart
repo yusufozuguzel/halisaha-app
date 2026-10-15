@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../../widgets/delete_account_sheet.dart';
 
-
 class SettingsView extends GetView<SettingsController> {
   const SettingsView({super.key});
 
@@ -94,6 +93,85 @@ class SettingsView extends GetView<SettingsController> {
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            if (controller.needsEmailVerification.value)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'E-postan\u0131z\u0131 do\u011frulay\u0131n',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        'Do\u011frulama ba\u011flant\u0131s\u0131n\u0131 a\u00e7\u0131p durumu yeniden kontrol edin.',
+                      ),
+                      Wrap(
+                        children: [
+                          TextButton(
+                            onPressed: controller.accountBusy.value
+                                ? null
+                                : controller.resendVerification,
+                            child: const Text(
+                              'E-postay\u0131 yeniden g\u00f6nder',
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: controller.accountBusy.value
+                                ? null
+                                : controller.recheckVerification,
+                            child: const Text(
+                              'Do\u011frulad\u0131m, kontrol et',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (controller.usernamesEnabled.value)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Kullan\u0131c\u0131 ad\u0131 (iste\u011fe ba\u011fl\u0131)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      if (controller.username.value.isNotEmpty)
+                        Text('@${controller.username.value}')
+                      else ...[
+                        const Text(
+                          '3-30 harf, rakam veya alt \u00e7izgi. Se\u00e7ildikten sonra de\u011fi\u015ftirilemez; g\u00f6r\u00fcnen ad\u0131n\u0131z korunur.',
+                        ),
+                        TextField(
+                          controller: controller.usernameInput,
+                          maxLength: 30,
+                          autocorrect: false,
+                          textCapitalization: TextCapitalization.none,
+                          decoration: const InputDecoration(
+                            prefixText: '@',
+                            hintText: 'kullanici_adi',
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: controller.accountBusy.value
+                              ? null
+                              : controller.claimUsername,
+                          child: const Text(
+                            'Kullan\u0131c\u0131 ad\u0131n\u0131 kaydet',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
             ListTile(
               leading: const Icon(Icons.support_agent),
               title: const Text('Destek ve İtiraz'),
@@ -193,7 +271,9 @@ class SettingsView extends GetView<SettingsController> {
               leading: const Icon(Icons.privacy_tip_outlined),
               title: const Text('Gizlilik Politikası ve Koşullar'),
               onTap: () async {
-                final url = Uri.parse('https://yusufozuguzel.github.io/depar-web/gizlilik.html');
+                final url = Uri.parse(
+                  'https://yusufozuguzel.github.io/depar-web/gizlilik.html',
+                );
                 if (await canLaunchUrl(url)) {
                   await launchUrl(url);
                 }
@@ -202,20 +282,31 @@ class SettingsView extends GetView<SettingsController> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.orange),
-              title: const Text('Çıkış Yap', style: TextStyle(color: Colors.orange)),
+              title: const Text(
+                'Çıkış Yap',
+                style: TextStyle(color: Colors.orange),
+              ),
               onTap: () {
                 Get.dialog(
                   AlertDialog(
                     title: const Text('Çıkış Yap'),
-                    content: const Text('Hesabınızdan çıkış yapmak istediğinize emin misiniz?'),
+                    content: const Text(
+                      'Hesabınızdan çıkış yapmak istediğinize emin misiniz?',
+                    ),
                     actions: [
-                      TextButton(onPressed: () => Get.back(), child: const Text('İptal')),
+                      TextButton(
+                        onPressed: () => Get.back(),
+                        child: const Text('İptal'),
+                      ),
                       TextButton(
                         onPressed: () {
                           Get.back();
                           Get.find<AuthController>().logout();
                         },
-                        child: const Text('Çıkış Yap', style: TextStyle(color: Colors.orange)),
+                        child: const Text(
+                          'Çıkış Yap',
+                          style: TextStyle(color: Colors.orange),
+                        ),
                       ),
                     ],
                   ),
@@ -223,8 +314,14 @@ class SettingsView extends GetView<SettingsController> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
-              title: const Text('Hesabı Sil', style: TextStyle(color: Colors.redAccent)),
+              leading: const Icon(
+                Icons.delete_forever,
+                color: Colors.redAccent,
+              ),
+              title: const Text(
+                'Hesabı Sil',
+                style: TextStyle(color: Colors.redAccent),
+              ),
               onTap: () async {
                 try {
                   final requiresPwd = controller.deletionRequiresPassword;
@@ -233,7 +330,9 @@ class SettingsView extends GetView<SettingsController> {
                       requiresPassword: requiresPwd,
                       onDelete: controller.deleteUserAccount,
                     ),
-                    backgroundColor: isDark ? const Color(0xFF16221A) : Colors.white,
+                    backgroundColor: isDark
+                        ? const Color(0xFF16221A)
+                        : Colors.white,
                     isScrollControlled: true,
                   );
                 } catch (_) {

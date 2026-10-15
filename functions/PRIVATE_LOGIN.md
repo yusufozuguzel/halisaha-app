@@ -1,4 +1,10 @@
-# Private username login — local implementation, not deployed
+# Private username login
+
+Production status, 12 October 2026: both endpoints deployed to
+`halisaha-app-d9ea1`, readiness enabled and secrets bound through Secret Manager.
+A synthetic unknown-name request returned HTTP 401 / UNAUTHENTICATED with the
+expected generic login error. Successful real-device login, reset delivery and
+provider flows remain separate validation steps. See [release runbook](../docs/release-runbook.md).
 
 The Flutter client no longer queries Firestore before login/reset. Email input
 still uses native Firebase Auth directly. Username input calls
@@ -21,13 +27,20 @@ username-to-email lookup or an anonymous Firestore fallback.
 server. Known, unknown, ambiguous, disabled and passwordless names receive the
 same `{accepted:true}` payload. No email address or reset link is returned.
 This is response-content protection, not a claim of constant-time execution.
-Enable Firebase's email enumeration protection in the reviewed production
-configuration; native email login/reset remains subject to that setting.
+Firebase's email enumeration protection was read back as enabled in the
+production Identity Toolkit configuration on 12 October 2026; native email
+login/reset remains subject to that setting.
 
-The application currently uses editable display names as login names; they are
-not unique usernames. Matching preserves existing case-sensitive semantics.
-Collisions never select an arbitrary account. Users can always enter their
-email instead. A unique-username product/migration policy is separate work.
+The optional unique-handle service uses `USERNAMES_READY`, which defaults off.
+An authenticated profile owner may claim one lowercase ASCII handle (3–30
+letters, digits or underscores); claims are unique and cannot be changed by a
+client. `findUsername` returns only the claimed UID and public display name.
+Claimed handles take priority during username/password resolution. Without a
+claim, the server unions exact `fullName` and legacy `name` matches and proceeds
+only when one profile is unambiguous. Existing display names and email sign-in
+semantics remain unchanged. The callable, client UI and complete rules candidate
+must be staged together before enabling this capability. This local optional
+flow has not been deployed or activated in production.
 
 ## Rate limits and configuration
 
@@ -35,26 +48,37 @@ Both unauthenticated callables are disabled unless PRIVATE_LOGIN_READY is true
 and AUTH_RATE_LIMIT_KEY is at least 32 characters. Configure AUTH_WEB_API_KEY
 for the **same** Firebase project before enabling. It is a Firebase web API key,
 not a service account credential. The rate-key must be a random server-only
-secret; do not put it in Flutter assets or the root .env. No real values or
-production settings were added by this work.
+secret; do not put it in Flutter assets or the root .env. Secret values are
+absent from source control and this document.
+
+For Secret Manager, first create the `AUTH_RATE_LIMIT_KEY` and
+`AUTH_WEB_API_KEY` secrets in the intended project, then set
+`AUTH_SECRETS_FROM_SECRET_MANAGER=true` in the Functions environment. Only the
+two private-login callables bind those secrets. The default remains false and
+does not bind or create any secrets. `PRIVATE_LOGIN_READY` remains a separate
+off-by-default gate. Production secrets were created through the authenticated
+Firebase CLI; their values were not printed or added to the repository.
 
 Transactions enforce fixed-window username and IP buckets across function
-instances. Login allows 10/name and 40/IP per 15 minutes; reset allows 3/name
+instances. Login allows 10/name-and-IP and 40/IP per 15 minutes; reset allows 3/name
 and 10/IP per hour. A shared IP can hit its limit. Window boundaries permit a
 burst across two windows. Distributed attacks, endpoint cost controls and
 App Check enforcement require staging/operations review; this is not a DDoS
 solution. Verify the trusted client-IP path behind the production proxy before
 enabling; never trust a caller's forwarded header without a verified proxy.
 
-`_loginLimits` stores only HMAC bucket IDs, counts and expiresAt. Configure a
-Firestore TTL policy on expiresAt (not done here). Expiry is not required for
-correct limits, but is required to avoid unbounded retention. HMAC key rotation
-resets active buckets. Direct client reads/writes are denied by profile rules.
+`_loginLimits` stores only HMAC bucket IDs, counts and expiresAt. The candidate
+Firestore index file declares TTL on its expiresAt field and on nested `windows`
+rate-limit records used by the optional Maps and username callables. TTL index
+deployment is a separate project operation; expiry is not required for correct
+limits but avoids unbounded retention. HMAC key rotation resets active buckets.
+Direct client reads/writes are denied by profile rules.
 
 ## Profile migration and release order
 
 1. Review existing server writers, actual rules, legacy profile shapes and
-   existing indexes. This code does not enable or deploy anything.
+   existing indexes. The production operations already completed are recorded
+   separately in the release runbook; do not blindly repeat them.
 2. Test/configure the backend in staging. It works both before and after profile
    email removal because Auth is authoritative. Confirm reset email delivery,
    real network/IP handling, abuse limits and normal sign-in.
@@ -68,7 +92,8 @@ resets active buckets. Direct client reads/writes are denied by profile rules.
    writers must uphold the same invariant. Never mark an unclean record v2.
 5. Run a read-only profile inventory and resolve unknown fields/invalid values.
    `node tool/migrate-profiles.cjs --project=PROJECT` prints aggregate counts only.
-   It does not mutate data. No production inventory was run in this session.
+   It does not mutate data. A production inventory and 21 conditional updates
+   were completed in this session; three orphan legacy profiles remain.
    The current CLI's --apply-local is restricted to demo-depar-review with both
    localhost emulators; production writes require a separately reviewed step.
 6. In an approved migration, remove email and set profileVersion:2 atomically per

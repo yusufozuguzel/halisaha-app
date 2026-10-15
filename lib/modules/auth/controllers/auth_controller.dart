@@ -1,3 +1,5 @@
+import 'dart:async';
+import '../../../core/services/content_filter.dart';
 import '../../../core/services/login_identifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +27,9 @@ class AuthController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   late Rx<User?> firebaseUser;
+  StreamSubscription<User?>? _authSubscription;
+  int _routeRevision = 0;
+  bool _creatingAccount = false;
   var isLogin = true.obs;
   bool _socialSignInBusy = false;
   final GlobalKey<FormState> registerFormKey = GlobalKey<FormState>();
@@ -35,22 +40,37 @@ class AuthController extends GetxController {
     // Initialize the firebaseUser with current state
     firebaseUser = Rx<User?>(_auth.currentUser);
     // Bind stream so it updates when auth states change
-    firebaseUser.bindStream(_auth.authStateChanges());
-    // Use worker to trigger routing based on changes
-    ever(firebaseUser, _setInitialScreen);
+    _authSubscription = _auth.authStateChanges().listen((user) {
+      if (isClosed) return;
+      firebaseUser.value = user;
+      if (!_creatingAccount) _setInitialScreen(user);
+    });
+  }
+
+  @override
+  void onClose() {
+    ++_routeRevision;
+    _authSubscription?.cancel();
+    super.onClose();
   }
 
   Future<void> _setInitialScreen(User? user) async {
+    final revision = ++_routeRevision;
+    bool current() =>
+        !isClosed &&
+        revision == _routeRevision &&
+        _auth.currentUser?.uid == user?.uid;
     if (user == null) {
       Get.offAllNamed(Routes.AUTH);
     } else {
       try {
         if (user.uid.isEmpty) return;
         final doc = await _firestore.collection('users').doc(user.uid).get();
+        if (!current()) return;
         if (doc.exists) {
           final data = doc.data() as Map<String, dynamic>;
           final isComplete = data['isProfileComplete'] ?? false;
-          if (isComplete) {
+          if (isComplete == true) {
             Get.offAllNamed(Routes.HOME);
           } else {
             Get.offAllNamed(Routes.PROFILE_SETUP);
@@ -60,8 +80,16 @@ class AuthController extends GetxController {
           Get.offAllNamed(Routes.PROFILE_SETUP);
         }
       } catch (e) {
-        // Fallback
-        Get.offAllNamed(Routes.HOME);
+        if (!current()) return;
+        try {
+          await _auth.signOut();
+        } catch (_) {
+          if (current()) Get.offAllNamed(Routes.AUTH);
+        }
+        Get.snackbar(
+          'Giriş tamamlanamadı',
+          'Profil yüklenemedi. Bağlantınızı kontrol edip tekrar giriş yapın.',
+        );
       }
     }
   }
@@ -86,21 +114,26 @@ class AuthController extends GetxController {
     } on FirebaseAuthException catch (e) {
       String message = "Bir hata oluştu. Lütfen tekrar deneyin.";
       if (e.code == 'network-request-failed') {
-        message = 'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
-      } else if (e.code == 'invalid-credential' || e.code == 'user-not-found' || e.code == 'wrong-password') {
-        message = 'E-posta veya şifre hatalı. Lütfen kontrol edip tekrar deneyin.';
+        message =
+            'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
+      } else if (e.code == 'invalid-credential' ||
+          e.code == 'user-not-found' ||
+          e.code == 'wrong-password') {
+        message =
+            'E-posta veya şifre hatalı. Lütfen kontrol edip tekrar deneyin.';
       } else if (e.code == 'invalid-email') {
         message = 'Geçersiz bir e-posta adresi girdiniz.';
       } else if (e.code == 'user-disabled') {
         message = 'Bu hesap askıya alınmış veya kapatılmış.';
       } else if (e.code == 'too-many-requests') {
-        message = 'Çok fazla başarısız deneme yapıldı. Lütfen daha sonra tekrar deneyin.';
+        message =
+            'Çok fazla başarısız deneme yapıldı. Lütfen daha sonra tekrar deneyin.';
       } else {
         message = e.message ?? message;
       }
-      
+
       Get.snackbar(
-        "Giriş Başarısız", 
+        "Giriş Başarısız",
         message,
         backgroundColor: Colors.red.shade600,
         colorText: Colors.white,
@@ -108,7 +141,7 @@ class AuthController extends GetxController {
       );
     } catch (e) {
       Get.snackbar(
-        "Hata", 
+        "Hata",
         "Giriş tamamlanamadı. Lütfen tekrar deneyin.",
         backgroundColor: Colors.red.shade600,
         colorText: Colors.white,
@@ -118,14 +151,21 @@ class AuthController extends GetxController {
   }
 
   Future<void> register(String email, String password, String fullName) async {
-    if (!registerFormKey.currentState!.validate()) {
+    if (registerFormKey.currentState?.validate() != true) {
       return;
     }
     if (fullName.trim().isEmpty || fullName.trim().length > 100) {
       Get.snackbar('Kayıt Hatası', 'Adınız 1–100 karakter olmalıdır.');
       return;
     }
-    
+    try {
+      ContentFilterService().validateTexts([fullName]);
+    } on ContentFilterException catch (e) {
+      Get.snackbar('Kayıt Hatası', e.message);
+      return;
+    }
+    _creatingAccount = true;
+    ++_routeRevision;
     try {
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(
@@ -140,11 +180,24 @@ class AuthController extends GetxController {
         "createdAt": FieldValue.serverTimestamp(),
       });
 
+      try {
+        await userCredential.user?.sendEmailVerification();
+        Get.snackbar(
+          'E-posta do\u011frulama',
+          'Do\u011frulama e-postas\u0131 g\u00f6nderildi. Ayarlar ekran\u0131ndan durumunu kontrol edebilirsiniz.',
+        );
+      } catch (_) {
+        Get.snackbar(
+          'Hesab\u0131n\u0131z olu\u015fturuldu',
+          'Do\u011frulama e-postas\u0131n\u0131 Ayarlar ekran\u0131ndan yeniden g\u00f6nderebilirsiniz.',
+        );
+      }
       Get.snackbar("Başarılı", "Kayıt işlemi tamamlandı");
     } on FirebaseAuthException catch (e) {
       String message = "Kayıt olurken bir hata oluştu.";
       if (e.code == 'network-request-failed') {
-        message = 'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
+        message =
+            'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
       } else if (e.code == 'email-already-in-use') {
         message = 'Bu e-posta adresi zaten kullanımda.';
       } else if (e.code == 'invalid-email') {
@@ -154,14 +207,22 @@ class AuthController extends GetxController {
       } else {
         message = e.message ?? message;
       }
-      
+
       Get.snackbar(
-        "Kayıt Hatası", 
+        "Kayıt Hatası",
         message,
         backgroundColor: Colors.red.shade600,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
+    } catch (_) {
+      Get.snackbar(
+        'Profil tamamlanamadı',
+        'Hesabınız oluşturuldu. Profil bilgilerinizi sonraki adımda tamamlayın.',
+      );
+    } finally {
+      _creatingAccount = false;
+      if (!isClosed) await _setInitialScreen(_auth.currentUser);
     }
   }
 
@@ -195,7 +256,8 @@ class AuthController extends GetxController {
     if (_socialSignInBusy) return;
     _socialSignInBusy = true;
     try {
-      final GoogleSignInAccount? googleUser = await createGoogleSignIn().signIn();
+      final GoogleSignInAccount? googleUser = await createGoogleSignIn()
+          .signIn();
 
       // User canceled the sign-in
       if (googleUser == null) return;
@@ -222,7 +284,7 @@ class AuthController extends GetxController {
     } on PlatformException catch (e) {
       if (e.code == 'network_error') {
         Get.snackbar(
-          "Bağlantı Hatası", 
+          "Bağlantı Hatası",
           "İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.",
           backgroundColor: Colors.red.shade600,
           colorText: Colors.white,
@@ -230,7 +292,7 @@ class AuthController extends GetxController {
         );
       } else if (e.code == 'sign_in_canceled') {
         Get.snackbar(
-          "Bilgi", 
+          "Bilgi",
           "Giriş işlemi iptal edildi.",
           backgroundColor: Colors.grey.shade800,
           colorText: Colors.white,
@@ -239,7 +301,7 @@ class AuthController extends GetxController {
         );
       } else {
         Get.snackbar(
-          "Hata", 
+          "Hata",
           "Google ile giriş yapılırken bir sorun oluştu. Lütfen tekrar deneyin.",
           backgroundColor: Colors.red.shade600,
           colorText: Colors.white,
@@ -247,16 +309,18 @@ class AuthController extends GetxController {
         );
       }
     } on FirebaseAuthException catch (e) {
-      String message = "Google ile giriş yapılırken bir sorun oluştu. Lütfen tekrar deneyin.";
+      String message =
+          "Google ile giriş yapılırken bir sorun oluştu. Lütfen tekrar deneyin.";
       if (e.code == 'network-request-failed') {
-        message = 'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
+        message =
+            'İnternet bağlantısı yok veya çok zayıf. Lütfen bağlantınızı kontrol edip tekrar deneyin.';
       }
       if (e.code == 'account-exists-with-different-credential') {
         message =
             'Bu e-posta ile bir hesap mevcut. Daha önce kullandığınız giriş yöntemini seçin.';
       }
       Get.snackbar(
-        "Hata", 
+        "Hata",
         message,
         backgroundColor: Colors.red.shade600,
         colorText: Colors.white,
@@ -264,7 +328,7 @@ class AuthController extends GetxController {
       );
     } catch (e) {
       Get.snackbar(
-        "Hata", 
+        "Hata",
         "Google ile giriş yapılırken bir sorun oluştu. Lütfen tekrar deneyin.",
         backgroundColor: Colors.red.shade600,
         colorText: Colors.white,

@@ -54,10 +54,48 @@ void main() {
   late SocialInteractions alice;
   setUp(() {
     store = MemorySocialStore();
-    alice = SocialInteractions(store: store, currentUid: () => 'alice');
+    alice = SocialInteractions(
+      store: store,
+      currentUid: () => 'alice',
+      prepareWrite: (_) async => false,
+    );
   });
   final rejected = isA<SocialInteractionException>();
 
+  test(
+    'enabled follow cooldown record commits atomically with request and notification',
+    () async {
+      final limited = SocialInteractions(
+        store: store,
+        currentUid: () => 'alice',
+        prepareWrite: (_) async => true,
+      );
+      await limited.requestFollow('bob');
+      expect(
+        store.docs['_writeLimits/alice/actions/followRequest']?['targetId'],
+        'bob',
+      );
+      expect(store.docs.containsKey('users/bob/followRequests/alice'), true);
+      expect(
+        store.docs.keys
+            .where((path) => path.startsWith('users/bob/notifications/'))
+            .length,
+        1,
+      );
+      store.docs.remove('_writeLimits/alice/actions/followRequest');
+      store.docs.remove('users/bob/followRequests/alice');
+      store.failCommit = true;
+      await expectLater(
+        limited.requestFollow('bob'),
+        throwsA(isA<StateError>()),
+      );
+      expect(
+        store.docs.containsKey('_writeLimits/alice/actions/followRequest'),
+        false,
+      );
+      expect(store.docs.containsKey('users/bob/followRequests/alice'), false);
+    },
+  );
   test(
     'both blocking directions stop requests, acceptance and invitations',
     () async {

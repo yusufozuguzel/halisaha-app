@@ -57,7 +57,7 @@ function selfPending(old, next, change) {
 function ownerInvites(old, next, owner, slot) {
   let target = next.get(slot, '');
   return old == next || next.diff(old).affectedKeys().hasOnly([slot])
-    && (target == '' || socialPairAllowed(owner, target));
+    && (target == '' || verifiedEmailForAbuse() && socialPairAllowed(owner, target));
 }
 function participantMatchUpdate() {
   let a = resource.data;
@@ -80,24 +80,28 @@ function participantMatchUpdate() {
 function ownerMatchUpdate() {
   let a = resource.data;
   let b = request.resource.data;
+  let changed = b.diff(a).affectedKeys();
   return request.auth.uid == matchOwner(a)
     && (b.date == a.date || b.date > request.time)
     && b.diff(a).affectedKeys().hasOnly(['title','venue','venueId','latitude','longitude','price',
       'maxPlayers','date','endDate','teamA_name','teamB_name','formation','status',
       'currentPlayers','positions','pendingPositions','invitedPlayers','slotChange','inviteSlot'])
-    && b.currentPlayers.toSet().difference(a.currentPlayers.toSet()).size() == 0
-    && (a.status == 'open' && a.date > request.time
-      || b.get('positions', {}).diff(a.get('positions', {})).addedKeys().size() == 0
-        && b.get('positions', {}).diff(a.get('positions', {})).changedKeys().size() == 0
-        && b.get('pendingPositions', {}).diff(a.get('pendingPositions', {})).addedKeys().size() == 0
-        && b.get('pendingPositions', {}).diff(a.get('pendingPositions', {})).changedKeys().size() == 0)
-    && ownerInvites(a.get('pendingPositions', {}), b.get('pendingPositions', {}), request.auth.uid, b.get('inviteSlot', ''));
+    && (changed.hasOnly(['title','venue','venueId','latitude','longitude','price','maxPlayers','date','endDate',
+          'teamA_name','teamB_name','formation','status'])
+      || b.currentPlayers.toSet().difference(a.currentPlayers.toSet()).size() == 0
+        && (a.status == 'open' && a.date > request.time
+          || b.get('positions', {}).diff(a.get('positions', {})).addedKeys().size() == 0
+            && b.get('positions', {}).diff(a.get('positions', {})).changedKeys().size() == 0
+            && b.get('pendingPositions', {}).diff(a.get('pendingPositions', {})).addedKeys().size() == 0
+            && b.get('pendingPositions', {}).diff(a.get('pendingPositions', {})).changedKeys().size() == 0)
+        && ownerInvites(a.get('pendingPositions', {}), b.get('pendingPositions', {}), request.auth.uid, b.get('inviteSlot', '')));
 }
 match /matches/{matchId} {
   allow read: if request.auth != null;
-  allow create: if safetyWritesAllowed() && validNewMatchOwner()
+  allow create: if safetyWritesAllowed()
+    && writeCooldownAllowed('matchCreate', matchId) && validNewMatchOwner()
     && !exists(/databases/$(database)/documents/_retiredMatches/$(matchId))
-    && validMatchMetadata(request.resource.data)
+    && validMatchMetadata(request.resource.data, null)
     && request.resource.data.createdAt == request.time
     && validRoster(request.resource.data)
     && request.resource.data.currentPlayers == [request.auth.uid]
@@ -107,8 +111,13 @@ match /matches/{matchId} {
     && accountActive(matchOwner(resource.data))
     && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
           ['currentPlayers','positions','pendingPositions','invitedPlayers','slotChange','inviteSlot'])
-      || validMatchMetadata(request.resource.data))
-    && validRoster(request.resource.data)
-    && (ownerMatchUpdate() || participantMatchUpdate());
+      || validFormationOnlyUpdate()
+      || validMatchMetadata(request.resource.data, resource.data))
+    && (request.auth.uid == matchOwner(resource.data)
+      ? ownerMatchUpdate()
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(
+          ['currentPlayers','positions','pendingPositions','invitedPlayers','slotChange','inviteSlot'])
+          || validRoster(request.resource.data))
+      : validRoster(request.resource.data) && participantMatchUpdate());
   allow delete: if safetyWritesAllowed() && canDeleteMatch();
 }

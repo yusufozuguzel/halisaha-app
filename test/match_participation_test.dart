@@ -1,3 +1,4 @@
+import 'package:halisaha_app/core/services/write_policy.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:halisaha_app/core/services/match_participation.dart';
@@ -20,10 +21,45 @@ void main() {
       'pendingPositions': <String, String>{},
       'invitedPlayers': <String>[],
     };
-    alice = MatchParticipation(store: store, currentUid: () => 'alice');
-    bob = MatchParticipation(store: store, currentUid: () => 'bob');
+    alice = MatchParticipation(
+      store: store,
+      currentUid: () => 'alice',
+      prepareWrite: (_) async => false,
+    );
+    bob = MatchParticipation(
+      store: store,
+      currentUid: () => 'bob',
+      prepareWrite: (_) async => false,
+    );
   });
   final rejected = isA<MatchActionException>();
+  test(
+    'new formation invite preflight rejects before writes while invite removal remains allowed',
+    () async {
+      var checks = 0;
+      final gated = MatchParticipation(
+        store: store,
+        currentUid: () => 'alice',
+        prepareWrite: (_) async {
+          checks++;
+          throw const WritePolicyException('Verification required');
+        },
+      );
+      await expectLater(
+        gated.saveFormation('game', '1-2-1', {}, {'1': 'bob'}),
+        throwsA(isA<MatchActionException>()),
+      );
+      expect(
+        store.docs.keys.where((key) => key.startsWith('notifications/')),
+        isEmpty,
+      );
+      store.docs['matches/game']!['pendingPositions'] = {'1': 'bob'};
+      store.docs['matches/game']!['invitedPlayers'] = ['bob'];
+      await gated.saveFormation('game', '1-2-1', {'1': 'bob'}, {});
+      expect(checks, 1);
+      expect(store.docs['matches/game']!['pendingPositions'], isEmpty);
+    },
+  );
   test(
     'join uses current capacity and no membership is saved on commit failure',
     () async {

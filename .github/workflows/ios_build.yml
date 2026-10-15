@@ -1,33 +1,46 @@
-name: iOS CI/CD Build
+name: iOS build check
 
-# Sadece biz GitHub üzerinden butona bastığımızda çalışması için (Manuel Tetikleme):
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build_ios:
-    name: Build Flutter iOS
-    # İşte Emir'in "ortamı macos seçtir" dediği kritik yer:
+  build-ios:
     runs-on: macos-latest
-
     steps:
-      - name: 📥 Kodları Çek (Checkout)
-        uses: actions/checkout@v3
-
-      - name: ⚙️ Flutter Kurulumu
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
-
-      - name: 📦 Paketleri Yükle
-        run: flutter pub get
-
-      - name: 🍏 iOS Derlemesi Al (Code Signing Olmadan Test)
-        # Not: Şimdilik ortamı test etmek ve derleme hatalarını görmek için imzasız alıyoruz.
+          flutter-version: '3.41.4'
+          channel: stable
+          cache: true
+      - name: Configure native iOS Maps key
+        shell: bash
+        env:
+          IOS_MAPS_API_KEY: ${{ secrets.IOS_MAPS_API_KEY }}
+        run: |
+          if [[ -n "$IOS_MAPS_API_KEY" ]]; then
+            if [[ ! "$IOS_MAPS_API_KEY" =~ ^[A-Za-z0-9_-]+$ ]]; then
+              echo 'IOS_MAPS_API_KEY must contain only key characters.' >&2
+              exit 1
+            fi
+            printf 'MAPS_API_KEY=%s\n' "$IOS_MAPS_API_KEY" > ios/Flutter/Secrets.xcconfig
+          fi
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Check iOS configuration
+        run: python3 tool/check_ios_configuration.py
+      - name: Analyze Dart
+        run: flutter analyze --no-fatal-infos
+      - name: Run Flutter tests
+        run: flutter test
+      - name: Build unsigned iOS app for compile verification
         run: flutter build ios --release --no-codesign
-
-      - name: 🚀 Sonucu Çıktı Olarak Ver (Artifact)
-        uses: actions/upload-artifact@v3
+      - name: Upload unsigned app bundle
+        uses: actions/upload-artifact@v4
         with:
-          name: ios-build-files
-          path: build/ios/iphoneos/
+          name: ios-unsigned-app-build-check
+          path: build/ios/iphoneos/Runner.app/
+          if-no-files-found: error

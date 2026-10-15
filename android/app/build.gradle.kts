@@ -1,5 +1,4 @@
 import java.util.Properties
-import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
@@ -7,6 +6,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 val localProperties = Properties()
@@ -15,9 +15,27 @@ if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
 val mapsApiKey = localProperties.getProperty("MAPS_API_KEY") ?: ""
+val keyPropertiesFile = rootProject.file("key.properties")
+val keyProperties = Properties()
+if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.inputStream().use { keyProperties.load(it) }
+}
+val requiredSigningKeys = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+val missingSigningKeys = requiredSigningKeys.filter { keyProperties.getProperty(it).isNullOrBlank() }
+val releaseTasksRequested = gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
+if (releaseTasksRequested && (missingSigningKeys.isNotEmpty() || !keyPropertiesFile.exists())) {
+    throw GradleException(
+        "Android release signing requires android/key.properties with ${requiredSigningKeys.joinToString(", ")}. " +
+            "See README.md for setup. Missing: ${missingSigningKeys.joinToString(", ")}"
+    )
+}
+val releaseStoreFile = keyProperties.getProperty("storeFile")?.let { rootProject.file(it) }
+if (releaseTasksRequested && releaseStoreFile?.isFile != true) {
+    throw GradleException("Android release keystore not found at ${releaseStoreFile ?: "<unset>"}; check storeFile in android/key.properties.")
+}
 
 android {
-    namespace = "com.example.halisaha_app"
+    namespace = "com.depar.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -31,7 +49,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.depar.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -42,11 +59,20 @@ android {
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
+    signingConfigs {
+        create("release") {
+            if (missingSigningKeys.isEmpty()) {
+                storeFile = releaseStoreFile
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

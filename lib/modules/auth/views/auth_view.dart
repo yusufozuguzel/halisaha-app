@@ -19,7 +19,10 @@ class AuthView extends GetView<AuthController> {
         top: false,
         child: TextButton(
           onPressed: () => SupportContact.show(context),
-          child: const Text('Destek ve İletişim', style: TextStyle(color: Colors.white70)),
+          child: const Text(
+            'Destek ve İletişim',
+            style: TextStyle(color: Colors.white70),
+          ),
         ),
       ),
       body: SafeArea(
@@ -77,10 +80,7 @@ class _LoginFormState extends State<_LoginForm> {
         children: [
           const SizedBox(height: 40),
           Center(
-            child: Image.asset(
-              'assets/images/logo_full.png',
-              height: 120,
-            ),
+            child: Image.asset('assets/images/logo_full.png', height: 120),
           ),
           const SizedBox(height: 32),
           const Text(
@@ -97,7 +97,7 @@ class _LoginFormState extends State<_LoginForm> {
             "Maçlarını organize et, takımını kur.",
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 16,
             ),
           ),
@@ -148,10 +148,10 @@ class _LoginFormState extends State<_LoginForm> {
                           decoration: InputDecoration(
                             hintText: "Email",
                             hintStyle: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withValues(alpha: 0.5),
                             ),
                             filled: true,
-                            fillColor: Colors.white.withOpacity(0.05),
+                            fillColor: Colors.white.withValues(alpha: 0.05),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
@@ -201,7 +201,7 @@ class _LoginFormState extends State<_LoginForm> {
                     ? Icons.visibility_off_outlined
                     : Icons.visibility_outlined,
                 color: obscureText
-                    ? Colors.white.withOpacity(0.4)
+                    ? Colors.white.withValues(alpha: 0.4)
                     : Colors.white,
               ),
               onPressed: () {
@@ -223,7 +223,7 @@ class _LoginFormState extends State<_LoginForm> {
                 },
                 activeColor: const Color(0xFF2EED7B),
                 checkColor: Colors.black,
-                side: BorderSide(color: Colors.white.withOpacity(0.5)),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
               ),
               const Text(
                 "Beni Hatırla",
@@ -255,15 +255,19 @@ class _LoginFormState extends State<_LoginForm> {
           const SizedBox(height: 32),
           Row(
             children: [
-              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
+              Expanded(
+                child: Divider(color: Colors.white.withValues(alpha: 0.1)),
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   "veya",
-                  style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
                 ),
               ),
-              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
+              Expanded(
+                child: Divider(color: Colors.white.withValues(alpha: 0.1)),
+              ),
             ],
           ),
           const SizedBox(height: 32),
@@ -280,7 +284,7 @@ class _LoginFormState extends State<_LoginForm> {
               text: TextSpan(
                 text: "Hesabın yok mu? ",
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 14,
                 ),
                 children: [
@@ -339,313 +343,325 @@ class _RegisterFormState extends State<_RegisterForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => widget.controller.isLogin.value = true,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            "Hesap Oluştur 🚀",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Futbol dünyasına adım atmak için bilgilerini gir.",
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            "Ad Soyad",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _CustomTextField(
-            controller: fullNameController,
-            hintText: "Ahmet Yılmaz",
-            prefixIcon: Icons.person_outline,
-            validator: (val) {
-              if (val == null || val.trim().isEmpty) return 'Ad Soyad alanı boş bırakılamaz.';
-              return null;
-            },
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            "Email Adresi",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _CustomTextField(
-            controller: emailController,
-            hintText: "ornek@email.com",
-            prefixIcon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress,
-            validator: (val) {
-              if (val == null || val.trim().isEmpty) return 'Email adresi boş bırakılamaz.';
-              if (!val.contains('@')) return 'Geçerli bir email adresi girin.';
-              return null;
-            },
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            "Şifre",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _CustomTextField(
-            controller: passwordController,
-            hintText: "••••••••",
-            prefixIcon: Icons.lock_outline,
-            obscureText: obscureText,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            helperText: "En az 8 karakter, 1 büyük harf ve 1 özel karakter",
-            validator: AppValidators.passwordValidator,
-            suffixIcon: IconButton(
-              icon: Icon(
-                obscureText
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                color: obscureText
-                    ? Colors.white.withOpacity(0.4)
-                    : Colors.white,
-              ),
-              onPressed: () {
-                setState(() {
-                  obscureText = !obscureText;
-                });
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    isAgreed = !isAgreed;
-                  });
-                },
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  margin: const EdgeInsets.only(top: 2, right: 12),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isAgreed
-                          ? const Color(0xFF2EED7B)
-                          : Colors.white.withOpacity(0.3),
-                      width: 2,
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => widget.controller.isLogin.value = true,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      shape: BoxShape.circle,
                     ),
-                    color: isAgreed
-                        ? const Color(0xFF2EED7B)
-                        : Colors.transparent,
-                  ),
-                  child: isAgreed
-                      ? const Icon(Icons.check, size: 14, color: Colors.black)
-                      : null,
-                ),
-              ),
-              Expanded(
-                child: RichText(
-                  text: TextSpan(
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
-                      fontSize: 13,
-                      height: 1.5,
+                    child: const Icon(
+                      Icons.arrow_back_ios_new,
+                      color: Colors.white,
+                      size: 18,
                     ),
-                    children: [
-                      TextSpan(
-                        text: "Kullanım Koşulları",
-                        style: const TextStyle(
-                          color: Color(0xFF2EED7B),
-                          decoration: TextDecoration.underline,
-                        ),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () async {
-                            final Uri url = Uri.parse('https://yusufozuguzel.github.io/depar-web/kosullar.html');
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(url);
-                            }
-                          },
-                      ),
-                      const TextSpan(text: "'nı ve "),
-                      TextSpan(
-                        text: "Gizlilik Politikası",
-                        style: const TextStyle(
-                          color: Color(0xFF2EED7B),
-                          decoration: TextDecoration.underline,
-                        ),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () async {
-                            final Uri url = Uri.parse('https://yusufozuguzel.github.io/depar-web/gizlilik.html');
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(url);
-                            }
-                          },
-                      ),
-                      const TextSpan(text: "'nı okudum ve kabul ediyorum."),
-                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              if (!isAgreed) {
-                Get.snackbar(
-                  'Uyarı',
-                  "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: Colors.redAccent,
-                  colorText: Colors.white,
-                );
-                return;
-              }
-              if (!widget.controller.registerFormKey.currentState!.validate()) {
-                return;
-              }
-              widget.controller.register(
-                emailController.text,
-                passwordController.text,
-                fullNameController.text,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2EED7B),
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  "Kayıt Ol",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_forward, size: 20),
               ],
             ),
-          ),
-          const SizedBox(height: 32),
-          Row(
-            children: [
-              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  "YA DA",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 12,
-                    letterSpacing: 1,
-                  ),
-                ),
+            const SizedBox(height: 24),
+            const Text(
+              "Hesap Oluştur 🚀",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
               ),
-              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
-            ],
-          ),
-          const SizedBox(height: 32),
-          _GoogleButton(
-            text: "Google ile Devam Et",
-            onPressed: () {
-              if (!isAgreed) {
-                Get.snackbar(
-                  'Uyarı',
-                  "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: Colors.redAccent,
-                  colorText: Colors.white,
-                );
-                return;
-              }
-              widget.controller.signInWithGoogle();
-            },
-          ),
-          AppleSignInButton(
-            onPressed: () {
-              if (!isAgreed) {
-                Get.snackbar(
-                  'Uyarı',
-                  "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: Colors.redAccent,
-                  colorText: Colors.white,
-                );
-                return;
-              }
-              widget.controller.signInWithApple();
-            },
-          ),
-          const SizedBox(height: 40),
-          Center(
-            child: RichText(
-              text: TextSpan(
-                text: "Zaten bir hesabın var mı? ",
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 14,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Futbol dünyasına adım atmak için bilgilerini gir.",
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              "Ad Soyad",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _CustomTextField(
+              controller: fullNameController,
+              hintText: "Ahmet Yılmaz",
+              prefixIcon: Icons.person_outline,
+              validator: (val) {
+                if (val == null || val.trim().isEmpty)
+                  return 'Ad Soyad alanı boş bırakılamaz.';
+                return null;
+              },
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              "Email Adresi",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _CustomTextField(
+              controller: emailController,
+              hintText: "ornek@email.com",
+              prefixIcon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              validator: (val) {
+                if (val == null || val.trim().isEmpty)
+                  return 'Email adresi boş bırakılamaz.';
+                if (!val.contains('@'))
+                  return 'Geçerli bir email adresi girin.';
+                return null;
+              },
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              "Şifre",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _CustomTextField(
+              controller: passwordController,
+              hintText: "••••••••",
+              prefixIcon: Icons.lock_outline,
+              obscureText: obscureText,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              helperText: "En az 8 karakter, 1 büyük harf ve 1 özel karakter",
+              validator: AppValidators.passwordValidator,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  obscureText
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: obscureText
+                      ? Colors.white.withValues(alpha: 0.4)
+                      : Colors.white,
                 ),
-                children: [
-                  TextSpan(
-                    text: "Giriş Yap",
-                    style: const TextStyle(
-                      color: Color(0xFF2EED7B),
-                      fontWeight: FontWeight.bold,
+                onPressed: () {
+                  setState(() {
+                    obscureText = !obscureText;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      isAgreed = !isAgreed;
+                    });
+                  },
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    margin: const EdgeInsets.only(top: 2, right: 12),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isAgreed
+                            ? const Color(0xFF2EED7B)
+                            : Colors.white.withValues(alpha: 0.3),
+                        width: 2,
+                      ),
+                      color: isAgreed
+                          ? const Color(0xFF2EED7B)
+                          : Colors.transparent,
                     ),
-                    recognizer: TapGestureRecognizer()
-                      ..onTap = () {
-                        widget.controller.isLogin.value = true;
-                      },
+                    child: isAgreed
+                        ? const Icon(Icons.check, size: 14, color: Colors.black)
+                        : null,
                   ),
+                ),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: "Kullanım Koşulları",
+                          style: const TextStyle(
+                            color: Color(0xFF2EED7B),
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () async {
+                              final Uri url = Uri.parse(
+                                'https://yusufozuguzel.github.io/depar-web/kosullar.html',
+                              );
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url);
+                              }
+                            },
+                        ),
+                        const TextSpan(text: "'nı ve "),
+                        TextSpan(
+                          text: "Gizlilik Politikası",
+                          style: const TextStyle(
+                            color: Color(0xFF2EED7B),
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () async {
+                              final Uri url = Uri.parse(
+                                'https://yusufozuguzel.github.io/depar-web/gizlilik.html',
+                              );
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url);
+                              }
+                            },
+                        ),
+                        const TextSpan(text: "'nı okudum ve kabul ediyorum."),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                if (!isAgreed) {
+                  Get.snackbar(
+                    'Uyarı',
+                    "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.redAccent,
+                    colorText: Colors.white,
+                  );
+                  return;
+                }
+                if (!widget.controller.registerFormKey.currentState!
+                    .validate()) {
+                  return;
+                }
+                widget.controller.register(
+                  emailController.text,
+                  passwordController.text,
+                  fullNameController.text,
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2EED7B),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Text(
+                    "Kayıt Ol",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, size: 20),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: Divider(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    "YA DA",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 12,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Divider(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _GoogleButton(
+              text: "Google ile Devam Et",
+              onPressed: () {
+                if (!isAgreed) {
+                  Get.snackbar(
+                    'Uyarı',
+                    "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.redAccent,
+                    colorText: Colors.white,
+                  );
+                  return;
+                }
+                widget.controller.signInWithGoogle();
+              },
+            ),
+            AppleSignInButton(
+              onPressed: () {
+                if (!isAgreed) {
+                  Get.snackbar(
+                    'Uyarı',
+                    "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz.",
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.redAccent,
+                    colorText: Colors.white,
+                  );
+                  return;
+                }
+                widget.controller.signInWithApple();
+              },
+            ),
+            const SizedBox(height: 40),
+            Center(
+              child: RichText(
+                text: TextSpan(
+                  text: "Zaten bir hesabın var mı? ",
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: "Giriş Yap",
+                      style: const TextStyle(
+                        color: Color(0xFF2EED7B),
+                        fontWeight: FontWeight.bold,
+                      ),
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () {
+                          widget.controller.isLogin.value = true;
+                        },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -667,7 +683,7 @@ class _GoogleButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.white.withOpacity(0.06)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
         elevation: 0,
       ),
@@ -722,21 +738,24 @@ class _CustomTextField extends StatelessWidget {
         hintText: hintText,
         helperText: helperText,
         helperStyle: TextStyle(
-          color: Colors.white.withOpacity(0.4),
+          color: Colors.white.withValues(alpha: 0.4),
           fontSize: 12,
         ),
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-        prefixIcon: Icon(prefixIcon, color: Colors.white.withOpacity(0.4)),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+        prefixIcon: Icon(
+          prefixIcon,
+          color: Colors.white.withValues(alpha: 0.4),
+        ),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white.withOpacity(0.03),
+        fillColor: Colors.white.withValues(alpha: 0.03),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.06)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.06)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

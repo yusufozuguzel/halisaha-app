@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'callable_app_check.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -15,15 +16,18 @@ class LoginIdentifier {
   LoginIdentifier({
     http.Client? client,
     String? projectId,
+    Future<String?> Function()? appCheckToken,
     Future<void> Function(String email, String password)? signIn,
     Future<void> Function(String email)? resetEmail,
   }) : _client = client,
+       _appCheckToken = appCheckToken ?? callableAppCheckToken,
        _projectId = projectId,
        _signIn = signIn ?? _firebaseSignIn,
        _resetEmail = resetEmail ?? _firebaseReset;
 
   final http.Client? _client;
   final String? _projectId;
+  final Future<String?> Function() _appCheckToken;
   final Future<void> Function(String, String) _signIn;
   final Future<void> Function(String) _resetEmail;
 
@@ -96,10 +100,14 @@ class LoginIdentifier {
     }
     final client = _client ?? http.Client();
     try {
+      final appCheck = await _appCheckToken();
       final response = await client
           .post(
             Uri.https('europe-west1-$project.cloudfunctions.net', '/$function'),
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              if (appCheck != null) 'X-Firebase-AppCheck': appCheck,
+            },
             body: jsonEncode({'data': data}),
           )
           .timeout(const Duration(seconds: 30));

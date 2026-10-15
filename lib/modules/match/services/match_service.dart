@@ -1,3 +1,4 @@
+import '../../../core/services/write_policy.dart';
 import '../../../core/services/match_participation.dart';
 import '../../../core/services/match_metadata.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -25,7 +26,15 @@ class MatchService {
     if (!match.date.isAfter(DateTime.now())) {
       throw const MatchActionException('Geçmiş tarihe maç kurulamaz.');
     }
-    DocumentReference docRef = await _firestore.collection('matches').add(data);
+    final limited = await WritePolicy().prepare(uid);
+    final docRef = _firestore.collection('matches').doc();
+    final batch = _firestore.batch()..set(docRef, data);
+    if (limited)
+      batch.set(
+        _firestore.doc(writeLimitPath(uid, 'matchCreate')),
+        writeLimitData(docRef.id),
+      );
+    await batch.commit();
     return docRef.id;
   }
 
@@ -33,6 +42,9 @@ class MatchService {
   Stream<List<MatchModel>> getMatches() {
     return _firestore
         .collection('matches')
+        .where('date', isGreaterThanOrEqualTo: Timestamp.now())
+        .orderBy('date')
+        .limit(50)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -42,5 +54,6 @@ class MatchService {
   }
 
   // 🔥 YENİ: Maçtan Ayrılma Fonksiyonu 🔥
-  Future<void> leaveMatch(String matchId) => MatchParticipation().leave(matchId);
+  Future<void> leaveMatch(String matchId) =>
+      MatchParticipation().leave(matchId);
 }

@@ -1,0 +1,258 @@
+{
+  "date": "2026-10-15",
+  "timeZone": "Europe/Istanbul",
+  "projectId": "halisaha-app-d9ea1",
+  "initialEnabledApiCount": 61,
+  "freeAdminApiAdded": "billingbudgets.googleapis.com",
+  "note": "API enabled does not establish resource usage or a positive charge.",
+  "services": [
+    {
+      "name": "analyticshub.googleapis.com",
+      "title": "Analytics Hub API"
+    },
+    {
+      "name": "apikeys.googleapis.com",
+      "title": "API Keys API"
+    },
+    {
+      "name": "appengine.googleapis.com",
+      "title": "App Engine Admin API"
+    },
+    {
+      "name": "artifactregistry.googleapis.com",
+      "title": "Artifact Registry API"
+    },
+    {
+      "name": "bigquery.googleapis.com",
+      "title": "BigQuery API"
+    },
+    {
+      "name": "bigqueryconnection.googleapis.com",
+      "title": "BigQuery Connection API"
+    },
+    {
+      "name": "bigquerydatapolicy.googleapis.com",
+      "title": "BigQuery Data Policy API"
+    },
+    {
+      "name": "bigquerydatatransfer.googleapis.com",
+      "title": "BigQuery Data Transfer API"
+    },
+    {
+      "name": "bigquerymigration.googleapis.com",
+      "title": "BigQuery Migration API"
+    },
+    {
+      "name": "bigqueryreservation.googleapis.com",
+      "title": "BigQuery Reservation API"
+    },
+    {
+      "name": "bigquerystorage.googleapis.com",
+      "title": "BigQuery Storage API"
+    },
+    {
+      "name": "cloudaicompanion.googleapis.com",
+      "title": "Gemini for Google Cloud API"
+    },
+    {
+      "name": "cloudapis.googleapis.com",
+      "title": "Google Cloud APIs"
+    },
+    {
+      "name": "cloudbilling.googleapis.com",
+      "title": "Cloud Billing API"
+    },
+    {
+      "name": "cloudbuild.googleapis.com",
+      "title": "Cloud Build API"
+    },
+    {
+      "name": "cloudfunctions.googleapis.com",
+      "title": "Cloud Functions API"
+    },
+    {
+      "name": "cloudresourcemanager.googleapis.com",
+      "title": "Cloud Resource Manager API"
+    },
+    {
+      "name": "cloudtrace.googleapis.com",
+      "title": "Cloud Trace API"
+    },
+    {
+      "name": "containerregistry.googleapis.com",
+      "title": "Container Registry API"
+    },
+    {
+      "name": "dataform.googleapis.com",
+      "title": "Dataform API"
+    },
+    {
+      "name": "dataplex.googleapis.com",
+      "title": "Cloud Dataplex API"
+    },
+    {
+      "name": "datastore.googleapis.com",
+      "title": "Cloud Datastore API"
+    },
+    {
+      "name": "deploymentmanager.googleapis.com",
+      "title": "Cloud Deployment Manager V2 API"
+    },
+    {
+      "name": "eventarc.googleapis.com",
+      "title": "Eventarc API"
+    },
+    {
+      "name": "fcm.googleapis.com",
+      "title": "Firebase Cloud Messaging API"
+    },
+    {
+      "name": "fcmregistrations.googleapis.com",
+      "title": "FCM Registration API"
+    },
+    {
+      "name": "firebase.googleapis.com",
+      "title": "Firebase Management API"
+    },
+    {
+      "name": "firebaseappdistribution.googleapis.com",
+      "title": "Firebase App Distribution API"
+    },
+    {
+      "name": "firebaseextensions.googleapis.com",
+      "title": "Firebase Extensions API"
+    },
+    {
+      "name": "firebasehosting.googleapis.com",
+      "title": "Firebase Hosting API"
+    },
+    {
+      "name": "firebaseinstallations.googleapis.com",
+      "title": "Firebase Installations API"
+    },
+    {
+      "name": "firebaseremoteconfig.googleapis.com",
+      "title": "Firebase Remote Config API"
+    },
+    {
+      "name": "firebaseremoteconfigrealtime.googleapis.com",
+      "title": "Firebase Remote Config Realtime API"
+    },
+    {
+      "name": "firebaserules.googleapis.com",
+      "title": "Firebase Rules API"
+    },
+    {
+      "name": "firebasestorage.googleapis.com",
+      "title": "Cloud Storage for Firebase API"
+    },
+    {
+      "name": "firestore.googleapis.com",
+      "title": "Cloud Firestore API"
+    },
+    {
+      "name": "iam.googleapis.com",
+      "title": "Identity and Access Management (IAM) API"
+    },
+    {
+      "name": "iamcredentials.googleapis.com",
+      "title": "IAM Service Account Credentials API"
+    },
+    {
+      "name": "identitytoolkit.googleapis.com",
+      "title": "Identity Toolkit API"
+    },
+    {
+      "name": "logging.googleapis.com",
+      "title": "Cloud Logging API"
+    },
+    {
+      "name": "maps-android-backend.googleapis.com",
+      "title": "Maps SDK for Android"
+    },
+    {
+      "name": "maps-ios-backend.googleapis.com",
+      "title": "Maps SDK for iOS"
+    },
+    {
+      "name": "monitoring.googleapis.com",
+      "title": "Cloud Monitoring API"
+    },
+    {
+      "name": "places-backend.googleapis.com",
+      "title": "Places API"
+    },
+    {
+      "name": "places.googleapis.com",
+      "title": "Places API (New)"
+    },
+    {
+      "name": "pubsub.googleapis.com",
+      "title": "Cloud Pub/Sub API"
+    },
+    {
+      "name": "run.googleapis.com",
+      "title": "Cloud Run Admin API"
+    },
+    {
+      "name": "runtimeconfig.googleapis.com",
+      "title": "Cloud Runtime Configuration API"
+    },
+    {
+      "name": "secretmanager.googleapis.com",
+      "title": "Secret Manager API"
+    },
+    {
+      "name": "securetoken.googleapis.com",
+      "title": "Token Service API"
+    },
+    {
+      "name": "servicemanagement.googleapis.com",
+      "title": "Service Management API"
+    },
+    {
+      "name": "serviceusage.googleapis.com",
+      "title": "Service Usage API"
+    },
+    {
+      "name": "source.googleapis.com",
+      "title": "Legacy Cloud Source Repositories API"
+    },
+    {
+      "name": "sql-component.googleapis.com",
+      "title": "Cloud SQL"
+    },
+    {
+      "name": "static-maps-backend.googleapis.com",
+      "title": "Maps Static API"
+    },
+    {
+      "name": "storage-api.googleapis.com",
+      "title": "Google Cloud Storage JSON API"
+    },
+    {
+      "name": "storage-component.googleapis.com",
+      "title": "Cloud Storage"
+    },
+    {
+      "name": "storage.googleapis.com",
+      "title": "Cloud Storage API"
+    },
+    {
+      "name": "telemetry.googleapis.com",
+      "title": "Telemetry API"
+    },
+    {
+      "name": "testing.googleapis.com",
+      "title": "Cloud Testing API"
+    },
+    {
+      "name": "vision.googleapis.com",
+      "title": "Cloud Vision API"
+    },
+    {
+      "name": "billingbudgets.googleapis.com",
+      "title": "Cloud Billing Budget API"
+    }
+  ]
+}

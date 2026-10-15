@@ -26,13 +26,25 @@ class _MatchFormationViewState extends State<MatchFormationView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saha Dizilişi', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Saha Dizilişi',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.share, color: kGreen),
-            onPressed: controller.shareMatch,
-          )
+          Builder(
+            builder: (shareContext) => IconButton(
+              icon: const Icon(Icons.share, color: kGreen),
+              onPressed: () {
+                final box = shareContext.findRenderObject() as RenderBox?;
+                controller.shareMatch(
+                  sharePositionOrigin: box != null
+                      ? box.localToGlobal(Offset.zero) & box.size
+                      : null,
+                );
+              },
+            ),
+          ),
         ],
       ),
       body: Obx(() {
@@ -45,7 +57,10 @@ class _MatchFormationViewState extends State<MatchFormationView> {
             _buildFormationSelector(),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
                 child: _buildPitch(),
               ),
             ),
@@ -61,9 +76,7 @@ class _MatchFormationViewState extends State<MatchFormationView> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      decoration: BoxDecoration(
-        color: AppColors.card(context),
-      ),
+      decoration: BoxDecoration(color: AppColors.card(context)),
       child: ElevatedButton(
         onPressed: controller.saveFormation,
         style: ElevatedButton.styleFrom(
@@ -77,10 +90,7 @@ class _MatchFormationViewState extends State<MatchFormationView> {
         ),
         child: const Text(
           'Dizilişi Kaydet',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -88,8 +98,8 @@ class _MatchFormationViewState extends State<MatchFormationView> {
 
   Widget _buildFormationSelector() {
     if (!controller.isCaptain) {
-       // Sadece kaptan formu değiştirebilir, diğerleri için widget'ı tamamen gizle
-       return const SizedBox.shrink();
+      // Sadece kaptan formu değiştirebilir, diğerleri için widget'ı tamamen gizle
+      return const SizedBox.shrink();
     }
 
     return Container(
@@ -128,7 +138,7 @@ class _MatchFormationViewState extends State<MatchFormationView> {
   Widget _buildPitch() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E2A22), // Koyu gri-yeşil 
+        color: const Color(0xFF1E2A22), // Koyu gri-yeşil
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white12, width: 2),
       ),
@@ -155,20 +165,20 @@ class _MatchFormationViewState extends State<MatchFormationView> {
     final formatStr = controller.selectedFormation.value;
     List<int> formationRows = [1]; // Kaleci
     formationRows.addAll(formatStr.split('-').map((e) => int.parse(e)));
-    
+
     List<List<int>> assignedIndices = [];
     int counter = 0;
     for (int count in formationRows) {
-        List<int> r = [];
-        for (int i=0; i<count; i++) {
-            r.add(counter);
-            counter++;
-        }
-        assignedIndices.add(r);
+      List<int> r = [];
+      for (int i = 0; i < count; i++) {
+        r.add(counter);
+        counter++;
+      }
+      assignedIndices.add(r);
     }
-    
+
     final renderIndices = assignedIndices.reversed.toList();
-    final opponentRenderIndices = assignedIndices; 
+    final opponentRenderIndices = assignedIndices;
 
     return Column(
       children: [
@@ -177,20 +187,22 @@ class _MatchFormationViewState extends State<MatchFormationView> {
           child: Column(
             children: opponentRenderIndices.map((rowSlots) {
               return Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    // Rakip kısmı da tıklanabilir, esnek yapıdaki _buildPlayerSlot'u kullanıyoruz
-                    // Slotları sayıyla (örn opponent_0) vermek için rowSlots'u düzenleyebiliriz,
-                    // Veya burada da ana numaratörü (0..maxPlayers-1) kullanabiliriz.
-                    // Şimdilik üst yarı için 'opponent_$slotId' olarak benzersiz anahtar üretip slot açalım ki onlara da yerleşilebilsin.
-                    children: rowSlots.map((slotId) {
-                      return Flexible(child: _buildPlayerSlot('opponent_$slotId'));
-                    }).toList(),
-                  ),
-                );
-              }).toList(),
-            ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  // Rakip kısmı da tıklanabilir, esnek yapıdaki _buildPlayerSlot'u kullanıyoruz
+                  // Slotları sayıyla (örn opponent_0) vermek için rowSlots'u düzenleyebiliriz,
+                  // Veya burada da ana numaratörü (0..maxPlayers-1) kullanabiliriz.
+                  // Şimdilik üst yarı için 'opponent_$slotId' olarak benzersiz anahtar üretip slot açalım ki onlara da yerleşilebilsin.
+                  children: rowSlots.map((slotId) {
+                    return Flexible(
+                      child: _buildPlayerSlot('opponent_$slotId'),
+                    );
+                  }).toList(),
+                ),
+              );
+            }).toList(),
           ),
+        ),
         // Orta saha çizgisi
         Container(width: double.infinity, height: 2, color: Colors.white12),
         // Bizim Yarı Saha
@@ -212,8 +224,6 @@ class _MatchFormationViewState extends State<MatchFormationView> {
     );
   }
 
-
-
   String _getInitials(String? name) {
     if (name == null || name.trim().isEmpty) return "?";
     List<String> parts = name.trim().split(RegExp(r'\s+'));
@@ -225,42 +235,58 @@ class _MatchFormationViewState extends State<MatchFormationView> {
 
   Widget _buildPlayerSlot(String positionId) {
     String? assignedUid = controller.positions[positionId];
-    final List<dynamic> currentPlayers = controller.matchData.value?['currentPlayers'] ?? [];
-    
+    final List<dynamic> currentPlayers =
+        controller.matchData.value?['currentPlayers'] ?? [];
+
     // 🔥 UX KRİTİK DÜZELTME: Oyuncu maçtan ayrılmışsa slot anında boşa düşsün 🔥
     if (assignedUid != null && !currentPlayers.contains(assignedUid)) {
-       assignedUid = null;
+      assignedUid = null;
     }
 
     Map<String, dynamic>? playerInfo;
     if (assignedUid != null) {
-       playerInfo = controller.playerDetails[assignedUid];
+      playerInfo = controller.playerDetails[assignedUid];
     }
-    
+
     final bool isEmpty = assignedUid == null;
-    final bool isPending = isEmpty && controller.pendingInvites.containsKey(positionId);
-    
+    final bool isPending =
+        isEmpty && controller.pendingInvites.containsKey(positionId);
+
     Map<String, dynamic>? pendingInfo;
     if (isPending) {
-       pendingInfo = controller.pendingInvites[positionId];
+      pendingInfo = controller.pendingInvites[positionId];
     }
 
-    final bool isCaptainProfile = assignedUid != null && assignedUid == controller.matchData.value?['createdBy'];
+    final bool isCaptainProfile =
+        assignedUid != null &&
+        assignedUid == controller.matchData.value?['createdBy'];
 
     // Avatarlar için geçerli URL olup olmadığını kontrol et
-    final String? photoUrl = isPending 
-        ? (pendingInfo?['avatarUrl'] ?? pendingInfo?['profileImageUrl'] ?? pendingInfo?['photoUrl'] ?? pendingInfo?['avatar'] ?? pendingInfo?['image'])
-        : (playerInfo?['avatarUrl'] ?? playerInfo?['profileImageUrl'] ?? playerInfo?['photoUrl'] ?? playerInfo?['avatar'] ?? playerInfo?['image']);
-        
-    final bool hasValidUrl = photoUrl != null && photoUrl.trim().isNotEmpty && photoUrl.startsWith('http');
-    
+    final String? photoUrl = isPending
+        ? (pendingInfo?['avatarUrl'] ??
+              pendingInfo?['profileImageUrl'] ??
+              pendingInfo?['photoUrl'] ??
+              pendingInfo?['avatar'] ??
+              pendingInfo?['image'])
+        : (playerInfo?['avatarUrl'] ??
+              playerInfo?['profileImageUrl'] ??
+              playerInfo?['photoUrl'] ??
+              playerInfo?['avatar'] ??
+              playerInfo?['image']);
+
+    final bool hasValidUrl =
+        photoUrl != null &&
+        photoUrl.trim().isNotEmpty &&
+        photoUrl.startsWith('http');
+
     ImageProvider? imageProvider;
     if (hasValidUrl) {
       imageProvider = CachedNetworkImageProvider(photoUrl.toString().trim());
     }
 
     final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    final bool isCreator = controller.matchData.value?['createdBy'] == currentUserId;
+    final bool isCreator =
+        controller.matchData.value?['createdBy'] == currentUserId;
     final bool isOccupantNotCreator = assignedUid != currentUserId;
     final bool showKickButton = isCreator && !isEmpty && isOccupantNotCreator;
 
@@ -271,26 +297,32 @@ class _MatchFormationViewState extends State<MatchFormationView> {
         shape: BoxShape.circle,
         color: (isEmpty && !isPending) ? Colors.white12 : Colors.white,
         border: Border.all(
-          color: (isEmpty && !isPending) ? Colors.transparent : (isPending ? Colors.orange : kGreen),
+          color: (isEmpty && !isPending)
+              ? Colors.transparent
+              : (isPending ? Colors.orange : kGreen),
           width: 2,
         ),
       ),
-      child: (isEmpty && !isPending) 
-         ? const Icon(Icons.add, color: Colors.white, size: 36)
+      child: (isEmpty && !isPending)
+          ? const Icon(Icons.add, color: Colors.white, size: 36)
           : CircleAvatar(
-            backgroundColor: Colors.transparent,
-            backgroundImage: imageProvider,
-            child: imageProvider == null
-                ? Text(
-                    _getInitials(isPending ? (pendingInfo?['fullName'] ?? pendingInfo?['name']) : playerInfo?['name']),
-                    style: const TextStyle(
-                      color: Colors.black54, 
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                    ),
-                  )
-                : null,
-         ),
+              backgroundColor: Colors.transparent,
+              backgroundImage: imageProvider,
+              child: imageProvider == null
+                  ? Text(
+                      _getInitials(
+                        isPending
+                            ? (pendingInfo?['fullName'] ?? pendingInfo?['name'])
+                            : playerInfo?['name'],
+                      ),
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                      ),
+                    )
+                  : null,
+            ),
     );
 
     if (isPending) {
@@ -299,13 +331,13 @@ class _MatchFormationViewState extends State<MatchFormationView> {
 
     return GestureDetector(
       onTap: () {
-         if (isEmpty && !isPending) {
-             if (isCreator) {
-                 controller.showFriendsBottomSheet(positionId);
-             } else {
-                 controller.moveToPosition(positionId);
-             }
-         }
+        if (isEmpty && !isPending) {
+          if (isCreator) {
+            controller.showFriendsBottomSheet(positionId);
+          } else {
+            controller.moveToPosition(positionId);
+          }
+        }
       },
       child: Padding(
         padding: const EdgeInsets.all(4.0),
@@ -324,12 +356,19 @@ class _MatchFormationViewState extends State<MatchFormationView> {
                       top: -6,
                       right: -6,
                       child: Container(
-                         padding: const EdgeInsets.all(4),
-                         decoration: const BoxDecoration(
-                           color: Colors.amber,
-                           shape: BoxShape.circle,
-                         ),
-                         child: const Text('C', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.amber,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text(
+                          'C',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
                       ),
                     ),
                   if (showKickButton)
@@ -340,7 +379,8 @@ class _MatchFormationViewState extends State<MatchFormationView> {
                         onTap: () {
                           Get.defaultDialog(
                             title: 'Oyuncuyu Çıkar',
-                            middleText: '\nBu oyuncuyu sahadan ve maçtan çıkarmak istediğinize emin misiniz?',
+                            middleText:
+                                '\nBu oyuncuyu sahadan ve maçtan çıkarmak istediğinize emin misiniz?',
                             textCancel: 'İptal',
                             textConfirm: 'Çıkar',
                             confirmTextColor: Colors.white,
@@ -348,7 +388,10 @@ class _MatchFormationViewState extends State<MatchFormationView> {
                             cancelTextColor: Colors.grey,
                             onConfirm: () {
                               Get.back();
-                              controller.kickPlayerFromFormation(assignedUid!, positionId);
+                              controller.kickPlayerFromFormation(
+                                assignedUid!,
+                                positionId,
+                              );
                             },
                           );
                         },
@@ -392,28 +435,38 @@ class _MatchFormationViewState extends State<MatchFormationView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isCaptainProfile ? const Color(0xFF1E2836) : (isPending ? Colors.orange.withOpacity(0.2) : Colors.white),
+                  color: isCaptainProfile
+                      ? const Color(0xFF1E2836)
+                      : (isPending
+                            ? Colors.orange.withValues(alpha: 0.2)
+                            : Colors.white),
                   borderRadius: BorderRadius.circular(12),
                 ),
+
                 /// Ensure text container isn't infinitely wide causing scale down
                 constraints: const BoxConstraints(maxWidth: 90),
                 child: Text(
-                  (isEmpty && !isPending) ? "Boş" : (isPending ? "⏳ Bekliyor" : (playerInfo?['name'] ?? "Oyuncu")),
+                  (isEmpty && !isPending)
+                      ? "Boş"
+                      : (isPending
+                            ? "⏳ Bekliyor"
+                            : (playerInfo?['name'] ?? "Oyuncu")),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isCaptainProfile ? Colors.white : (isPending ? Colors.orange : Colors.black),
+                    color: isCaptainProfile
+                        ? Colors.white
+                        : (isPending ? Colors.orange : Colors.black),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                 ),
-              )
+              ),
             ],
           ),
-         ),
         ),
-       );
+      ),
+    );
   }
-
 }

@@ -41,7 +41,7 @@ test('actual creation payload, manual location and legacy minimal service payloa
 });
 
 test('invalid metadata cannot be created even by the authenticated owner', async () => {
-  const bad = [{title:''},{title:'   '},{title:'x'.repeat(121)},{venue:'x'.repeat(201)},
+  const bad = [{title:''},{title:'   '},{title:'x'.repeat(121)},{title:'FUCK pitch'},{venue:'x'.repeat(201)},
     {teamA_name:'x'.repeat(61)},{teamB_name:12},{price:-1},{price:'250'},{price:NaN},{price:Infinity},
     {price:1000001},{latitude:91},{longitude:-181},{latitude:null,longitude:30},
     {latitude:'40'},{maxPlayers:13},{maxPlayers:14.5},{date:'tomorrow'},
@@ -50,6 +50,31 @@ test('invalid metadata cannot be created even by the authenticated owner', async
     {createdAt:Timestamp.fromMillis(0)},{formation:'4-4-2'}];
   const ref = doc(client('alice'),'matches/invalid');
   for (const patch of bad) await assertFails(setDoc(ref,fixture(patch)));
+});
+
+test('public match text rejects explicit banned tokens without matching benign substrings', async () => {
+  await assertSucceeds(setDoc(doc(client('alice'),'matches/benign'),fixture({title:'Mamak evening football'})));
+  await assertFails(setDoc(doc(client('alice'),'matches/bad-venue'),fixture({venue:'siktir saha'})));
+  await assertFails(setDoc(doc(client('alice'),'matches/bad-turkish'),fixture({teamA_name:'yavşak'})));
+  await assertFails(setDoc(doc(client('alice'),'matches/bad-team'),fixture({teamA_name:'FUCK'})));
+});
+
+test('enabled policy blocks unverified roster invitations but keeps removal available', async () => {
+  await env.withSecurityRulesDisabled(async c => {
+    const db = c.firestore();
+    await setDoc(doc(db,'_runtimePolicy/safety'),{enabled:true});
+    await setDoc(doc(db,'matches/game'),fixture());
+  });
+  const unverified = env.authenticatedContext('alice',{email_verified:false}).firestore();
+  await assertFails(updateDoc(doc(unverified,'matches/game'),{
+    pendingPositions:{'3':'bob'},invitedPlayers:['bob'],inviteSlot:'3',
+  }));
+  await env.withSecurityRulesDisabled(c => updateDoc(doc(c.firestore(),'matches/game'),{
+    pendingPositions:{'3':'bob'},invitedPlayers:['bob'],
+  }));
+  await assertSucceeds(updateDoc(doc(unverified,'matches/game'),{
+    pendingPositions:{},invitedPlayers:[],inviteSlot:'3',
+  }));
 });
 
 test('owner metadata updates validate type, size, duration and future rescheduling', async () => {

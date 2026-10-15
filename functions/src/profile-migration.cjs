@@ -2,9 +2,12 @@ const { FieldPath, FieldValue } = require('firebase-admin/firestore');
 
 const publicFields = new Set(['uid','profileVersion','name','fullName','createdAt',
   'position','preferredFoot','city','isProfileComplete','avatarUrl','avatarType','avatarData','blockedUsers']);
+// These counters were derived from the followers/following subcollections and
+// are no longer part of the public profile schema or used by current clients.
+const retiredDerivedFields = new Set(['followersCount','followingCount']);
 
 function profileMigrationIssue(data, uid) {
-  if (Object.keys(data).some(key => key !== 'email' && !publicFields.has(key))) return 'unknownFields';
+  if (Object.keys(data).some(key => key !== 'email' && !retiredDerivedFields.has(key) && !publicFields.has(key))) return 'unknownFields';
   if (data.uid !== undefined && data.uid !== uid) return 'invalidShape';
   for (const [key, max] of Object.entries({ name:100, fullName:100, city:100, position:40, avatarUrl:2048 })) {
     if (key in data && (typeof data[key] !== 'string' || data[key].length > max)) return 'invalidShape';
@@ -39,12 +42,18 @@ async function migrateProfiles({ db, auth, apply = false, pageSize = 100 }) {
         if (error.code !== 'auth/user-not-found') throw error;
         counts.missingAuth++; continue;
       }
-      if (data.profileVersion === 2 && !('email' in data)) { counts.unchanged++; continue; }
+      const hasRetiredDerivedField = [...retiredDerivedFields].some(key => key in data);
+      if (data.profileVersion === 2 && !('email' in data) && !hasRetiredDerivedField) { counts.unchanged++; continue; }
       counts.ready++;
       if (apply) {
         // Abort a stale per-document update; never overwrite an intervening edit.
         try {
-          await doc.ref.update({ email: FieldValue.delete(), profileVersion:2 }, { lastUpdateTime:doc.updateTime });
+          const update = { profileVersion:2 };
+          if ('email' in data) update.email = FieldValue.delete();
+          for (const key of retiredDerivedFields) {
+            if (key in data) update[key] = FieldValue.delete();
+          }
+          await doc.ref.update(update, { lastUpdateTime:doc.updateTime });
           counts.migrated++;
         } catch (error) {
           if (![5,9].includes(error.code)) throw error;

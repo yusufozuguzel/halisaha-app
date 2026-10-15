@@ -1,3 +1,5 @@
+import '../../../core/services/username_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -43,9 +45,12 @@ class FriendsController extends GetxController {
   final RxList<UserModel> _following = <UserModel>[].obs;
   final RxList<UserModel> _pendingRequests = <UserModel>[].obs;
   final RxList<UserModel> _searchResults = <UserModel>[].obs;
-  List<UserModel> get following => _following.where((u) => _blocks.visible(u.uid)).toList();
-  List<UserModel> get pendingRequests => _pendingRequests.where((u) => _blocks.visible(u.uid)).toList();
-  List<UserModel> get searchResults => _searchResults.where((u) => _blocks.visible(u.uid)).toList();
+  List<UserModel> get following =>
+      _following.where((u) => _blocks.visible(u.uid)).toList();
+  List<UserModel> get pendingRequests =>
+      _pendingRequests.where((u) => _blocks.visible(u.uid)).toList();
+  List<UserModel> get searchResults =>
+      _searchResults.where((u) => _blocks.visible(u.uid)).toList();
   int _followingRevision = 0, _requestRevision = 0, _searchRevision = 0;
   Worker? _searchWorker;
   void clearSearch() {
@@ -110,7 +115,9 @@ class FriendsController extends GetxController {
               try {
                 final userDoc = await _db.collection('users').doc(uid).get();
                 if (userDoc.exists) {
-                  result.add(UserModel.fromFirestore(uid, userDoc.data() ?? {}));
+                  result.add(
+                    UserModel.fromFirestore(uid, userDoc.data() ?? {}),
+                  );
                 }
               } catch (_) {}
             }
@@ -119,7 +126,9 @@ class FriendsController extends GetxController {
             isLoading.value = false;
           },
           onError: (e) {
-            print('Takip listesi hatası: $e');
+            if (kDebugMode) {
+              debugPrint('Takip listesi hatası: $e');
+            }
             if (e.toString().contains('permission-denied')) {
               errorMessage.value = 'Listeye erişim için yetkiniz yok.';
             } else {
@@ -148,7 +157,10 @@ class FriendsController extends GetxController {
             for (final doc in snap.docs) {
               final fromUid = doc['from'] as String? ?? doc.id;
               try {
-                final userDoc = await _db.collection('users').doc(fromUid).get();
+                final userDoc = await _db
+                    .collection('users')
+                    .doc(fromUid)
+                    .get();
                 if (userDoc.exists) {
                   result.add(
                     UserModel.fromFirestore(fromUid, userDoc.data() ?? {}),
@@ -160,7 +172,9 @@ class FriendsController extends GetxController {
             _pendingRequests.assignAll(result);
           },
           onError: (e) {
-            print('Arkadaşlık istekleri hatası: $e');
+            if (kDebugMode) {
+              debugPrint('Arkadaşlık istekleri hatası: $e');
+            }
           },
         );
     _subs.add(sub.cancel);
@@ -189,12 +203,31 @@ class FriendsController extends GetxController {
           .get();
 
       final myUid = _myUid;
+      String? exactUid;
+      try {
+        final candidate = query.startsWith('@') ? query.substring(1) : query;
+        if (RegExp(r'^[a-zA-Z0-9_]{3,30}$').hasMatch(candidate)) {
+          exactUid = await UsernameService().find(candidate);
+        }
+      } catch (_) {
+        /* Existing display-name search remains available. */
+      }
+      final exact = exactUid != null && exactUid != myUid
+          ? await _db.collection('users').doc(exactUid).get()
+          : null;
       final results = snap.docs
           .where((d) => d.id != myUid) // kendini gösterme
           .map((d) => UserModel.fromFirestore(d.id, d.data()))
           .toList();
 
-      if (isClosed || revision != _searchRevision || searchQuery.value.trim() != query) return;
+      if (isClosed ||
+          revision != _searchRevision ||
+          searchQuery.value.trim() != query)
+        return;
+      if (exact?.exists == true) {
+        results.removeWhere((user) => user.uid == exactUid);
+        results.insert(0, UserModel.fromFirestore(exactUid!, exact!.data()!));
+      }
       _searchResults.assignAll(results);
     } catch (e) {
       if (!isClosed && revision == _searchRevision) _searchResults.clear();
@@ -233,8 +266,10 @@ class FriendsController extends GetxController {
     try {
       await SocialInteractions().acceptFollow(fromUid);
     } catch (e) {
-      Get.snackbar('Hata', e is SocialInteractionException
-          ? e.message : 'İstek kabul edilemedi.');
+      Get.snackbar(
+        'Hata',
+        e is SocialInteractionException ? e.message : 'İstek kabul edilemedi.',
+      );
     }
   }
 
@@ -342,7 +377,10 @@ class _MatchInviteSheetState extends State<_MatchInviteSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      Get.snackbar('Hata', e is SocialInteractionException ? e.message : 'Davet gönderilemedi.');
+      Get.snackbar(
+        'Hata',
+        e is SocialInteractionException ? e.message : 'Davet gönderilemedi.',
+      );
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -430,7 +468,7 @@ class _MatchInviteSheetState extends State<_MatchInviteSheet> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: _green.withOpacity(0.15),
+                          color: _green.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(

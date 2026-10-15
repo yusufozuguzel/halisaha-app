@@ -158,7 +158,7 @@ class _ProfileViewState extends State<ProfileView> {
                                     shape: BoxShape.circle,
                                     color: AppColors.overlay(ctx),
                                     border: Border.all(
-                                      color: _green.withOpacity(0.5),
+                                      color: _green.withValues(alpha: 0.5),
                                       width: 2,
                                     ),
                                   ),
@@ -295,12 +295,12 @@ class _ProfileViewState extends State<ProfileView> {
                     width: double.infinity,
                     child: GestureDetector(
                       onTap: () async {
-                        await _ctrl.updateProfile(
+                        final saved = await _ctrl.updateProfile(
                           newName: nameCtrl.text,
                           newPosition: _ctrl.selectedPosition.value,
                           newAvatarFile: tempAvatar,
                         );
-                        Get.back();
+                        if (saved) Get.back();
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -551,7 +551,9 @@ class _ProfileViewState extends State<ProfileView> {
                           color: AppColors.overlay(ctx),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: const Color(0xFF2EED7B).withOpacity(0.5),
+                            color: const Color(
+                              0xFF2EED7B,
+                            ).withValues(alpha: 0.5),
                             width: 2,
                           ),
                         ),
@@ -623,7 +625,7 @@ class _ProfileViewState extends State<ProfileView> {
       ),
       middleText: 'Uygulamadan çıkmak istediğinize emin misiniz?',
       middleTextStyle: TextStyle(
-        color: Colors.white.withOpacity(0.7),
+        color: Colors.white.withValues(alpha: 0.7),
         fontSize: 14,
       ),
       backgroundColor: const Color(0xFF16221A),
@@ -634,13 +636,13 @@ class _ProfileViewState extends State<ProfileView> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             'İptal',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -665,9 +667,9 @@ class _ProfileViewState extends State<ProfileView> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.15),
+            color: Colors.red.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.red.withOpacity(0.4)),
+            border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
           ),
           child: const Text(
             'Çıkış',
@@ -705,7 +707,7 @@ class _ProfileViewState extends State<ProfileView> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: _green.withOpacity(0.4),
+                color: _green.withValues(alpha: 0.4),
                 blurRadius: 20,
                 spreadRadius: 2,
                 offset: const Offset(0, 4),
@@ -730,7 +732,10 @@ class _ProfileViewState extends State<ProfileView> {
             children: [
               if (!_ctrl.isOwnProfile)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -763,109 +768,154 @@ class _ProfileViewState extends State<ProfileView> {
                         ),
                       ),
                       // Engelle menüsü
-                      Obx(() => _ctrl.isBlocked.value
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.red.withOpacity(0.4)),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.block, color: Colors.redAccent, size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Engellendi',
-                                  style: TextStyle(
-                                    color: Colors.redAccent,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
+                      Obx(
+                        () => _ctrl.isBlocked.value
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.red.withValues(alpha: 0.4),
                                   ),
                                 ),
-                              ],
-                            ),
-                          )
-                        : PopupMenuButton<String>(
-                            icon: Icon(Icons.more_vert, color: AppColors.text(context)),
-                            color: AppColors.card(context),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            onSelected: (value) {
-                              if (value == 'block') {
-                                Get.defaultDialog(
-                                  title: 'Kullanıcıyı Engelle',
-                                  titleStyle: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17,
-                                  ),
-                                  middleText: 'Bu kullanıcıyı engellemek istediğinize emin misiniz?',
-                                  middleTextStyle: TextStyle(
-                                    color: Colors.white.withOpacity(0.7),
-                                    fontSize: 14,
-                                  ),
-                                  backgroundColor: const Color(0xFF16221A),
-                                  radius: 16,
-                                  barrierDismissible: true,
-                                  cancel: TextButton(
-                                    onPressed: () => Get.back(),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.08),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        'İptal',
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.7),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.block,
+                                      color: Colors.redAccent,
+                                      size: 16,
                                     ),
-                                  ),
-                                  confirm: TextButton(
-                                    onPressed: () async {
-                                      Get.back(); // dialog kapat
-                                      await _ctrl.blockUser();
-                                      Get.back(); // profile sayfasından çık
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: Colors.red.withOpacity(0.4)),
-                                      ),
-                                      child: const Text(
-                                        'Engelle',
-                                        style: TextStyle(
-                                          color: Colors.redAccent,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                            itemBuilder: (ctx) => [
-                              PopupMenuItem<String>(
-                                value: 'block',
-                                child: Row(
-                                  children: const [
-                                    Icon(Icons.block, color: Colors.redAccent, size: 18),
-                                    SizedBox(width: 10),
+                                    SizedBox(width: 6),
                                     Text(
-                                      'Kullanıcıyı Engelle',
-                                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                                      'Engellendi',
+                                      style: TextStyle(
+                                        color: Colors.redAccent,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ],
                                 ),
+                              )
+                            : PopupMenuButton<String>(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: AppColors.text(context),
+                                ),
+                                color: AppColors.card(context),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                onSelected: (value) {
+                                  if (value == 'block') {
+                                    Get.defaultDialog(
+                                      title: 'Kullanıcıyı Engelle',
+                                      titleStyle: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 17,
+                                      ),
+                                      middleText:
+                                          'Bu kullanıcıyı engellemek istediğinize emin misiniz?',
+                                      middleTextStyle: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        fontSize: 14,
+                                      ),
+                                      backgroundColor: const Color(0xFF16221A),
+                                      radius: 16,
+                                      barrierDismissible: true,
+                                      cancel: TextButton(
+                                        onPressed: () => Get.back(),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.08,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'İptal',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.7,
+                                              ),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      confirm: TextButton(
+                                        onPressed: () async {
+                                          Get.back(); // dialog kapat
+                                          await _ctrl.blockUser();
+                                          Get.back(); // profile sayfasından çık
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.withValues(
+                                              alpha: 0.15,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.red.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Engelle',
+                                            style: TextStyle(
+                                              color: Colors.redAccent,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                itemBuilder: (ctx) => [
+                                  PopupMenuItem<String>(
+                                    value: 'block',
+                                    child: Row(
+                                      children: const [
+                                        Icon(
+                                          Icons.block,
+                                          color: Colors.redAccent,
+                                          size: 18,
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Kullanıcıyı Engelle',
+                                          style: TextStyle(
+                                            color: Colors.redAccent,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
                       ),
                     ],
                   ),
@@ -879,7 +929,6 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
   }
-
 
   Widget _buildProfileCard() {
     return StreamBuilder<DocumentSnapshot>(
@@ -917,7 +966,7 @@ class _ProfileViewState extends State<ProfileView> {
                             shape: BoxShape.circle,
                             color: _card,
                             border: Border.all(
-                              color: _green.withOpacity(0.5),
+                              color: _green.withValues(alpha: 0.5),
                               width: 3,
                             ),
                           ),
@@ -963,14 +1012,21 @@ class _ProfileViewState extends State<ProfileView> {
                             label: 'Maç',
                           ),
                           InkWell(
-                            onTap: () => Get.to(() => const FriendsView()),
+                            onTap: _ctrl.isOwnProfile
+                                ? () => Get.to(() => const FriendsView())
+                                : null,
                             borderRadius: BorderRadius.circular(12),
-                            highlightColor: _green.withOpacity(0.1),
-                            splashColor: _green.withOpacity(0.2),
+                            highlightColor: _green.withValues(alpha: 0.1),
+                            splashColor: _green.withValues(alpha: 0.2),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
                               child: _inlineStatCol(
-                                value: _ctrl.friendsCount.value.toString(),
+                                value: _ctrl.friendsCountPrivate.value
+                                    ? 'Gizli'
+                                    : _ctrl.friendsCount.value.toString(),
                                 label: 'Arkadaş',
                               ),
                             ),
@@ -1001,9 +1057,9 @@ class _ProfileViewState extends State<ProfileView> {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: _green.withOpacity(0.12),
+                    color: _green.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _green.withOpacity(0.3)),
+                    border: Border.all(color: _green.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1128,62 +1184,73 @@ class _ProfileViewState extends State<ProfileView> {
       Widget followBtn;
       if (friend) {
         followBtn = OutlinedButton(
-          onPressed: loading ? null : () {
-            Get.defaultDialog(
-              title: 'Arkadaşlıktan Çıkar',
-              titleStyle: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 17,
-              ),
-              middleText: 'Bu kişiyi arkadaş listenizden çıkarmak istediğinize emin misiniz?',
-              middleTextStyle: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-              ),
-              backgroundColor: const Color(0xFF16221A),
-              radius: 16,
-              barrierDismissible: true,
-              cancel: TextButton(
-                onPressed: () => Get.back(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'İptal',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              confirm: TextButton(
-                onPressed: () {
-                  Get.back();
-                  _ctrl.removeFriend();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.withOpacity(0.4)),
-                  ),
-                  child: const Text(
-                    'Çıkar',
-                    style: TextStyle(
-                      color: Colors.redAccent,
+          onPressed: loading
+              ? null
+              : () {
+                  Get.defaultDialog(
+                    title: 'Arkadaşlıktan Çıkar',
+                    titleStyle: const TextStyle(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
+                      fontSize: 17,
                     ),
-                  ),
-                ),
-              ),
-            );
-          },
+                    middleText:
+                        'Bu kişiyi arkadaş listenizden çıkarmak istediğinize emin misiniz?',
+                    middleTextStyle: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                    backgroundColor: const Color(0xFF16221A),
+                    radius: 16,
+                    barrierDismissible: true,
+                    cancel: TextButton(
+                      onPressed: () => Get.back(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'İptal',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    confirm: TextButton(
+                      onPressed: () {
+                        Get.back();
+                        _ctrl.removeFriend();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.red.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Çıkar',
+                          style: TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.text(context),
             side: BorderSide(color: AppColors.border(context)),
@@ -1235,7 +1302,6 @@ class _ProfileViewState extends State<ProfileView> {
       return SizedBox(width: double.infinity, child: followBtn);
     });
   }
-
 
   Widget _buildAvatarWidget(
     dynamic avatarData,
@@ -1359,7 +1425,7 @@ class _ProfileViewState extends State<ProfileView> {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: iconColor, size: 20),
@@ -1461,7 +1527,7 @@ class _ProfileViewState extends State<ProfileView> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: _green.withOpacity(0.15),
+      splashColor: _green.withValues(alpha: 0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
@@ -1534,89 +1600,93 @@ class _ProfileViewState extends State<ProfileView> {
                 key: controller.changePasswordFormKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.border(ctx),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Şifremi Değiştir',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildPasswordFormField(
-                    'Mevcut Şifreniz',
-                    currentPassCtrl,
-                    ctx,
-                    inputBg,
-                    onChanged: (val) => controller.currentPassword.value = val,
-                    validator: (val) {
-                      if (val == null || val.isEmpty) return 'Mevcut şifre boş bırakılamaz.';
-                      return null;
-                    },
-                    isObscure: controller.isCurrentObscure,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPasswordFormField(
-                    'Yeni Şifre',
-                    newPassCtrl,
-                    ctx,
-                    inputBg,
-                    onChanged: (val) => controller.newPassword.value = val,
-                    validator: AppValidators.passwordValidator,
-                    isObscure: controller.isNewObscure,
-                    helperText: "En az 8 karakter, 1 büyük harf ve 1 özel karakter",
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPasswordFormField(
-                    'Yeni Şifre (Tekrar)',
-                    confirmPassCtrl,
-                    ctx,
-                    inputBg,
-                    onChanged: (val) => controller.confirmPassword.value = val,
-                    validator: (val) {
-                      if (val != controller.newPassword.value) {
-                        return 'Şifreler eşleşmiyor.';
-                      }
-                      return AppValidators.passwordValidator(val);
-                    },
-                    isObscure: controller.isConfirmObscure,
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => controller.updateUserPassword(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: neonGreen,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text(
-                        'Şifreyi Güncelle',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.border(ctx),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Şifremi Değiştir',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _buildPasswordFormField(
+                      'Mevcut Şifreniz',
+                      currentPassCtrl,
+                      ctx,
+                      inputBg,
+                      onChanged: (val) =>
+                          controller.currentPassword.value = val,
+                      validator: (val) {
+                        if (val == null || val.isEmpty)
+                          return 'Mevcut şifre boş bırakılamaz.';
+                        return null;
+                      },
+                      isObscure: controller.isCurrentObscure,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildPasswordFormField(
+                      'Yeni Şifre',
+                      newPassCtrl,
+                      ctx,
+                      inputBg,
+                      onChanged: (val) => controller.newPassword.value = val,
+                      validator: AppValidators.passwordValidator,
+                      isObscure: controller.isNewObscure,
+                      helperText:
+                          "En az 8 karakter, 1 büyük harf ve 1 özel karakter",
+                    ),
+                    const SizedBox(height: 16),
+                    _buildPasswordFormField(
+                      'Yeni Şifre (Tekrar)',
+                      confirmPassCtrl,
+                      ctx,
+                      inputBg,
+                      onChanged: (val) =>
+                          controller.confirmPassword.value = val,
+                      validator: (val) {
+                        if (val != controller.newPassword.value) {
+                          return 'Şifreler eşleşmiyor.';
+                        }
+                        return AppValidators.passwordValidator(val);
+                      },
+                      isObscure: controller.isConfirmObscure,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => controller.updateUserPassword(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: neonGreen,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          'Şifreyi Güncelle',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           );
         },
@@ -1663,44 +1733,55 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ),
         const SizedBox(height: 6),
-        Obx(() => TextFormField(
-          controller: ctrl,
-          obscureText: isObscure.value,
-          onChanged: onChanged,
-          validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          style: TextStyle(color: AppColors.text(ctx), fontSize: 14),
-          decoration: InputDecoration(
-            prefixIcon: Icon(Icons.lock_outline, color: AppColors.subText(ctx), size: 18),
-            suffixIcon: IconButton(
-              icon: Icon(
-                isObscure.value ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        Obx(
+          () => TextFormField(
+            controller: ctrl,
+            obscureText: isObscure.value,
+            onChanged: onChanged,
+            validator: validator,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            style: TextStyle(color: AppColors.text(ctx), fontSize: 14),
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                Icons.lock_outline,
                 color: AppColors.subText(ctx),
+                size: 18,
               ),
-              onPressed: () => isObscure.value = !isObscure.value,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  isObscure.value
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: AppColors.subText(ctx),
+                ),
+                onPressed: () => isObscure.value = !isObscure.value,
+              ),
+              filled: true,
+              fillColor: inputBg,
+              helperText: helperText,
+              helperStyle: TextStyle(
+                color: AppColors.subText(ctx),
+                fontSize: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.border(ctx)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.border(ctx)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF2EED7B)),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: 4,
+              ),
             ),
-            filled: true,
-            fillColor: inputBg,
-            helperText: helperText,
-            helperStyle: TextStyle(
-              color: AppColors.subText(ctx),
-              fontSize: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.border(ctx)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.border(ctx)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF2EED7B)),
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
           ),
-        )),
+        ),
       ],
     );
   }

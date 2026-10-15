@@ -1,0 +1,73 @@
+{
+  "score": 2,
+  "summary": "Current LOCAL candidate only: four reproduced issues, grouped by root cause. All 11 synthetic emulator tests passed, including negative controls. No current-live security conclusion; historical Firestore source was not recovered. No app/rules/cloud changes performed.",
+  "findings": [
+    {
+      "check": "Authority Source / Business Logic vs Rules",
+      "severity": "moderate",
+      "issue": "F1: An active ordinary user can directly change their own avatarUrl to an external HTTPS image URL; another user can read the URL. Firestore enforces only string type/length, so the canonical Storage upload and Vision pre-scan are bypassable. Client image widgets automatically render avatarUrl. This proves an unscanned image-source bypass, not server-side request forgery or script execution.",
+      "evidence": ["functions/rules/profile.fragment.rules:18", "functions/rules/profile.fragment.rules:47", "rules-poc.test.cjs test F1"],
+      "precondition": "Authenticated active user with a valid own profile; no moderator privilege needed.",
+      "recommendation": "Make published avatar identity server-controlled and tied to a successfully moderated canonical object; preserve a reviewed legacy migration path."
+    },
+    {
+      "check": "Field-Level Privacy",
+      "severity": "moderate",
+      "issue": "F2: blockedUsers is stored inside the publicly readable version-2 profile. An unrelated authenticated user can enumerate version-2 profiles (limit <=50 per query) and read each block relationship; the blocked user can point-read the list too. Friendship lists remain protected; this is specifically disclosure of the blocklist field.",
+      "evidence": ["functions/rules/profile.fragment.rules:8", "functions/rules/profile.fragment.rules:22", "functions/rules/profile.fragment.rules:38", "functions/rules/profile.fragment.rules:40", "rules-poc.test.cjs test F2"],
+      "precondition": "Authenticated account; target profileVersion=2 and nonempty blockedUsers.",
+      "recommendation": "Move block relationships into a separately protected document/collection and adapt rule lookups and atomic block operations."
+    },
+    {
+      "check": "Business Logic vs Rules / Resource Exhaustion",
+      "severity": "moderate",
+      "issue": "F3: Notification document IDs and cardinality are not enforced server-side. Even with abuse policy enabled, a verified match owner created five identical profile invitations under different IDs; one follow-request cooldown permit authorized five notices in a single batch; an existing pending roster slot authorized three new formation notices without any match mutation. This bypasses client deduplication and enables inbox spam and additional document/listener costs. No unlimited-throughput claim is made.",
+      "evidence": ["functions/rules/social.fragment.rules:67", "functions/rules/social.fragment.rules:79", "functions/rules/social.fragment.rules:89", "functions/rules/social.fragment.rules:110", "functions/rules/social.fragment.rules:133", "rules-poc.test.cjs tests F3a/F3b/F3c"],
+      "precondition": "Authenticated active sender; verified email when runtime abuse policy enabled; valid profile pair, owned future match or pending invitation as appropriate.",
+      "recommendation": "Enforce deterministic notification identity and one notice per validated event, or create notifications in a trusted idempotent transaction with bounded resend policy."
+    },
+    {
+      "check": "Update Bypass",
+      "severity": "minor",
+      "issue": "F4: A match owner can change maxPlayers from14 to10 while12 members remain because a metadata-only owner update skips validRoster. An innocent participant's leave update then fails since11 remaining members still exceed10. Restoring capacity14 makes the same leave operation succeed. This is a roster-integrity/availability defect affecting participants, not ownership escalation.",
+      "evidence": ["functions/rules/match-participation.fragment.rules:89", "functions/rules/match-participation.fragment.rules:118", "functions/rules/match-participation.fragment.rules:121", "rules-poc.test.cjs test F4"],
+      "precondition": "Authenticated active owner of a valid populated match.",
+      "recommendation": "Revalidate roster invariants whenever maxPlayers changes, including member count and valid slot keys."
+    }
+  ],
+  "historicalEvidence": {
+    "id": "H1",
+    "scope": "Historical deployed Storage source only; not current-live confirmation and excluded from candidate score.",
+    "releaseUpdateTimeUTC": "2026-10-04T22:04:23.152854Z",
+    "sourceSHA256": "1e223e061a0cacff01a115dec314e4cf342f0b4688617b47d3ef1bf29b1ba5c5",
+    "sourceBytes": 1519,
+    "gitBlob": "5741e55e8615eab5c87d96fec7a1a87156e5c2b2",
+    "reconstruction": "Historical functions/rules/storage.candidate.rules blob normalized to CRLF exactly matches saved release metadata SHA256 and length.",
+    "issue": "Owner upload of synthetic non-image bytes with declared image/jpeg succeeds and another authenticated user reads the exact bytes. Rules check metadata MIME and size but do not require a pre-scan. Emulator did not run Vision/storage triggers; this does not prove a Vision classification outcome, long-term persistence, public token URL access, or code execution.",
+    "evidence": ["historical-deployed.storage.rules:18", "historical-deployed.storage.rules:25", "rules-poc.test.cjs test H1"],
+    "currentCandidate": "Owner create/update and metadata alteration are denied in current candidate Storage; F1 remains a separate Firestore avatar source bypass."
+  },
+  "negativeControls": [
+    "Unauthenticated profile get denied",
+    "Other user's profile update denied",
+    "Self-assigned moderator field denied",
+    "Foreign match ownership mutation denied",
+    "Forged friendship denied",
+    "One-sided friendship cannot list another user's friends",
+    "Actual atomic block-and-friend-deletion revokes friend-list access",
+    "Blocked follow request denied",
+    "Unverified formation invite denied under enabled abuse policy",
+    "Candidate Storage owner upload/metadata update and foreign delete denied",
+    "Unauthenticated candidate Storage SDK read denied"
+  ],
+  "validation": {
+    "project": "demo-depar-audit",
+    "firestore": "127.0.0.1:8189",
+    "storage": "127.0.0.1:9199",
+    "tests": 11,
+    "passed": 11,
+    "failed": 0,
+    "output": "rules-poc-output.txt",
+    "note": "Initial harness run failed due to repeated context.firestore() initialization; corrected in independent harness before the successful run. Application sources unchanged."
+  }
+}

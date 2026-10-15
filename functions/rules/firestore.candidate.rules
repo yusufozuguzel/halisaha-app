@@ -16,6 +16,60 @@ function safetyWritesAllowed() {
   return request.auth != null && accountActive(request.auth.uid)
     && !exists(/databases/$(database)/documents/_moderationAccounts/$(request.auth.uid));
 }
+function abuseControlsEnabled() {
+  let policy = /databases/$(database)/documents/_runtimePolicy/safety;
+  return exists(policy) && get(policy).data.get('enabled', false) == true;
+}
+function verifiedEmailForAbuse() {
+  return !abuseControlsEnabled() || request.auth.token.get('email_verified', false) == true;
+}
+// A conservative exact-token denylist. This catches obvious terms while
+// avoiding short substrings that would reject ordinary Turkish names.
+function safePublicText(value, maximum) {
+  return value is string && value.size() <= maximum
+    && value.matches('^[^\\x00-\\x1F\\x7F]*$')
+    && publicTextSafe(value);
+}
+function publicTextSafe(value) {
+  return !value.lower().matches('(^|.*[^a-z0-9_])(orospu|siktir|sikerim|yarrak|yavşak|yavsak|gavat|pezevenk|kahpe|fuck|shit|bitch|asshole|pussy|cunt|whore|slut|faggot|nigger|nigga)([^a-z0-9_].*|$)');
+}
+function cooldownPeriod(action) {
+  return action == 'matchCreate' ? duration.value(60, 's')
+    : action == 'followRequest' ? duration.value(15, 's') : duration.value(0, 's');
+}
+function writeLimitCooldownElapsed(action) {
+  return action in ['matchCreate', 'followRequest']
+    && resource.data.updatedAt is timestamp
+    && resource.data.updatedAt <= request.time - cooldownPeriod(action);
+}
+function validWriteLimitTarget(uid, action, targetId) {
+  return targetId is string && targetId.size() > 0 && targetId.size() <= 128
+    && !targetId.matches('.*[/].*')
+    && (action == 'matchCreate'
+      && existsAfter(/databases/$(database)/documents/matches/$(targetId))
+      && getAfter(/databases/$(database)/documents/matches/$(targetId)).data.createdBy == uid
+      && getAfter(/databases/$(database)/documents/matches/$(targetId)).data.createdAt == request.time
+      || action == 'followRequest'
+        && existsAfter(/databases/$(database)/documents/users/$(targetId)/followRequests/$(uid))
+        && getAfter(/databases/$(database)/documents/users/$(targetId)/followRequests/$(uid)).data.from == uid
+        && getAfter(/databases/$(database)/documents/users/$(targetId)/followRequests/$(uid)).data.createdAt == request.time);
+}
+function validWriteLimit(uid, action) {
+  return request.resource.data.keys().hasOnly(['targetId', 'updatedAt'])
+    && request.resource.data.keys().hasAll(['targetId', 'updatedAt'])
+    && request.resource.data.updatedAt is timestamp
+    && request.resource.data.updatedAt == request.time
+    && validWriteLimitTarget(uid, action, request.resource.data.targetId);
+}
+function writeCooldownAllowed(action, targetId) {
+  let permit = /databases/$(database)/documents/_writeLimits/$(request.auth.uid)/actions/$(action);
+  let enabled = abuseControlsEnabled();
+  return !enabled
+    || request.auth.token.get('email_verified', false) == true
+      && existsAfter(permit)
+      && getAfter(permit).data.targetId == targetId
+      && getAfter(permit).data.updatedAt == request.time;
+}
 
 match /_moderationAccounts/{uid} {
   allow get: if request.auth != null && request.auth.uid == uid;
@@ -35,6 +89,17 @@ match /_safetyLocks/{document=**} {
 match /_reportLimits/{document=**} {
   allow read, write: if false;
 }
+match /_runtimePolicy/{document=**} { allow read, write: if false; }
+match /_usernames/{document=**} { allow read, write: if false; }
+match /_placesLimits/{document=**} { allow read, write: if false; }
+match /_usernameLimits/{document=**} { allow read, write: if false; }
+match /_writeLimits/{uid}/actions/{action} {
+  allow get, list, delete: if false;
+  allow create: if request.auth != null && abuseControlsEnabled() && request.auth.uid == uid
+    && action in ['matchCreate', 'followRequest'] && validWriteLimit(uid, action);
+  allow update: if request.auth != null && abuseControlsEnabled() && request.auth.uid == uid
+    && writeLimitCooldownElapsed(action) && validWriteLimit(uid, action);
+}
 match /_retiredMatches/{document=**} {
   allow read, write: if false;
 }
@@ -47,19 +112,25 @@ match /_retiredMatches/{document=**} {
 function validProfile(p, uid) {
   return p.keys().hasOnly(['uid','profileVersion','name','fullName','createdAt',
       'position','preferredFoot','city','isProfileComplete','avatarUrl','avatarType',
-      'avatarData','blockedUsers'])
+      'avatarData','blockedUsers','username'])
     && p.profileVersion == 2 && p.get('uid', uid) == uid
-    && p.get('name', '') is string && p.get('name', '').size() <= 100
-    && p.get('fullName', '') is string && p.get('fullName', '').size() <= 100
-    && p.get('city', '') is string && p.get('city', '').size() <= 100
-    && p.get('position', '') is string && p.get('position', '').size() <= 40
+    && boundedText(p.get('name', ''), 100) && publicTextSafe(p.get('name', ''))
+    && boundedText(p.get('fullName', ''), 100) && publicTextSafe(p.get('fullName', ''))
+    && boundedText(p.get('city', ''), 100) && publicTextSafe(p.get('city', ''))
+    && boundedText(p.get('position', ''), 40) && publicTextSafe(p.get('position', ''))
+    && (!('username' in p) || p.username is string && p.username.matches('^[a-z0-9_]{3,30}$')
+      && publicTextSafe(p.username))
     && p.get('preferredFoot', '') in ['', 'Sağ', 'Sol', 'İki Ayak']
     && p.get('isProfileComplete', false) is bool
-    && p.get('avatarUrl', '') is string && p.get('avatarUrl', '').size() <= 2048
+    && boundedText(p.get('avatarUrl', ''), 2048)
     && p.get('avatarType', '') in ['', 'icon']
     && p.get('avatarData', '0') in ['0','1','2','3']
     && p.get('createdAt', request.time) is timestamp
     && p.get('blockedUsers', []) is list && p.get('blockedUsers', []).size() <= 500;
+}
+function boundedText(value, maximum) {
+  return value is string && value.size() <= maximum
+    && value.matches('^[^\\x00-\\x1F\\x7F]*$');
 }
 function validBlockChange() {
   let before = resource.data.get('blockedUsers', []);
@@ -77,10 +148,12 @@ match /users/{uid} {
     && request.query.limit != null && request.query.limit <= 50;
   allow create: if safetyWritesAllowed() && request.auth.uid == uid
     && validProfile(request.resource.data, uid)
+    && !('username' in request.resource.data)
     && request.resource.data.get('blockedUsers', []).size() == 0
     && request.resource.data.get('createdAt', request.time) == request.time;
   allow update: if safetyWritesAllowed() && request.auth.uid == uid
     && validProfile(request.resource.data, uid)
+    && request.resource.data.get('username', '') == resource.data.get('username', '')
     && validBlockChange()
     && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
   // Account deletion is a server workflow; deleting only the profile or
@@ -95,6 +168,11 @@ match /_loginLimits/{document=**} { allow read, write: if false; }
 // these paths. Requires safetyWritesAllowed() from firestore.fragment.rules.
 // Never append under the old broad allows: Firestore combines grants with OR.
 function signedIn() { return request.auth != null; }
+function canReadSocialLists(userId) {
+  return signedIn() && (request.auth.uid == userId
+    || exists(/databases/$(database)/documents/users/$(userId)/friends/$(request.auth.uid))
+      && exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(userId)));
+}
 function socialPairAllowed(a, b) {
   return a != b
     && exists(/databases/$(database)/documents/users/$(a))
@@ -117,6 +195,7 @@ function acceptedPair(receiver, sender) {
 match /users/{userId}/followRequests/{senderId} {
   allow read: if signedIn() && (request.auth.uid == userId || request.auth.uid == senderId);
   allow create: if safetyWritesAllowed() && request.auth.uid == senderId
+    && writeCooldownAllowed('followRequest', userId)
     && socialPairAllowed(senderId, userId)
     && request.resource.data.keys().hasOnly(['from', 'status', 'createdAt'])
     && request.resource.data.from == senderId
@@ -126,8 +205,10 @@ match /users/{userId}/followRequests/{senderId} {
   allow delete: if safetyWritesAllowed() && (request.auth.uid == userId || request.auth.uid == senderId);
 }
 match /users/{userId}/friends/{friendId} {
-  // Existing profile statistics and friends screens read this collection.
-  allow read: if signedIn();
+  // Lists stay limited to owners/mutual friends. A user may point-read their
+  // own relationship entry on another profile to determine friendship state.
+  allow get: if signedIn() && (canReadSocialLists(userId) || request.auth.uid == friendId);
+  allow list: if canReadSocialLists(userId);
   allow create: if safetyWritesAllowed() && socialPairAllowed(userId, friendId)
     && request.resource.data.keys().hasOnly(['uid', 'fullName', 'avatarUrl', 'avatarData', 'position', 'since'])
     && request.resource.data.uid == friendId
@@ -142,11 +223,11 @@ match /users/{userId}/friends/{friendId} {
 }
 // No active application writer was found for these legacy collections.
 match /users/{userId}/followers/{otherId} {
-  allow read: if signedIn();
+  allow read: if canReadSocialLists(userId);
   allow write: if false;
 }
 match /users/{userId}/following/{otherId} {
-  allow read: if signedIn();
+  allow read: if canReadSocialLists(userId);
   allow write: if false;
 }
 function followNotice(receiver) {
@@ -174,11 +255,12 @@ function matchNotice() {
 match /users/{userId}/notifications/{noticeId} {
   allow read: if signedIn() && request.auth.uid == userId;
   allow create: if safetyWritesAllowed()
-    && (socialPairAllowed(request.auth.uid, userId) && (followNotice(userId) || matchNotice())
+    && (socialPairAllowed(request.auth.uid, userId) && verifiedEmailForAbuse()
+        && (followNotice(userId) || matchNotice())
       || request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['title','message','isRead','createdAt'])
-        && request.resource.data.title is string && request.resource.data.title.size() <= 200
-        && request.resource.data.message is string && request.resource.data.message.size() <= 1000
+        && safePublicText(request.resource.data.title, 200)
+        && safePublicText(request.resource.data.message, 1000)
         && request.resource.data.isRead == false && request.resource.data.createdAt == request.time);
   allow update: if safetyWritesAllowed() && request.auth.uid == userId
     && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
@@ -217,7 +299,8 @@ function rejectionNotice() {
 match /notifications/{noticeId} {
   allow read: if signedIn() && (resource.data.receiverId == request.auth.uid
     || resource.data.senderId == request.auth.uid);
-  allow create: if safetyWritesAllowed() && (formationInvite() || rejectionNotice());
+  allow create: if safetyWritesAllowed()
+    && (verifiedEmailForAbuse() && formationInvite() || rejectionNotice());
   allow update: if safetyWritesAllowed() && resource.data.receiverId == request.auth.uid
     && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
         && request.resource.data.isRead is bool
@@ -262,7 +345,15 @@ function matchFormations(cap) {
     : cap == 22 ? ['4-4-2','4-3-3','3-5-2'] : [];
 }
 function boundedMatchText(value, maximum) {
-  return value is string && value.size() <= maximum;
+  return safePublicText(value, maximum);
+}
+function boundedMatchField(value, maximum) {
+  return value is string && value.size() <= maximum
+    && value.matches('^[^\\x00-\\x1F\\x7F]*$');
+}
+function safeChangedMatchText(value, previous, key) {
+  return previous != null && value.get(key, '') == previous.get(key, '')
+    || publicTextSafe(value.get(key, ''));
 }
 function validMatchCoordinates(m) {
   let lat = m.get('latitude', null);
@@ -271,19 +362,23 @@ function validMatchCoordinates(m) {
     || lat is number && lng is number && lat >= -90 && lat <= 90
       && lng >= -180 && lng <= 180;
 }
-function validMatchMetadata(m) {
+function validMatchMetadata(m, previous) {
   return m.keys().hasOnly(['title','venue','venuePhotoUrl','venueId','latitude','longitude',
       'price','maxPlayers','date','endDate','createdBy','creatorId','createdAt','status',
       'teamA_name','teamB_name','formation','currentPlayers','positions','pendingPositions',
       'invitedPlayers','slotChange','inviteSlot'])
-    && boundedMatchText(m.title, 120) && m.title.matches('.*[^\\s].*')
-    && boundedMatchText(m.get('venue', ''), 200)
-    && boundedMatchText(m.get('venueId', ''), 256)
+    && boundedMatchField(m.title, 120) && m.title.matches('.*[^\\s].*')
+    && safeChangedMatchText(m, previous, 'title')
+    && boundedMatchField(m.get('venue', ''), 200)
+    && safeChangedMatchText(m, previous, 'venue')
+    && boundedMatchField(m.get('venueId', ''), 256)
     && !m.get('venueId', '').matches('.*[/].*')
-    && boundedMatchText(m.get('venuePhotoUrl', ''), 2048)
+    && boundedMatchField(m.get('venuePhotoUrl', ''), 2048)
     && (m.get('venuePhotoUrl', '') == '' || m.venuePhotoUrl.matches('https://.*'))
-    && boundedMatchText(m.get('teamA_name', ''), 60)
-    && boundedMatchText(m.get('teamB_name', ''), 60)
+    && boundedMatchField(m.get('teamA_name', ''), 60)
+    && safeChangedMatchText(m, previous, 'teamA_name')
+    && boundedMatchField(m.get('teamB_name', ''), 60)
+    && safeChangedMatchText(m, previous, 'teamB_name')
     && m.get('price', 0) is number && m.get('price', 0) >= 0 && m.get('price', 0) <= 1000000
     && m.maxPlayers is int && m.maxPlayers in [10,12,14,16,18,20,22]
     && validMatchCoordinates(m)
@@ -294,6 +389,14 @@ function validMatchMetadata(m) {
     && m.status in ['open', 'closed']
     && m.get('createdAt', request.time) is timestamp
     && (m.get('formation', '') == '' || m.formation in matchFormations(m.maxPlayers));
+}
+function validFormationOnlyUpdate() {
+  let before = resource.data;
+  let after = request.resource.data;
+  let changed = after.diff(before).affectedKeys();
+  return changed.hasOnly(['formation']) && changed.hasAny(['formation'])
+    && after.maxPlayers == before.maxPlayers
+    && (after.get('formation', '') == '' || after.formation in matchFormations(after.maxPlayers));
 }
 
 // ---- match-participation ----
@@ -356,7 +459,7 @@ function selfPending(old, next, change) {
 function ownerInvites(old, next, owner, slot) {
   let target = next.get(slot, '');
   return old == next || next.diff(old).affectedKeys().hasOnly([slot])
-    && (target == '' || socialPairAllowed(owner, target));
+    && (target == '' || verifiedEmailForAbuse() && socialPairAllowed(owner, target));
 }
 function participantMatchUpdate() {
   let a = resource.data;
@@ -379,24 +482,28 @@ function participantMatchUpdate() {
 function ownerMatchUpdate() {
   let a = resource.data;
   let b = request.resource.data;
+  let changed = b.diff(a).affectedKeys();
   return request.auth.uid == matchOwner(a)
     && (b.date == a.date || b.date > request.time)
     && b.diff(a).affectedKeys().hasOnly(['title','venue','venueId','latitude','longitude','price',
       'maxPlayers','date','endDate','teamA_name','teamB_name','formation','status',
       'currentPlayers','positions','pendingPositions','invitedPlayers','slotChange','inviteSlot'])
-    && b.currentPlayers.toSet().difference(a.currentPlayers.toSet()).size() == 0
-    && (a.status == 'open' && a.date > request.time
-      || b.get('positions', {}).diff(a.get('positions', {})).addedKeys().size() == 0
-        && b.get('positions', {}).diff(a.get('positions', {})).changedKeys().size() == 0
-        && b.get('pendingPositions', {}).diff(a.get('pendingPositions', {})).addedKeys().size() == 0
-        && b.get('pendingPositions', {}).diff(a.get('pendingPositions', {})).changedKeys().size() == 0)
-    && ownerInvites(a.get('pendingPositions', {}), b.get('pendingPositions', {}), request.auth.uid, b.get('inviteSlot', ''));
+    && (changed.hasOnly(['title','venue','venueId','latitude','longitude','price','maxPlayers','date','endDate',
+          'teamA_name','teamB_name','formation','status'])
+      || b.currentPlayers.toSet().difference(a.currentPlayers.toSet()).size() == 0
+        && (a.status == 'open' && a.date > request.time
+          || b.get('positions', {}).diff(a.get('positions', {})).addedKeys().size() == 0
+            && b.get('positions', {}).diff(a.get('positions', {})).changedKeys().size() == 0
+            && b.get('pendingPositions', {}).diff(a.get('pendingPositions', {})).addedKeys().size() == 0
+            && b.get('pendingPositions', {}).diff(a.get('pendingPositions', {})).changedKeys().size() == 0)
+        && ownerInvites(a.get('pendingPositions', {}), b.get('pendingPositions', {}), request.auth.uid, b.get('inviteSlot', '')));
 }
 match /matches/{matchId} {
   allow read: if request.auth != null;
-  allow create: if safetyWritesAllowed() && validNewMatchOwner()
+  allow create: if safetyWritesAllowed()
+    && writeCooldownAllowed('matchCreate', matchId) && validNewMatchOwner()
     && !exists(/databases/$(database)/documents/_retiredMatches/$(matchId))
-    && validMatchMetadata(request.resource.data)
+    && validMatchMetadata(request.resource.data, null)
     && request.resource.data.createdAt == request.time
     && validRoster(request.resource.data)
     && request.resource.data.currentPlayers == [request.auth.uid]
@@ -406,9 +513,14 @@ match /matches/{matchId} {
     && accountActive(matchOwner(resource.data))
     && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
           ['currentPlayers','positions','pendingPositions','invitedPlayers','slotChange','inviteSlot'])
-      || validMatchMetadata(request.resource.data))
-    && validRoster(request.resource.data)
-    && (ownerMatchUpdate() || participantMatchUpdate());
+      || validFormationOnlyUpdate()
+      || validMatchMetadata(request.resource.data, resource.data))
+    && (request.auth.uid == matchOwner(resource.data)
+      ? ownerMatchUpdate()
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(
+          ['currentPlayers','positions','pendingPositions','invitedPlayers','slotChange','inviteSlot'])
+          || validRoster(request.resource.data))
+      : validRoster(request.resource.data) && participantMatchUpdate());
   allow delete: if safetyWritesAllowed() && canDeleteMatch();
 }
 

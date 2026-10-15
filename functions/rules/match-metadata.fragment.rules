@@ -10,7 +10,15 @@ function matchFormations(cap) {
     : cap == 22 ? ['4-4-2','4-3-3','3-5-2'] : [];
 }
 function boundedMatchText(value, maximum) {
-  return value is string && value.size() <= maximum;
+  return safePublicText(value, maximum);
+}
+function boundedMatchField(value, maximum) {
+  return value is string && value.size() <= maximum
+    && value.matches('^[^\\x00-\\x1F\\x7F]*$');
+}
+function safeChangedMatchText(value, previous, key) {
+  return previous != null && value.get(key, '') == previous.get(key, '')
+    || publicTextSafe(value.get(key, ''));
 }
 function validMatchCoordinates(m) {
   let lat = m.get('latitude', null);
@@ -19,19 +27,23 @@ function validMatchCoordinates(m) {
     || lat is number && lng is number && lat >= -90 && lat <= 90
       && lng >= -180 && lng <= 180;
 }
-function validMatchMetadata(m) {
+function validMatchMetadata(m, previous) {
   return m.keys().hasOnly(['title','venue','venuePhotoUrl','venueId','latitude','longitude',
       'price','maxPlayers','date','endDate','createdBy','creatorId','createdAt','status',
       'teamA_name','teamB_name','formation','currentPlayers','positions','pendingPositions',
       'invitedPlayers','slotChange','inviteSlot'])
-    && boundedMatchText(m.title, 120) && m.title.matches('.*[^\\s].*')
-    && boundedMatchText(m.get('venue', ''), 200)
-    && boundedMatchText(m.get('venueId', ''), 256)
+    && boundedMatchField(m.title, 120) && m.title.matches('.*[^\\s].*')
+    && safeChangedMatchText(m, previous, 'title')
+    && boundedMatchField(m.get('venue', ''), 200)
+    && safeChangedMatchText(m, previous, 'venue')
+    && boundedMatchField(m.get('venueId', ''), 256)
     && !m.get('venueId', '').matches('.*[/].*')
-    && boundedMatchText(m.get('venuePhotoUrl', ''), 2048)
+    && boundedMatchField(m.get('venuePhotoUrl', ''), 2048)
     && (m.get('venuePhotoUrl', '') == '' || m.venuePhotoUrl.matches('https://.*'))
-    && boundedMatchText(m.get('teamA_name', ''), 60)
-    && boundedMatchText(m.get('teamB_name', ''), 60)
+    && boundedMatchField(m.get('teamA_name', ''), 60)
+    && safeChangedMatchText(m, previous, 'teamA_name')
+    && boundedMatchField(m.get('teamB_name', ''), 60)
+    && safeChangedMatchText(m, previous, 'teamB_name')
     && m.get('price', 0) is number && m.get('price', 0) >= 0 && m.get('price', 0) <= 1000000
     && m.maxPlayers is int && m.maxPlayers in [10,12,14,16,18,20,22]
     && validMatchCoordinates(m)
@@ -42,4 +54,12 @@ function validMatchMetadata(m) {
     && m.status in ['open', 'closed']
     && m.get('createdAt', request.time) is timestamp
     && (m.get('formation', '') == '' || m.formation in matchFormations(m.maxPlayers));
+}
+function validFormationOnlyUpdate() {
+  let before = resource.data;
+  let after = request.resource.data;
+  let changed = after.diff(before).affectedKeys();
+  return changed.hasOnly(['formation']) && changed.hasAny(['formation'])
+    && after.maxPlayers == before.maxPlayers
+    && (after.get('formation', '') == '' || after.formation in matchFormations(after.maxPlayers));
 }

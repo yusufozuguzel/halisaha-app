@@ -1,0 +1,119 @@
+diff --git a/gizlilik.html b/gizlilik.html
+index 00c0a07..e243f02 100644
+--- a/gizlilik.html
++++ b/gizlilik.html
+@@ -28,30 +28,37 @@
+ <body>
+     <div class="container">
+         <h1>DEPAR GİZLİLİK POLİTİKASI</h1>
+-        <p><strong>Son Güncelleme Tarihi:</strong> 02.05.2026</p>
+-        
+-        <p>Depar uygulaması olarak kişisel verilerinizin güvenliğine ve gizliliğine büyük önem veriyoruz. Bu Gizlilik Politikası, uygulamamızı kullanırken hangi verilerinizi topladığımızı, nasıl kullandığımızı ve nasıl koruduğumuzu açıklamaktadır.</p>
++        <p><strong>Son Güncelleme Tarihi:</strong> 15.10.2026</p>
++        <p><strong>Resmi yayıncı:</strong> Emir Topaloğlu<br><strong>Destek ve iletişim:</strong> <a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a></p>
++        <p>Bu politika, DEPAR'ı kullanırken işlenen bilgileri, uygulamadaki görünürlüklerini ve hesap silme sürecini açıklar. Sorularınız için <a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a> adresine yazabilirsiniz. Kullanım şartları için <a href="kosullar.html">Kullanım Koşulları</a> sayfasını da inceleyin.</p>
+ 
+-        <h2>1. Hangi Verileri Topluyoruz?</h2>
++        <h2>1. İşlenen veriler</h2>
+         <ul>
+-            <li><strong>Kişisel Bilgiler:</strong> Ad soyad, e-posta adresi ve şifre (Kendi e-postanızla veya "Google ile Giriş Yap" seçeneğiyle kayıt olduğunuzda).</li>
+-            <li><strong>Profil Verileri:</strong> Uygulama içi oluşturduğunuz avatar veya profil fotoğrafı.</li>
+-            <li><strong>Konum Bilgileri:</strong> Harita üzerinden saha seçimi yaparken ve adresleri ayrıştırırken anlık konum verilerinizi veya seçtiğiniz konumları işleriz.</li>
++            <li><strong>Hesap ve oturum:</strong> E-posta ve hesap bilgileri Firebase Authentication ile işlenir. Apple veya Google ile giriş kullanabilirsiniz. Kullanıcı adı ve parola ile girişte bilgiler uygulama sunucusu üzerinden Firebase Authentication'a iletilir; uygulama parolaları düz metin olarak saklamaz veya günlüklere yazmaz. E-posta adresiniz herkese açık profil alanı değildir.</li>
++            <li><strong>Profil ve maçlar:</strong> Profil adınız, mevkiniz, şehriniz ve profil fotoğrafınız; oluşturduğunuz veya katıldığınız maçların saha, tarih ve katılımcı bilgileri işlenir.</li>
++            <li><strong>Sosyal ve güvenlik kayıtları:</strong> Arkadaşlık/takip ilişkileri, engelleme ve şikayet kayıtları ilgili özelliklerin çalışması ve güvenlik için işlenir.</li>
++            <li><strong>Konum:</strong> Konum, uygulama kullanımdayken yakındaki sahalar ve harita özellikleri için kullanılabilir. Uygulama arka planda konum takibi yapmaz.</li>
++            <li><strong>Kamera ve fotoğraf arşivi:</strong> Yalnızca profil fotoğrafı seçmeniz veya çekmeniz sırasında kullanılır. Seçtiğiniz fotoğraf Firebase Storage'da saklanır.</li>
++            <li><strong>Destek ve itiraz:</strong> Gönderdiğiniz destek/itiraz mesajları ile bildirdiğiniz içerik ve hesap bilgileri talebinizi değerlendirmek ve topluluk güvenliğini sağlamak için işlenir.</li>
+         </ul>
+ 
+-        <h2>2. Verileri Nasıl Kullanıyoruz?</h2>
+-        <ul>
+-            <li>Hesabınızı oluşturmak ve güvenliğini sağlamak.</li>
+-            <li>Halı saha maçları organize etmenizi, maçlara katılmanızı ve saha bulmanızı sağlamak.</li>
+-            <li>Arkadaşlarınızı bulmanız ve etkileşime geçmeniz için uygulama içi özellikleri sunmak.</li>
+-            <li>Uygulama hatalarını gidermek ve kullanıcı deneyimini iyileştirmek.</li>
+-        </ul>
++        <h2>2. Uygulamadaki görünürlük</h2>
++        <p>Oturum açmış kullanıcılar, uygulamanın ilgili ekranlarında profil adınızı, mevkinizi, şehrinizi ve fotoğrafınızı; maçların saha, tarih ve katılımcı bilgilerini görebilir. Arkadaş, takipçi ve takip edilen kişi listeleri yalnızca hesap sahibi ve arkadaşları tarafından görülebilir. E-posta adresi herkese açık profil bilgisi olarak gösterilmez.</p>
++        <p>Profil fotoğrafları yüklendikten sonra otomatik içerik denetiminden geçer. Bu denetim yükleme sonrasında gerçekleştiğinden, inceleme tamamlanana kadar fotoğrafın gizli kalacağı garanti edilmez. Daha önce paylaşılmış bir fotoğraf indirme bağlantısına sahip kişiler bağlantı çalıştığı sürece fotoğrafa erişebilir.</p>
++
++        <h2>3. Hizmet sağlayıcılar ve kullanım amaçları</h2>
++        <p>Hesap, profil, maç, sosyal özellikler ve güvenlik işlevleri Firebase ve Google Cloud altyapısında çalışır. Harita ve yer aramaları Google Maps/Places hizmetlerini kullanır. Profil fotoğrafları yüklendikten sonra Google Cloud Vision ile incelenir. Denetim hizmetinde geçici hata oluşursa kontrol yeniden denenir; bu, yükleme öncesi karantina anlamına gelmez.</p>
++        <p>Google Maps/Places kullanımı ayrıca <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer">Google Maps Ek Hizmet Şartları</a> ve <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Gizlilik Politikası</a> kapsamındadır.</p>
++
++        <h2>4. Uygulama tanılama özellikleri</h2>
++        <p>Mevcut yayın yapılandırmasında Firebase App Check zorunlu doğrulaması ve Firebase Crashlytics veri toplaması etkin değildir. Yapılandırma değişirse bu politika ve mağaza açıklamaları güncellenmelidir.</p>
+ 
+-        <h2>3. Verilerin Üçüncü Taraflarla Paylaşımı</h2>
+-        <p>Kullanıcı verilerinizi asla reklam amacıyla satmayız. Ancak hizmeti sağlayabilmek için güvenilir altyapı sağlayıcılarıyla çalışırız: Google, Firebase ve Harita servisleri.</p>
++        <h2>5. Hesap silme ve saklama</h2>
++        <p>Hesabınızın silinmesini uygulamadaki Ayarlar bölümünden talep edebilirsiniz. Güvenlik için yeniden kimlik doğrulaması istenebilir. Talep sunucuda sıraya alınır; silme işlemi anında tamamlanmış sayılmaz. İşlemin yürütülmesi sırasında bazı silme işaretleri ve yedeklerdeki kayıtlar bir süre tutulabilir. Bu kayıtların tamamının aynı anda silineceği veya belirli bir sürede silineceği garanti edilmez.</p>
++        <p>Uygulamaya erişemiyorsanız <a href="mailto:destekdepar@gmail.com?subject=Hesap%20silme%20talebi">destekdepar@gmail.com</a> adresine “Hesap silme talebi” konusuyla yazın. Parolanızı veya giriş kodlarınızı e-postayla göndermeyin.</p>
+ 
+-        <h2>4. Veri Güvenliği ve Silme Hakkı</h2>
+-        <p>Verileriniz güvenli sunucularda şifrelenmiş olarak saklanır. Kullanıcılar, uygulama içi ayarlar menüsünden veya <strong><a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a></strong> adresine e-posta göndererek hesaplarının ve tüm kişisel verilerinin kalıcı olarak silinmesini talep edebilirler.</p>
++        <h2>6. İletişim</h2>
++        <p>Gizlilik, veri talepleri veya bu politika hakkında: <a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a>.</p>
+     </div>
+ </body>
+ </html>
+diff --git a/kosullar.html b/kosullar.html
+index 941805a..2390b64 100644
+--- a/kosullar.html
++++ b/kosullar.html
+@@ -28,28 +28,39 @@
+ <body>
+     <div class="container">
+         <h1>DEPAR KULLANIM KOŞULLARI</h1>
+-        <p><strong>Son Güncelleme Tarihi:</strong> 02.05.2026</p>
+-        
+-        <p>Depar uygulamasına hoş geldiniz. Uygulamamızı indirerek veya kullanarak aşağıdaki şartları kabul etmiş sayılırsınız. Lütfen dikkatlice okuyunuz.</p>
++        <p><strong>Son Güncelleme Tarihi:</strong> 15.10.2026</p>
++        <p><strong>Resmi yayıncı:</strong> Emir Topaloğlu<br><strong>Destek ve iletişim:</strong> <a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a></p>
++        <p>DEPAR'ı kullanarak bu koşullara uymanız beklenir. Kişisel verilerin işlenmesi ve görünürlüğü hakkında <a href="gizlilik.html">Gizlilik Politikası</a> sayfasını okuyun. Sorular, bildirimler ve itirazlar için <a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a> adresine ulaşabilirsiniz.</p>
+ 
+-        <h2>1. Hizmetin Kapsamı</h2>
+-        <p>Depar, kullanıcıların halı saha maçları organize etmesine, mevcut maçlara katılmasına ve takımlarını yönetmesine olanak tanıyan bir platformdur. Platform üzerinden yapılan gerçek dünya organizasyonlarında doğabilecek anlaşmazlıklardan Depar sorumlu tutulamaz.</p>
++        <h2>1. Hizmet</h2>
++        <p>DEPAR, kullanıcıların halı saha maçları oluşturmasına, maçlara katılmasına ve oyuncularla bağlantı kurmasına yardımcı olur. Maçın yeri, zamanı ve katılım düzenlemelerini diğer katılımcılarla doğrulamak kullanıcının sorumluluğundadır.</p>
+ 
+-        <h2>2. Kullanıcı Sorumlulukları</h2>
++        <h2>2. Hesap ve güvenlik</h2>
+         <ul>
+-            <li>Kayıt olurken verdiğiniz bilgilerin doğruluğundan siz sorumlusunuz.</li>
+-            <li>Hesap şifrenizin güvenliğini sağlamak sizin sorumluluğunuzdadır.</li>
+-            <li>Uygulama içinde diğer kullanıcılara karşı rahatsız edici, hakaret içeren veya yasa dışı davranışlarda bulunmak yasaktır. Bu tür durumlarda hesap silme hakkımız saklıdır.</li>
++            <li>Hesap bilgilerinizin doğru ve güncel olmasını sağlayın; hesap erişiminizi koruyun ve şüpheli erişimi bildirin.</li>
++            <li>Giriş Firebase Authentication üzerinden yürütülür. Kullanıcı adı ve parola ile giriş bilgileri uygulama sunucusu aracılığıyla Firebase Authentication'a iletilir; uygulama parolaları düz metin olarak saklamaz veya günlüklere yazmaz.</li>
+         </ul>
+ 
+-        <h2>3. Hizmet Kesintileri</h2>
+-        <p>Sistem güncellemeleri, bakım çalışmaları veya teknik sebeplerden dolayı hizmetin geçici olarak durması veya aksaması durumunda sorumluluk kabul edilmez.</p>
++        <h2>3. Topluluk kuralları</h2>
++        <p>Taciz, tehdit, nefret söylemi, ayrımcılık, cinsel istismar, pornografik içerik, dolandırıcılık ve başkasının kişisel bilgilerinin izinsiz paylaşılması yasaktır. Bu davranışlara ve içeriklere sıfır tolerans uygulanır. Yalnızca paylaşmaya yetkili olduğunuz metin ve görselleri yükleyin. İhlaller içeriğin kaldırılmasına veya hesap kısıtlamasına yol açabilir.</p>
+ 
+-        <h2>4. Fikri Mülkiyet</h2>
+-        <p>Uygulamanın tasarımı, "Depar" markası, logoları ve kod altyapısı dahil olmak üzere tüm fikri mülkiyet hakları saklıdır. İzinsiz kullanılamaz.</p>
++        <h2>4. Şikayet, engelleme ve itiraz</h2>
++        <p>Uygulama içinden profilleri ve maçları bildirebilir, kullanıcıları engelleyebilirsiniz. Bildirimler yetkili moderatör tarafından incelenir; uygun görüldüğünde içerik kaldırılabilir veya hesap hakkında işlem yapılabilir. Bir moderasyon kararına itiraz etmek ya da yardım istemek için <a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a> adresine yazın.</p>
+ 
+-        <h2>5. İletişim</h2>
+-        <p>Bu koşullarla ilgili her türlü soru ve öneriniz için bizimle iletişime geçebilirsiniz: <strong><a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a></strong></p>
++        <h2>5. Fotoğraflar ve kullanıcı içerikleri</h2>
++        <p>Yüklediğiniz içerik için gerekli hak ve izinlere sahip olmalısınız. Profil fotoğrafları yüklendikten sonra Google Cloud Vision ile incelenir; yükleme ile inceleme arasında fotoğrafın gizli kalacağı garanti edilmez. Uygunsuz içerik kaldırılabilir.</p>
++
++        <h2>6. Harita özellikleri</h2>
++        <p>Harita ve yer aramalarında Google Maps/Places kullanılabilir. Bu özellikler <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer">Google Maps Ek Hizmet Şartları</a> ve <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Gizlilik Politikası</a> kapsamında sunulur.</p>
++
++        <h2>7. Hizmetin kullanılabilirliği</h2>
++        <p>Bakım, güncelleme veya teknik sorunlar nedeniyle hizmet ya da bazı özellikler geçici olarak kullanılamayabilir veya değiştirilebilir.</p>
++
++        <h2>8. Hesap silme</h2>
++        <p>Hesabınızın silinmesini uygulamadaki Ayarlar bölümünden talep edebilirsiniz. Güvenlik için yeniden kimlik doğrulaması istenebilir ve talep sunucuda sıraya alınır; işlem anında tamamlanmayabilir. Uygulamaya erişemiyorsanız <a href="mailto:destekdepar@gmail.com?subject=Hesap%20silme%20talebi">destekdepar@gmail.com</a> adresine yazın. Parolanızı veya giriş kodlarınızı göndermeyin.</p>
++
++        <h2>9. İletişim</h2>
++        <p>Koşullar, şikayetler ve itirazlar için: <a href="mailto:destekdepar@gmail.com">destekdepar@gmail.com</a>.</p>
+     </div>
+ </body>
+ </html>

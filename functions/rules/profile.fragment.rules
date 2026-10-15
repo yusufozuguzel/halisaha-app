@@ -5,19 +5,25 @@
 function validProfile(p, uid) {
   return p.keys().hasOnly(['uid','profileVersion','name','fullName','createdAt',
       'position','preferredFoot','city','isProfileComplete','avatarUrl','avatarType',
-      'avatarData','blockedUsers'])
+      'avatarData','blockedUsers','username'])
     && p.profileVersion == 2 && p.get('uid', uid) == uid
-    && p.get('name', '') is string && p.get('name', '').size() <= 100
-    && p.get('fullName', '') is string && p.get('fullName', '').size() <= 100
-    && p.get('city', '') is string && p.get('city', '').size() <= 100
-    && p.get('position', '') is string && p.get('position', '').size() <= 40
+    && boundedText(p.get('name', ''), 100) && publicTextSafe(p.get('name', ''))
+    && boundedText(p.get('fullName', ''), 100) && publicTextSafe(p.get('fullName', ''))
+    && boundedText(p.get('city', ''), 100) && publicTextSafe(p.get('city', ''))
+    && boundedText(p.get('position', ''), 40) && publicTextSafe(p.get('position', ''))
+    && (!('username' in p) || p.username is string && p.username.matches('^[a-z0-9_]{3,30}$')
+      && publicTextSafe(p.username))
     && p.get('preferredFoot', '') in ['', 'Sağ', 'Sol', 'İki Ayak']
     && p.get('isProfileComplete', false) is bool
-    && p.get('avatarUrl', '') is string && p.get('avatarUrl', '').size() <= 2048
+    && boundedText(p.get('avatarUrl', ''), 2048)
     && p.get('avatarType', '') in ['', 'icon']
     && p.get('avatarData', '0') in ['0','1','2','3']
     && p.get('createdAt', request.time) is timestamp
     && p.get('blockedUsers', []) is list && p.get('blockedUsers', []).size() <= 500;
+}
+function boundedText(value, maximum) {
+  return value is string && value.size() <= maximum
+    && value.matches('^[^\\x00-\\x1F\\x7F]*$');
 }
 function validBlockChange() {
   let before = resource.data.get('blockedUsers', []);
@@ -35,10 +41,12 @@ match /users/{uid} {
     && request.query.limit != null && request.query.limit <= 50;
   allow create: if safetyWritesAllowed() && request.auth.uid == uid
     && validProfile(request.resource.data, uid)
+    && !('username' in request.resource.data)
     && request.resource.data.get('blockedUsers', []).size() == 0
     && request.resource.data.get('createdAt', request.time) == request.time;
   allow update: if safetyWritesAllowed() && request.auth.uid == uid
     && validProfile(request.resource.data, uid)
+    && request.resource.data.get('username', '') == resource.data.get('username', '')
     && validBlockChange()
     && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
   // Account deletion is a server workflow; deleting only the profile or

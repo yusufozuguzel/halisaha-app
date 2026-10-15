@@ -8,6 +8,40 @@ import 'package:halisaha_app/core/services/content_reports.dart';
 import 'package:halisaha_app/core/services/firebase_account_deletion.dart';
 
 void main() {
+  test('callable forwards injected App Check attestation', () async {
+    final service = SafetyApi(
+      projectId: 'demo-depar-review',
+      appCheckToken: () async => 'test-attestation',
+      token: () async => 'test-auth',
+      client: MockClient((request) async {
+        expect(request.headers['X-Firebase-AppCheck'], 'test-attestation');
+        return http.Response('{"result":{"accepted":true}}', 200);
+      }),
+    );
+    await service.call('safetyStatus');
+  });
+
+  test(
+    'attestation failure prevents unauthenticated fallback request',
+    () async {
+      var requested = false;
+      final service = SafetyApi(
+        projectId: 'demo-depar-review',
+        appCheckToken: () async => throw StateError('attestation failed'),
+        token: () async => 'test-auth',
+        client: MockClient((_) async {
+          requested = true;
+          return http.Response('{}', 200);
+        }),
+      );
+      await expectLater(
+        service.call('safetyStatus'),
+        throwsA(isA<SafetyApiException>()),
+      );
+      expect(requested, isFalse);
+    },
+  );
+
   test(
     'report sends only content fields, using refreshed identity in header',
     () async {

@@ -2,6 +2,11 @@
 // these paths. Requires safetyWritesAllowed() from firestore.fragment.rules.
 // Never append under the old broad allows: Firestore combines grants with OR.
 function signedIn() { return request.auth != null; }
+function canReadSocialLists(userId) {
+  return signedIn() && (request.auth.uid == userId
+    || exists(/databases/$(database)/documents/users/$(userId)/friends/$(request.auth.uid))
+      && exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(userId)));
+}
 function socialPairAllowed(a, b) {
   return a != b
     && exists(/databases/$(database)/documents/users/$(a))
@@ -24,6 +29,7 @@ function acceptedPair(receiver, sender) {
 match /users/{userId}/followRequests/{senderId} {
   allow read: if signedIn() && (request.auth.uid == userId || request.auth.uid == senderId);
   allow create: if safetyWritesAllowed() && request.auth.uid == senderId
+    && writeCooldownAllowed('followRequest', userId)
     && socialPairAllowed(senderId, userId)
     && request.resource.data.keys().hasOnly(['from', 'status', 'createdAt'])
     && request.resource.data.from == senderId
@@ -33,8 +39,10 @@ match /users/{userId}/followRequests/{senderId} {
   allow delete: if safetyWritesAllowed() && (request.auth.uid == userId || request.auth.uid == senderId);
 }
 match /users/{userId}/friends/{friendId} {
-  // Existing profile statistics and friends screens read this collection.
-  allow read: if signedIn();
+  // Lists stay limited to owners/mutual friends. A user may point-read their
+  // own relationship entry on another profile to determine friendship state.
+  allow get: if signedIn() && (canReadSocialLists(userId) || request.auth.uid == friendId);
+  allow list: if canReadSocialLists(userId);
   allow create: if safetyWritesAllowed() && socialPairAllowed(userId, friendId)
     && request.resource.data.keys().hasOnly(['uid', 'fullName', 'avatarUrl', 'avatarData', 'position', 'since'])
     && request.resource.data.uid == friendId
@@ -49,11 +57,11 @@ match /users/{userId}/friends/{friendId} {
 }
 // No active application writer was found for these legacy collections.
 match /users/{userId}/followers/{otherId} {
-  allow read: if signedIn();
+  allow read: if canReadSocialLists(userId);
   allow write: if false;
 }
 match /users/{userId}/following/{otherId} {
-  allow read: if signedIn();
+  allow read: if canReadSocialLists(userId);
   allow write: if false;
 }
 function followNotice(receiver) {
@@ -81,11 +89,12 @@ function matchNotice() {
 match /users/{userId}/notifications/{noticeId} {
   allow read: if signedIn() && request.auth.uid == userId;
   allow create: if safetyWritesAllowed()
-    && (socialPairAllowed(request.auth.uid, userId) && (followNotice(userId) || matchNotice())
+    && (socialPairAllowed(request.auth.uid, userId) && verifiedEmailForAbuse()
+        && (followNotice(userId) || matchNotice())
       || request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['title','message','isRead','createdAt'])
-        && request.resource.data.title is string && request.resource.data.title.size() <= 200
-        && request.resource.data.message is string && request.resource.data.message.size() <= 1000
+        && safePublicText(request.resource.data.title, 200)
+        && safePublicText(request.resource.data.message, 1000)
         && request.resource.data.isRead == false && request.resource.data.createdAt == request.time);
   allow update: if safetyWritesAllowed() && request.auth.uid == userId
     && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
@@ -124,7 +133,8 @@ function rejectionNotice() {
 match /notifications/{noticeId} {
   allow read: if signedIn() && (resource.data.receiverId == request.auth.uid
     || resource.data.senderId == request.auth.uid);
-  allow create: if safetyWritesAllowed() && (formationInvite() || rejectionNotice());
+  allow create: if safetyWritesAllowed()
+    && (verifiedEmailForAbuse() && formationInvite() || rejectionNotice());
   allow update: if safetyWritesAllowed() && resource.data.receiverId == request.auth.uid
     && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
         && request.resource.data.isRead is bool

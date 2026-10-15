@@ -88,6 +88,43 @@ test('cleanup spans pages, relations, orphan subcollections and match copies; Au
   assert.equal((await db.doc('accountDeletionJobs/alice').get()).data().status, 'completed');
 });
 
+test('deletion removes owned username and rate-limit descendants without touching another account', async () => {
+  await auth.createUser({uid:'alice'});
+  await auth.createUser({uid:'bob'});
+  await auth.createUser({uid:'carol'});
+  await db.doc('users/alice').set({profileVersion:2,username:'alice_1'});
+  await db.doc('users/bob').set({profileVersion:2,username:'bob_1'});
+  await db.doc('users/carol').set({profileVersion:2,username:'bob_1'});
+  await db.doc('_usernames/alice_1').set({uid:'alice'});
+  await db.doc('_usernames/bob_1').set({uid:'bob'});
+  for (const path of [
+    '_writeLimits/alice/actions/matchCreate',
+    '_usernameLimits/alice/windows/claim',
+    '_placesLimits/alice/windows/search',
+    '_writeLimits/bob/actions/matchCreate',
+    '_usernameLimits/bob/windows/claim',
+    '_placesLimits/bob/windows/search',
+  ]) await db.doc(path).set({expiresAt:new Date(Date.now()+60_000),count:1});
+
+  const backend = service();
+  await backend.requestDeletion(request('alice'));
+  await backend.processDeletion('alice');
+  await backend.processDeletion('alice');
+  await backend.requestDeletion(request('carol'));
+  await backend.processDeletion('carol');
+
+  assert.equal((await db.doc('_usernames/alice_1').get()).exists,false);
+  assert.equal((await db.doc('_usernames/bob_1').get()).get('uid'),'bob');
+  assert.equal((await db.doc('_writeLimits/alice/actions/matchCreate').get()).exists,false);
+  assert.equal((await db.doc('_usernameLimits/alice/windows/claim').get()).exists,false);
+  assert.equal((await db.doc('_placesLimits/alice/windows/search').get()).exists,false);
+  for (const path of [
+    '_writeLimits/bob/actions/matchCreate',
+    '_usernameLimits/bob/windows/claim',
+    '_placesLimits/bob/windows/search',
+  ]) assert.equal((await db.doc(path).get()).exists,true,path);
+});
+
 test('Storage error preserves Auth and only this account barrier; retry finishes from checkpoint', async () => {
   await auth.createUser({ uid: 'alice' });
   await auth.createUser({ uid: 'bob' });

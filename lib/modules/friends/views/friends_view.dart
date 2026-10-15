@@ -120,7 +120,7 @@ class FriendsView extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: _green.withOpacity(0.4),
+              color: _green.withValues(alpha: 0.4),
               blurRadius: 20,
               spreadRadius: 2,
               offset: const Offset(0, 4),
@@ -297,7 +297,7 @@ class FriendsView extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: _green.withOpacity(0.15),
+      splashColor: _green.withValues(alpha: 0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(
@@ -352,7 +352,7 @@ class _SearchResultsLayer extends StatelessWidget {
               Icon(
                 Icons.search_off,
                 size: 60,
-                color: AppColors.subText(context).withOpacity(0.4),
+                color: AppColors.subText(context).withValues(alpha: 0.4),
               ),
               const SizedBox(height: 12),
               Text(
@@ -404,7 +404,7 @@ class _FollowingTab extends StatelessWidget {
                 Icon(
                   Icons.lock_outline_rounded,
                   size: 60,
-                  color: Colors.redAccent.withOpacity(0.7),
+                  color: Colors.redAccent.withValues(alpha: 0.7),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -443,7 +443,7 @@ class _FollowingTab extends StatelessWidget {
                 Icon(
                   Icons.people_outline,
                   size: 72,
-                  color: _green.withOpacity(0.35),
+                  color: _green.withValues(alpha: 0.35),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -502,7 +502,7 @@ class _RequestsTab extends StatelessWidget {
               Icon(
                 Icons.mark_email_unread_outlined,
                 size: 64,
-                color: _green.withOpacity(0.4),
+                color: _green.withValues(alpha: 0.4),
               ),
               const SizedBox(height: 16),
               Text(
@@ -797,7 +797,7 @@ class _AvatarWidget extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: AppColors.card(context),
-        border: Border.all(color: _green.withOpacity(0.4), width: 2),
+        border: Border.all(color: _green.withValues(alpha: 0.4), width: 2),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size / 2),

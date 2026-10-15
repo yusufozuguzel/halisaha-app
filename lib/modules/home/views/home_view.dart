@@ -1,3 +1,6 @@
+import '../../../widgets/venue_image.dart';
+import '../../../widgets/static_map_venue_card.dart';
+import '../../../widgets/places_attribution_widget.dart';
 import '../../../core/utils/share_text.dart';
 import '../../../widgets/account_restriction_banner.dart';
 import 'package:flutter/material.dart';
@@ -385,7 +388,9 @@ class _HomeViewState extends State<HomeView> {
                         size: 22,
                       ),
                       Obx(() {
-                        final unreadCount = Get.put(NotificationsController()).unreadCount;
+                        final unreadCount = Get.put(
+                          NotificationsController(),
+                        ).unreadCount;
                         if (unreadCount == 0) return const SizedBox.shrink();
 
                         return Positioned(
@@ -487,64 +492,82 @@ class _HomeViewState extends State<HomeView> {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: GestureDetector(
-              onTap: () {
-                SharePlus.instance.share(
-                  ShareParams(text: appInvitationText),
-                );
-              },
-              child: Container(
-                height: 120,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.overlay(context),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border(context)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: AppColors.overlay(context),
-                        borderRadius: BorderRadius.circular(10),
+            child: Builder(
+              builder: (shareContext) => GestureDetector(
+                onTap: () async {
+                  final box = shareContext.findRenderObject() as RenderBox?;
+                  try {
+                    if (box == null || !box.hasSize) {
+                      throw StateError('Share origin unavailable');
+                    }
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        text: appInvitationText,
+                        sharePositionOrigin:
+                            box.localToGlobal(Offset.zero) & box.size,
                       ),
-                      child: const Icon(
-                        Icons.share_outlined,
-                        color: Color(0xFF2EED7B),
-                        size: 20,
+                    );
+                  } catch (_) {
+                    if (!mounted) return;
+                    Get.snackbar(
+                      'Payla\u015f\u0131m a\u00e7\u0131lamad\u0131',
+                      'L\u00fctfen tekrar deneyin.',
+                    );
+                  }
+                },
+                child: Container(
+                  height: 120,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.overlay(context),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border(context)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: AppColors.overlay(context),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.share_outlined,
+                          color: Color(0xFF2EED7B),
+                          size: 20,
+                        ),
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Bağlantı Gönder',
-                          style: TextStyle(
-                            color: subText,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.none,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Bağlantı Gönder',
+                            style: TextStyle(
+                              color: subText,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.none,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Arkadaşlarını\nDavet Et',
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            height: 1.1,
-                            decoration: TextDecoration.none,
+                          const SizedBox(height: 2),
+                          Text(
+                            'Arkadaşlarını\nDavet Et',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              height: 1.1,
+                              decoration: TextDecoration.none,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -644,14 +667,13 @@ class _HomeViewState extends State<HomeView> {
           final timeStr =
               "${nextMatch.date.hour.toString().padLeft(2, '0')}:${nextMatch.date.minute.toString().padLeft(2, '0')}";
 
-          String matchImageUrl = ''; // Boş bırakarak lokal fallback çalışmasını sağlıyoruz.
+          String matchImageUrl =
+              ''; // Boş bırakarak lokal fallback çalışmasını sağlıyoruz.
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 24.0),
             height: 200,
             width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-            ),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
             child: Stack(
               children: [
                 Positioned.fill(
@@ -661,7 +683,8 @@ class _HomeViewState extends State<HomeView> {
                         ? CachedNetworkImage(
                             imageUrl: matchImageUrl,
                             fit: BoxFit.cover,
-                            errorWidget: (context, url, error) => _buildMapPlaceholder(context, nextMatch.title),
+                            errorWidget: (context, url, error) =>
+                                _buildMapPlaceholder(context, nextMatch.title),
                           )
                         : _buildMapPlaceholder(context, nextMatch.title),
                   ),
@@ -989,8 +1012,12 @@ class _HomeViewState extends State<HomeView> {
     String location = venue['city'] ?? '';
     String rating = '⚽';
 
-    String imageUrl = venue['photoUrl']?.toString() ?? venue['image']?.toString() ?? '';
-    if (imageUrl == 'null') imageUrl = '';
+    if (venue['imageKind'] == 'staticMap') {
+      return SizedBox(
+        width: 240,
+        child: StaticMapVenueCard(venue: venue, height: 180),
+      );
+    }
 
     return Container(
       width: 240,
@@ -1000,97 +1027,106 @@ class _HomeViewState extends State<HomeView> {
           context,
         ), // Fotoğraf yüklenene kadar arkaplan rengi
       ),
-      child: Stack(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
         children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: imageUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF2EED7B),
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) => _buildMapPlaceholder(context, name),
-                    )
-                  : _buildMapPlaceholder(context, name),
-            ),
-          ),
-          // Siyah Karartma (Yazıların rahat okunması için)
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.9),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: 12,
-            right: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.star, color: Color(0xFFFFC107), size: 12),
-                  const SizedBox(width: 4),
-                  Text(
-                    rating,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: hasVenueImage(venue)
+                        ? VenueImage(
+                            venue: venue,
+                            placeholder: _buildMapPlaceholder(context, name),
+                          )
+                        : _buildMapPlaceholder(context, name),
+                  ),
+                ),
+                // Siyah Karartma (Yazıların rahat okunması için)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.9),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 16,
-            left: 16,
-            right: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.none,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  location,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 12,
-                    decoration: TextDecoration.none,
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.star,
+                          color: Color(0xFFFFC107),
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          rating,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 16,
+                  left: 16,
+                  right: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.none,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        location,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 90),
+            child: SingleChildScrollView(
+              child: PlacesAttributionWidget(venue: venue),
             ),
           ),
         ],
@@ -1116,7 +1152,9 @@ class _HomeViewState extends State<HomeView> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF2EED7B).withValues(alpha: 0.15),
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF2EED7B).withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: const Color(0xFF2EED7B).withValues(alpha: 0.3),
+                  ),
                 ),
                 child: const Icon(
                   Icons.stadium_outlined,
@@ -1199,7 +1237,7 @@ class _HomeViewState extends State<HomeView> {
                     Icon(
                       Icons.people_alt_outlined,
                       size: 48,
-                      color: subText.withOpacity(0.5),
+                      color: subText.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -1278,113 +1316,116 @@ class _HomeViewState extends State<HomeView> {
       },
       child: Container(
         padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.overlay(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(context)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.overlay(context),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: avatarUrl.isNotEmpty && avatarUrl != 'null'
-                      ? CachedNetworkImage(
-                          imageUrl: avatarUrl,
-                          fit: BoxFit.cover,
-                          errorWidget: (context, url, error) =>
-                              Icon(Icons.person, color: textColor, size: 24),
-                        )
-                      : Icon(Icons.person, color: textColor, size: 24),
-                ),
-              ),
-              Positioned(
-                bottom: -2,
-                right: -2,
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: iconColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _bg, width: 2),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 10),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        decoration: BoxDecoration(
+          color: AppColors.overlay(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border(context)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
               children: [
-                RichText(
-                  text: TextSpan(
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.4,
-                      color: textColor,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                        ),
-                      ),
-                      const TextSpan(text: ' '),
-                      TextSpan(
-                        text: action,
-                        style: TextStyle(color: textColor.withOpacity(0.8)),
-                      ),
-                    ],
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.overlay(context),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: avatarUrl.isNotEmpty && avatarUrl != 'null'
+                        ? CachedNetworkImage(
+                            imageUrl: avatarUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (context, url, error) =>
+                                Icon(Icons.person, color: textColor, size: 24),
+                          )
+                        : Icon(Icons.person, color: textColor, size: 24),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  time,
-                  style: TextStyle(
-                    color: subText,
-                    fontSize: 12,
-                    decoration: TextDecoration.none,
+                Positioned(
+                  bottom: -2,
+                  right: -2,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: iconColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: _bg, width: 2),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 10),
                   ),
                 ),
-                if (showJoinButton) ...[
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () {
-                      if (matchId != null) {
-                        Get.toNamed('/match-detail', arguments: matchId);
-                      }
-                    },
-                    child: const Text(
-                      'Katıl',
-                      style: TextStyle(
-                        color: Color(0xFF2EED7B),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: textColor,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
+                        ),
+                        const TextSpan(text: ' '),
+                        TextSpan(
+                          text: action,
+                          style: TextStyle(
+                            color: textColor.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    time,
+                    style: TextStyle(
+                      color: subText,
+                      fontSize: 12,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  if (showJoinButton) ...[
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () {
+                        if (matchId != null) {
+                          Get.toNamed('/match-detail', arguments: matchId);
+                        }
+                      },
+                      child: const Text(
+                        'Katıl',
+                        style: TextStyle(
+                          color: Color(0xFF2EED7B),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 }
 

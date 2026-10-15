@@ -1,3 +1,4 @@
+import '../../../widgets/places_attribution_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -447,6 +448,11 @@ class MatchCreateView extends GetView<MatchCreateController> {
 
           // 1. Arama Kutusu (Tekil)
           _locationField(context),
+          Obx(
+            () => PlacesAttributionWidget(
+              venue: controller.selectedVenueAttribution,
+            ),
+          ),
 
           // 2. Otomatik Tamamlama Listesi (Autocomplete)
           Obx(() {
@@ -464,7 +470,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 color: AppColors.card(context),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF2EED7B).withOpacity(0.3),
+                  color: const Color(0xFF2EED7B).withValues(alpha: 0.3),
                 ),
               ),
               child: ListView.builder(
@@ -481,6 +487,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                         loc['lat'],
                         loc['lng'],
                         source: loc['source'],
+                        attribution: loc,
                         id: loc['id'],
                         address: loc['address'],
                       );
@@ -512,6 +519,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                     fontSize: 13,
                                   ),
                                 ),
+                                PlacesAttributionWidget(venue: loc),
                                 if (loc['source'] == 'google' &&
                                     loc['address'] != null)
                                   Text(
@@ -646,7 +654,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 color: AppColors.overlay(context),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: const Color(0xFF2EED7B).withOpacity(0.4),
+                  color: const Color(0xFF2EED7B).withValues(alpha: 0.4),
                 ),
               ),
               child: const Icon(
@@ -672,7 +680,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -698,7 +706,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    AppColors.bg(context).withOpacity(0.55),
+                    AppColors.bg(context).withValues(alpha: 0.55),
                   ],
                 ),
               ),
@@ -706,10 +714,8 @@ class MatchCreateView extends GetView<MatchCreateController> {
             Center(
               child: GestureDetector(
                 onTap: () {
-                  debugPrint('DEBUG MAÇ: Seçilen Saha Lat: ${controller.selectedLat.value}');
-                  debugPrint('DEBUG MAÇ: Seçilen Saha Lng: ${controller.selectedLng.value}');
-                  
-                  if (controller.selectedLat.value == null || controller.selectedLng.value == null) {
+                  if (controller.selectedLat.value == null ||
+                      controller.selectedLng.value == null) {
                     Get.snackbar(
                       'Uyarı',
                       'Lütfen önce bir saha seçin',
@@ -727,7 +733,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
                       height: Get.height,
                       decoration: BoxDecoration(
                         color: AppColors.bg(context),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: SafeArea(
@@ -743,9 +751,13 @@ class MatchCreateView extends GetView<MatchCreateController> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20.0,
+                                vertical: 8.0,
+                              ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Saha Konumu',
@@ -756,7 +768,10 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                     ),
                                   ),
                                   IconButton(
-                                    icon: Icon(Icons.close, color: AppColors.text(context)),
+                                    icon: Icon(
+                                      Icons.close,
+                                      color: AppColors.text(context),
+                                    ),
                                     onPressed: () => Get.back(),
                                   ),
                                 ],
@@ -766,18 +781,26 @@ class MatchCreateView extends GetView<MatchCreateController> {
                               child: Obx(() {
                                 final lat = controller.selectedLat.value;
                                 final lng = controller.selectedLng.value;
-                                
+
                                 if (lat == null || lng == null) {
                                   return const SizedBox.shrink();
                                 }
-                                
+
                                 return VenueMapWidget(
-                                  venues: [{
-                                    'id': controller.selectedVenueId.value,
-                                    'name': controller.venueController.text.isNotEmpty ? controller.venueController.text : 'Seçilen Saha',
-                                    'lat': lat,
-                                    'lng': lng,
-                                  }],
+                                  venues: [
+                                    {
+                                      'id': controller.selectedVenueId.value,
+                                      'name':
+                                          controller
+                                              .venueController
+                                              .text
+                                              .isNotEmpty
+                                          ? controller.venueController.text
+                                          : 'Seçilen Saha',
+                                      'lat': lat,
+                                      'lng': lng,
+                                    },
+                                  ],
                                 );
                               }),
                             ),
@@ -795,10 +818,10 @@ class MatchCreateView extends GetView<MatchCreateController> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.bg(context).withOpacity(0.82),
+                    color: AppColors.bg(context).withValues(alpha: 0.82),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: const Color(0xFF2EED7B).withOpacity(0.6),
+                      color: const Color(0xFF2EED7B).withValues(alpha: 0.6),
                     ),
                   ),
                   child: Row(
@@ -992,7 +1015,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: BorderSide(
-                            color: const Color(0xFF2EED7B).withOpacity(0.4),
+                            color: const Color(
+                              0xFF2EED7B,
+                            ).withValues(alpha: 0.4),
                           ),
                         ),
                       ),
@@ -1023,6 +1048,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                             loc['lat'],
                             loc['lng'],
                             source: loc['source'],
+                            attribution: loc,
                             id: loc['id'],
                             address: loc['address'],
                             photoUrl: loc['photoUrl'],
@@ -1048,7 +1074,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? const Color(0xFF2EED7B).withOpacity(0.2)
+                                      ? const Color(
+                                          0xFF2EED7B,
+                                        ).withValues(alpha: 0.2)
                                       : AppColors.overlay(context),
                                   shape: BoxShape.circle,
                                 ),
@@ -1090,6 +1118,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
+                                    PlacesAttributionWidget(venue: loc),
                                     if (loc['distanceInMeters'] != null)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 4),
@@ -1132,7 +1161,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF2EED7B).withOpacity(0.35),
+                          color: const Color(
+                            0xFF2EED7B,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 20,
                           offset: const Offset(0, 6),
                         ),
@@ -1179,7 +1210,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppColors.bg(context).withOpacity(0),
+              AppColors.bg(context).withValues(alpha: 0),
               AppColors.bg(context),
               AppColors.bg(context),
             ],
@@ -1198,7 +1229,7 @@ class MatchCreateView extends GetView<MatchCreateController> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF2EED7B).withOpacity(0.40),
+                    color: const Color(0xFF2EED7B).withValues(alpha: 0.40),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -1314,7 +1345,7 @@ class _MapPatternPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     final linePaint = Paint()
-      ..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.18 : 0.7)
+      ..color = const Color(0xFF2EED7B).withValues(alpha: isDark ? 0.18 : 0.7)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
@@ -1332,7 +1363,10 @@ class _MapPatternPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(cx, cy),
       2.5,
-      Paint()..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.25 : 0.8),
+      Paint()
+        ..color = const Color(
+          0xFF2EED7B,
+        ).withValues(alpha: isDark ? 0.25 : 0.8),
     );
 
     final goalW = 44.0;
@@ -1352,7 +1386,7 @@ class _MapPatternPainter extends CustomPainter {
     );
 
     final dotPaint = Paint()
-      ..color = const Color(0xFF2EED7B).withOpacity(isDark ? 0.07 : 0.5);
+      ..color = const Color(0xFF2EED7B).withValues(alpha: isDark ? 0.07 : 0.5);
     for (double x = 20; x < size.width; x += 18) {
       for (double y = 14; y < size.height; y += 18) {
         canvas.drawCircle(Offset(x, y), 1, dotPaint);

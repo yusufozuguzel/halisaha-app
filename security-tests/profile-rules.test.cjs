@@ -54,11 +54,25 @@ test('registration and setup work but adding sensitive fields or roles is forbid
   await assertSucceeds(setDoc(ref,{uid:'new',profileVersion:2,name:'Player',createdAt:serverTimestamp()}));
   await assertSucceeds(updateDoc(ref,{fullName:'Player',city:'İstanbul',position:'Forvet',preferredFoot:'Sağ',isProfileComplete:true,avatarType:'icon',avatarData:'0'}));
   for (const patch of [{email:'private@example.invalid'}, {phone:'123'}, {moderator:true}, {uid:'bob'}, {name:42},
-    {fullName:'x'.repeat(101)}, {avatarUrl:'x'.repeat(2049)}, {blockedUsers:'bob'}, {profileVersion:1}]) {
+    {fullName:'x'.repeat(101)}, {fullName:'xx FUCK xx'}, {city:'orospu'}, {avatarUrl:'x'.repeat(2049)},
+    {blockedUsers:'bob'}, {profileVersion:1}, {username:'player'}]) {
     await assertFails(updateDoc(ref,patch));
   }
+  await assertSucceeds(updateDoc(ref,{fullName:'Mamak'}));
   await assertFails(updateDoc(doc(client('bob'),'users/new'),{fullName:'Forged'}));
   await assertFails(deleteDoc(ref));
+});
+
+test('claimed username fields cannot be created or changed by clients and banned tokens fail safely', async () => {
+  const newProfile = doc(client('new'),'users/new');
+  await assertFails(setDoc(newProfile,{uid:'new',profileVersion:2,username:'player',name:'Player',createdAt:serverTimestamp()}));
+  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(),'users/alice'),{
+    uid:'alice',profileVersion:2,fullName:'Alice',username:'alice_1',blockedUsers:[],createdAt:serverTimestamp(),
+  }));
+  const owner = client('alice');
+  await assertFails(updateDoc(doc(owner,'users/alice'),{username:'other_1'}));
+  await assertSucceeds(updateDoc(doc(owner,'users/alice'),{city:'Mamak'}));
+  await assertFails(updateDoc(doc(owner,'users/alice'),{position:'siktir'}));
 });
 
 test('legacy email cannot be marked public without removing it atomically', async () => {

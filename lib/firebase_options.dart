@@ -63,8 +63,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '2273283642',
     projectId: 'halisaha-app-d9ea1',
     storageBucket: 'halisaha-app-d9ea1.firebasestorage.app',
-    androidClientId: '2273283642-6jm196jmlodr6up53vamroigrtl0bphd.apps.googleusercontent.com',
-    iosClientId: '2273283642-ke215fauar6ciloq25771n3v8kcjnag9.apps.googleusercontent.com',
+    androidClientId:
+        '2273283642-6jm196jmlodr6up53vamroigrtl0bphd.apps.googleusercontent.com',
+    iosClientId:
+        '2273283642-ke215fauar6ciloq25771n3v8kcjnag9.apps.googleusercontent.com',
     iosBundleId: 'com.depar.app',
   );
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,8 +75,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '2273283642',
     projectId: 'halisaha-app-d9ea1',
     storageBucket: 'halisaha-app-d9ea1.firebasestorage.app',
-    androidClientId: '2273283642-6jm196jmlodr6up53vamroigrtl0bphd.apps.googleusercontent.com',
-    iosClientId: '2273283642-n76p6ql1hj8q40jam1963cqalt014cb1.apps.googleusercontent.com',
+    androidClientId:
+        '2273283642-6jm196jmlodr6up53vamroigrtl0bphd.apps.googleusercontent.com',
+    iosClientId:
+        '2273283642-n76p6ql1hj8q40jam1963cqalt014cb1.apps.googleusercontent.com',
     iosBundleId: 'com.example.halisahaApp',
   );
 

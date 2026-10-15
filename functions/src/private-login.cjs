@@ -2,6 +2,7 @@ const { createHmac } = require('node:crypto');
 const { Timestamp } = require('firebase-admin/firestore');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { exactFields, requireEnabled } = require('./policy.cjs');
+const { USERNAME } = require('./usernames.cjs');
 
 const invalidLogin = () => new HttpsError('unauthenticated', 'Kullanıcı adı veya şifre hatalı.');
 
@@ -36,7 +37,14 @@ function createPrivateLogin({ db, auth, authRest, enabled = false, rateKey = '',
     const period = operation === 'reset' ? 3600000 : 900000;
     const window = Math.floor(time / period);
     const limits = operation === 'reset' ? [3, 10] : [10, 40];
-    const refs = [`name:${name.toLowerCase()}`, `ip:${ip}`].map(value => db.doc(
+    // A login attack against one display name from a single address must not
+    // lock that name for all other addresses. The per-IP cap still bounds
+    // distributed attempts from any one source. Keep reset name limits global
+    // to retain a cross-IP guard on password-reset email delivery.
+    const nameBucket = operation === 'login'
+      ? `name:${name.toLowerCase()}:ip:${ip}`
+      : `name:${name.toLowerCase()}`;
+    const refs = [nameBucket, `ip:${ip}`].map(value => db.doc(
       `_loginLimits/${createHmac('sha256', rateKey).update(`${operation}:${window}:${value}`).digest('hex')}`,
     ));
     await db.runTransaction(async tx => {
@@ -50,11 +58,7 @@ function createPrivateLogin({ db, auth, authRest, enabled = false, rateKey = '',
       }));
     });
   }
-  async function account(name) {
-    let results = await db.collection('users').where('fullName', '==', name).limit(2).get();
-    if (results.empty) results = await db.collection('users').where('name', '==', name).limit(2).get();
-    if (results.size !== 1) return null; // Never guess when display names collide.
-    const uid = results.docs[0].id;
+  async function passwordAccount(uid) {
     if ((await db.doc(`accountDeletionJobs/${uid}`).get()).exists) return null;
     try {
       const user = await auth.getUser(uid);
@@ -64,6 +68,28 @@ function createPrivateLogin({ db, auth, authRest, enabled = false, rateKey = '',
       if (error.code === 'auth/user-not-found') return null;
       throw error;
     }
+  }
+  async function account(name) {
+    const normalizedUsername = name.toLowerCase();
+    if (USERNAME.test(normalizedUsername)) {
+      const claim = await db.doc(`_usernames/${normalizedUsername}`).get();
+      if (claim.exists) {
+        const uid = claim.get('uid');
+        if (typeof uid !== 'string' || !uid || uid.includes('/') || uid.length > 128) return null;
+        const profile = await db.doc(`users/${uid}`).get();
+        if (!profile.exists || profile.get('profileVersion') !== 2 || profile.get('username') !== normalizedUsername) return null;
+        return passwordAccount(uid);
+      }
+    }
+    // Legacy display-name login is allowed only when the union of both exact
+    // aliases identifies one account; one field cannot shadow a collision in the other.
+    const [fullNames, names] = await Promise.all([
+      db.collection('users').where('fullName', '==', name).limit(2).get(),
+      db.collection('users').where('name', '==', name).limit(2).get(),
+    ]);
+    const uids = new Set([...fullNames.docs, ...names.docs].map(document => document.id));
+    if (uids.size !== 1) return null;
+    return passwordAccount([...uids][0]);
   }
   return {
     async verifyUsernamePassword(request) {

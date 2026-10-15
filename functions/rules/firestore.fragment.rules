@@ -10,6 +10,60 @@ function safetyWritesAllowed() {
   return request.auth != null && accountActive(request.auth.uid)
     && !exists(/databases/$(database)/documents/_moderationAccounts/$(request.auth.uid));
 }
+function abuseControlsEnabled() {
+  let policy = /databases/$(database)/documents/_runtimePolicy/safety;
+  return exists(policy) && get(policy).data.get('enabled', false) == true;
+}
+function verifiedEmailForAbuse() {
+  return !abuseControlsEnabled() || request.auth.token.get('email_verified', false) == true;
+}
+// A conservative exact-token denylist. This catches obvious terms while
+// avoiding short substrings that would reject ordinary Turkish names.
+function safePublicText(value, maximum) {
+  return value is string && value.size() <= maximum
+    && value.matches('^[^\\x00-\\x1F\\x7F]*$')
+    && publicTextSafe(value);
+}
+function publicTextSafe(value) {
+  return !value.lower().matches('(^|.*[^a-z0-9_])(orospu|siktir|sikerim|yarrak|yavşak|yavsak|gavat|pezevenk|kahpe|fuck|shit|bitch|asshole|pussy|cunt|whore|slut|faggot|nigger|nigga)([^a-z0-9_].*|$)');
+}
+function cooldownPeriod(action) {
+  return action == 'matchCreate' ? duration.value(60, 's')
+    : action == 'followRequest' ? duration.value(15, 's') : duration.value(0, 's');
+}
+function writeLimitCooldownElapsed(action) {
+  return action in ['matchCreate', 'followRequest']
+    && resource.data.updatedAt is timestamp
+    && resource.data.updatedAt <= request.time - cooldownPeriod(action);
+}
+function validWriteLimitTarget(uid, action, targetId) {
+  return targetId is string && targetId.size() > 0 && targetId.size() <= 128
+    && !targetId.matches('.*[/].*')
+    && (action == 'matchCreate'
+      && existsAfter(/databases/$(database)/documents/matches/$(targetId))
+      && getAfter(/databases/$(database)/documents/matches/$(targetId)).data.createdBy == uid
+      && getAfter(/databases/$(database)/documents/matches/$(targetId)).data.createdAt == request.time
+      || action == 'followRequest'
+        && existsAfter(/databases/$(database)/documents/users/$(targetId)/followRequests/$(uid))
+        && getAfter(/databases/$(database)/documents/users/$(targetId)/followRequests/$(uid)).data.from == uid
+        && getAfter(/databases/$(database)/documents/users/$(targetId)/followRequests/$(uid)).data.createdAt == request.time);
+}
+function validWriteLimit(uid, action) {
+  return request.resource.data.keys().hasOnly(['targetId', 'updatedAt'])
+    && request.resource.data.keys().hasAll(['targetId', 'updatedAt'])
+    && request.resource.data.updatedAt is timestamp
+    && request.resource.data.updatedAt == request.time
+    && validWriteLimitTarget(uid, action, request.resource.data.targetId);
+}
+function writeCooldownAllowed(action, targetId) {
+  let permit = /databases/$(database)/documents/_writeLimits/$(request.auth.uid)/actions/$(action);
+  let enabled = abuseControlsEnabled();
+  return !enabled
+    || request.auth.token.get('email_verified', false) == true
+      && existsAfter(permit)
+      && getAfter(permit).data.targetId == targetId
+      && getAfter(permit).data.updatedAt == request.time;
+}
 
 match /_moderationAccounts/{uid} {
   allow get: if request.auth != null && request.auth.uid == uid;
@@ -28,6 +82,17 @@ match /_safetyLocks/{document=**} {
 }
 match /_reportLimits/{document=**} {
   allow read, write: if false;
+}
+match /_runtimePolicy/{document=**} { allow read, write: if false; }
+match /_usernames/{document=**} { allow read, write: if false; }
+match /_placesLimits/{document=**} { allow read, write: if false; }
+match /_usernameLimits/{document=**} { allow read, write: if false; }
+match /_writeLimits/{uid}/actions/{action} {
+  allow get, list, delete: if false;
+  allow create: if request.auth != null && abuseControlsEnabled() && request.auth.uid == uid
+    && action in ['matchCreate', 'followRequest'] && validWriteLimit(uid, action);
+  allow update: if request.auth != null && abuseControlsEnabled() && request.auth.uid == uid
+    && writeLimitCooldownElapsed(action) && validWriteLimit(uid, action);
 }
 match /_retiredMatches/{document=**} {
   allow read, write: if false;

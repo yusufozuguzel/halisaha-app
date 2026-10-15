@@ -1,3 +1,7 @@
+import '../../../core/services/write_policy.dart';
+import '../../../core/services/places_proxy.dart';
+import '../../../core/services/places_attribution.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/services/match_participation.dart';
 import '../../../core/services/match_metadata.dart';
 import '../../../core/services/content_filter.dart';
@@ -8,10 +12,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:async';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../modules/home/controllers/notifications_controller.dart';
@@ -41,6 +42,8 @@ class MatchCreateController extends GetxController {
   final RxString selectedVenueId = ''.obs;
   final RxString selectedVenueCity = ''.obs;
   final RxString selectedPhotoUrl = ''.obs;
+  final RxMap<String, dynamic> selectedVenueAttribution =
+      <String, dynamic>{}.obs;
   final isLoading = false.obs;
   final RxString searchQuery = ''.obs;
   final RxBool isEditing = false.obs;
@@ -53,8 +56,7 @@ class MatchCreateController extends GetxController {
   // 📍 GPS mesafe sıralaması
   final RxBool isLocationLoading = false.obs;
 
-  final String _googlePlacesApiKey = (dotenv.env['GOOGLE_API_KEY'] ?? '')
-      .trim();
+  final PlacesProxy _places = PlacesProxy();
   Timer? _debounce;
 
   @override
@@ -73,6 +75,7 @@ class MatchCreateController extends GetxController {
       final venues = snapshot.docs
           .map(
             (doc) => {
+              ...placesAttributionMetadata(doc.data(), google: false),
               'id': doc.id,
               'name': doc['name'],
               'lat': doc['lat'],
@@ -93,7 +96,9 @@ class MatchCreateController extends GetxController {
         }
       });
     } catch (e) {
-      print("Sahalar çekilirken hata oluştu: $e");
+      if (kDebugMode) {
+        debugPrint("Sahalar çekilirken hata oluştu: $e");
+      }
       Future.microtask(() {
         allVenues.clear();
         if (searchQuery.value.isEmpty) {
@@ -102,7 +107,10 @@ class MatchCreateController extends GetxController {
           applyFilters();
         }
       });
-      Get.snackbar('Sahalar yüklenemedi', 'Saha adını elle girebilir veya tekrar arayabilirsiniz.');
+      Get.snackbar(
+        'Sahalar yüklenemedi',
+        'Saha adını elle girebilir veya tekrar arayabilirsiniz.',
+      );
     }
   }
 
@@ -174,7 +182,9 @@ class MatchCreateController extends GetxController {
 
       hybridVenues.value = sorted;
     } catch (e) {
-      print('Konum hatası: $e');
+      if (kDebugMode) {
+        debugPrint('Konum hatası: $e');
+      }
       Get.snackbar(
         'Hata',
         'Konum alınamadı: $e',
@@ -190,86 +200,50 @@ class MatchCreateController extends GetxController {
 
   Future<void> searchGooglePlaces(String query) async {
     if (query.length < 3) return;
-
     try {
-      final encodedQuery = Uri.encodeComponent(
-        '$query halı saha OR stadyum OR spor tesisi',
+      final data = await _places.search(
+        '$query hal\u0131 saha OR stadyum OR spor tesisi',
       );
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedQuery&key=$_googlePlacesApiKey',
-      );
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'OK') {
-          final results = data['results'] as List;
-          final excludedTypes = [
-            'cafe',
-            'restaurant',
-            'bar',
-            'bakery',
-            'meal_delivery',
-            'meal_takeaway',
-            'food',
-            'store',
-            'clothing_store',
-            'grocery_or_supermarket',
-            'supermarket',
-            'pharmacy',
-            'hospital',
-            'health',
-            'doctor',
-            'dentist',
-            'lodging',
-            'hotel',
-            'spa',
-            'beauty_salon',
-            'hair_care',
-          ];
-
-          final filteredResults = results.where((place) {
-            final types = List<String>.from(place['types'] ?? []);
-            return !types.any((type) => excludedTypes.contains(type));
-          }).toList();
-
-          List<Map<String, dynamic>> googleVenues = filteredResults
-              .map(
-                (place) => {
-                  'id': place['place_id'],
-                  'name': place['name'] ?? place['formatted_address'],
-                  'lat': place['geometry']['location']['lat'],
-                  'lng': place['geometry']['location']['lng'],
-                  'source': 'google',
-                  'address': place['formatted_address'],
-                },
-              )
-              .toList();
-
-          final localMatches = allVenues
-              .where(
-                (loc) => loc['name'].toString().toLowerCase().contains(
-                  query.toLowerCase(),
-                ),
-              )
-              .toList();
-          final Set<String> localNames = localMatches
-              .map((v) => (v['name'] as String).toLowerCase())
-              .toSet();
-          final filteredGoogleVenues = googleVenues
-              .where(
-                (v) =>
-                    !localNames.contains((v['name'] as String).toLowerCase()),
-              )
-              .toList();
-
-          Future.microtask(() {
-            hybridVenues.value = [...localMatches, ...filteredGoogleVenues];
-          });
-        }
+      final remote = <Map<String, dynamic>>[];
+      for (final raw in (data['results'] as List? ?? [])) {
+        if (raw is! Map) continue;
+        final place = Map<String, dynamic>.from(raw);
+        final location = (place['geometry'] as Map?)?['location'];
+        if (location is! Map) continue;
+        remote.add({
+          'id': place['place_id'],
+          'name': place['name'],
+          'lat': location['lat'],
+          'lng': location['lng'],
+          'address': place['formatted_address'],
+          ...placesAttributionMetadata(
+            place,
+            responseAttributions: data['html_attributions'],
+          ),
+        });
       }
-    } catch (e) {
-      print("Google Places arama hatası: $e");
+      if (isClosed || searchQuery.value.trim() != query.trim()) return;
+      final local = allVenues
+          .where(
+            (v) => v['name'].toString().toLowerCase().contains(
+              query.toLowerCase(),
+            ),
+          )
+          .toList();
+      final names = local.map((v) => v['name']).toSet();
+      hybridVenues.assignAll([
+        ...local,
+        ...remote.where((v) => !names.contains(v['name'])),
+      ]);
+    } on PlacesUnavailable {
+      if (isClosed) return;
+      hybridVenues.assignAll(
+        allVenues.where(
+          (v) =>
+              v['name'].toString().toLowerCase().contains(query.toLowerCase()),
+        ),
+      );
+      Get.snackbar('Saha arama', const PlacesUnavailable().message);
     }
   }
 
@@ -333,6 +307,7 @@ class MatchCreateController extends GetxController {
     double lat,
     double lng, {
     String? source,
+    Map<String, dynamic>? attribution,
     String? id,
     String? address,
     String? photoUrl, // 🔥 YENİ EKLENDİ
@@ -343,6 +318,7 @@ class MatchCreateController extends GetxController {
       selectedLng.value = lng;
       selectedVenueId.value = id ?? '';
       selectedVenueCity.value = address ?? '';
+      selectedVenueAttribution.assignAll(attribution ?? {});
       selectedPhotoUrl.value = photoUrl ?? ''; // 🔥 YENİ EKLENDİ
       searchQuery.value = '';
       hybridVenues.value = allVenues;
@@ -358,6 +334,7 @@ class MatchCreateController extends GetxController {
       selectedVenueId.value = '';
       selectedVenueCity.value = '';
       selectedPhotoUrl.value = '';
+      selectedVenueAttribution.clear();
       applyFilters();
     });
 
@@ -579,7 +556,7 @@ class MatchCreateController extends GetxController {
                 surface: Color(0xFFFFFFFF),
                 onSurface: Colors.black,
               ),
-        dialogBackgroundColor: AppColors.card(context),
+        dialogTheme: DialogThemeData(backgroundColor: AppColors.card(context)),
       ),
       child: child,
     );
@@ -693,7 +670,8 @@ class MatchCreateController extends GetxController {
       final matchData = {
         'title': title,
         'venue': venue,
-        'venuePhotoUrl': '', // Patlak link yazılmaması için doğrudan boş string yapıldı
+        'venuePhotoUrl':
+            '', // Patlak link yazılmaması için doğrudan boş string yapıldı
         'venueId': selectedVenueId.value,
         'latitude': selectedLat.value,
         'longitude': selectedLng.value,
@@ -736,9 +714,16 @@ class MatchCreateController extends GetxController {
         await MatchParticipation().editDetails(editingMatchId!, updateData);
         generatedMatchId = editingMatchId!;
       } else {
-        final docRef = await FirebaseFirestore.instance
-            .collection('matches')
-            .add(matchData);
+        final limited = await WritePolicy().prepare(uid);
+        final db = FirebaseFirestore.instance;
+        final docRef = db.collection('matches').doc();
+        final batch = db.batch()..set(docRef, matchData);
+        if (limited)
+          batch.set(
+            db.doc(writeLimitPath(uid, 'matchCreate')),
+            writeLimitData(docRef.id),
+          );
+        await batch.commit();
         generatedMatchId = docRef.id;
       }
 
@@ -776,7 +761,11 @@ class MatchCreateController extends GetxController {
     } catch (e) {
       Get.snackbar(
         'Hata',
-        e is MatchActionException ? e.message : 'Maç kaydedilemedi. Lütfen tekrar deneyin.',
+        e is WritePolicyException
+            ? e.message
+            : e is MatchActionException
+            ? e.message
+            : 'Maç kaydedilemedi. Lütfen tekrar deneyin.',
         backgroundColor: Colors.red[900],
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,

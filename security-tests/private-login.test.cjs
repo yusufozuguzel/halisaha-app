@@ -6,6 +6,7 @@ const { initializeApp, deleteApp } = serverRequire('firebase-admin/app');
 const { getFirestore } = serverRequire('firebase-admin/firestore');
 const { getAuth } = serverRequire('firebase-admin/auth');
 const { createPrivateLogin, createAuthRest } = require('../functions/src/private-login.cjs');
+const { createUsernameService } = require('../functions/src/usernames.cjs');
 const { migrateProfiles } = require('../functions/src/profile-migration.cjs');
 const { initializeTestEnvironment } = require('@firebase/rules-unit-testing');
 let app, db, auth, env;
@@ -64,6 +65,62 @@ test('fullName precedes legacy name and both work after profile email removal', 
   await assert.rejects(service().verifyUsernamePassword(call({username:'legacy',password})), {code:'unauthenticated'});
 });
 
+test('claimed handles take priority over display-name aliases and resolve to the claimed Auth account', async () => {
+  await migrateProfiles({db,auth,apply:true});
+  await auth.createUser({uid:'bob', email:'bob@example.invalid', password:'Different Synthetic 21!'});
+  await db.doc('users/bob').set({profileVersion:2,fullName:'player',name:'other'});
+  const usernames = createUsernameService({db,enabled:true});
+  assert.deepEqual(await usernames.claim({auth:{uid:'alice'},data:{username:'player'}}), {username:'player'});
+  assert.deepEqual(await service().verifyUsernamePassword(call({username:'player',password})), {email:'alice@example.invalid'});
+  assert.deepEqual(await usernames.find({auth:{uid:'bob'},data:{username:'player'}}), {
+    available:false, uid:'alice', displayName:'player',
+  });
+  assert.deepEqual(await usernames.find({auth:{uid:'bob'},data:{username:'free_name'}}), {available:true});
+});
+
+test('legacy login rejects ambiguity across fullName and name aliases', async () => {
+  await auth.createUser({uid:'bob', email:'bob@example.invalid', password:'Different Synthetic 21!'});
+  await db.doc('users/bob').set({name:'player'});
+  await assert.rejects(service().verifyUsernamePassword(call({username:'player',password})), {code:'unauthenticated'});
+});
+
+test('username claims are unique, immutable, lowercase-only, and rejected for deleting or unready profiles', async () => {
+  await migrateProfiles({db,auth,apply:true});
+  const usernames = createUsernameService({db,enabled:true});
+  await assert.rejects(usernames.claim({auth:{uid:'alice'},data:{username:'Player'}}), {code:'invalid-argument'});
+  await assert.rejects(usernames.claim({auth:{uid:'alice'},data:{username:'player',uid:'alice'}}), {code:'invalid-argument'});
+  await usernames.claim({auth:{uid:'alice'},data:{username:'player'}});
+  await assert.rejects(usernames.claim({auth:{uid:'alice'},data:{username:'different'}}), {code:'failed-precondition'});
+  await assert.rejects(usernames.claim({auth:{uid:'bob'},data:{username:'player'}}), {code:'failed-precondition'});
+  await auth.createUser({uid:'bob', email:'bob@example.invalid', password:'Different Synthetic 21!'});
+  await db.doc('users/bob').set({profileVersion:2,fullName:'Bob'});
+  await assert.rejects(usernames.claim({auth:{uid:'bob'},data:{username:'player'}}), {code:'already-exists'});
+  await db.doc('accountDeletionJobs/alice').set({status:'processing'});
+  await assert.rejects(usernames.claim({auth:{uid:'alice'},data:{username:'player'}}), {code:'failed-precondition'});
+  assert.equal((await db.doc('_usernames/player').get()).get('uid'), 'alice');
+});
+
+test('concurrent claims for one handle commit exactly one owner and profile', async () => {
+  await migrateProfiles({db,auth,apply:true});
+  await auth.createUser({uid:'bob', email:'bob@example.invalid', password:'Different Synthetic 21!'});
+  await db.doc('users/bob').set({profileVersion:2,fullName:'Bob'});
+  const usernames = createUsernameService({db,enabled:true});
+  const outcomes = await Promise.allSettled([
+    usernames.claim({auth:{uid:'alice'},data:{username:'shared_handle'}}),
+    usernames.claim({auth:{uid:'bob'},data:{username:'shared_handle'}}),
+  ]);
+  const winners = outcomes.flatMap((outcome, index) => outcome.status === 'fulfilled' ? [index] : []);
+  const losers = outcomes.filter(outcome => outcome.status === 'rejected');
+  assert.equal(winners.length, 1);
+  assert.equal(losers.length, 1);
+  assert.equal(losers[0].reason.code, 'already-exists');
+  const winnerUid = winners[0] === 0 ? 'alice' : 'bob';
+  const loserUid = winnerUid === 'alice' ? 'bob' : 'alice';
+  assert.equal((await db.doc('_usernames/shared_handle').get()).get('uid'), winnerUid);
+  assert.equal((await db.doc(`users/${winnerUid}`).get()).get('username'), 'shared_handle');
+  assert.equal((await db.doc(`users/${loserUid}`).get()).get('username'), undefined);
+});
+
 test('reset returns identical acknowledgement and does not return email, tokens or links', async () => {
   assert.deepEqual(await service().resetUsernamePassword(call({username:'player'})), {accepted:true});
   assert.deepEqual(await service().resetUsernamePassword(call({username:'unknown'})), {accepted:true});
@@ -77,13 +134,29 @@ test('rate limits use atomic shared buckets; stored data has no identifiers or c
     backend.verifyUsernamePassword(call({username:'absent',password}))));
   assert.equal(outcomes.filter(r => r.reason?.code === 'unauthenticated').length, 10);
   assert.equal(outcomes.filter(r => r.reason?.code === 'resource-exhausted').length, 2);
-  await assert.rejects(backend.verifyUsernamePassword(call({username:'absent',password},'127.0.0.99')), {code:'resource-exhausted'});
   const stored = (await db.collection('_loginLimits').get()).docs;
   assert.equal(stored.length, 2);
   for (const doc of stored) {
     assert.match(doc.id, /^[a-f0-9]{64}$/);
     assert.deepEqual(Object.keys(doc.data()).sort(), ['count','expiresAt']);
   }
+  // A different source gets its own username bucket; it has not hit its IP cap.
+  await assert.rejects(backend.verifyUsernamePassword(call({username:'absent',password},'127.0.0.99')), {code:'unauthenticated'});
+});
+
+test('a login-name cap is scoped to the source IP while each IP still has a shared cap', async () => {
+  const backend = service();
+  for (let i = 0; i < 10; i++) {
+    await assert.rejects(backend.verifyUsernamePassword(call({username:'target',password}, '198.51.100.10')), {code:'unauthenticated'});
+  }
+  await assert.rejects(backend.verifyUsernamePassword(call({username:'target',password}, '198.51.100.10')), {code:'resource-exhausted'});
+  // The same displayed name is not globally locked by the first address.
+  await assert.rejects(backend.verifyUsernamePassword(call({username:'target',password}, '198.51.100.11')), {code:'unauthenticated'});
+
+  for (let i = 0; i < 39; i++) {
+    await assert.rejects(backend.verifyUsernamePassword(call({username:`other-${i}`,password}, '198.51.100.11')), {code:'unauthenticated'});
+  }
+  await assert.rejects(backend.verifyUsernamePassword(call({username:'another-name',password}, '198.51.100.11')), {code:'resource-exhausted'});
 });
 
 test('disabled config, forged UID, malformed fields and missing IP fail closed', async () => {
@@ -114,4 +187,64 @@ test('migration dry run is read-only, skips unknown data and is restartable', as
   assert.equal((await migrateProfiles({db,auth,apply:true,pageSize:2})).migrated, 1);
   assert.equal((await migrateProfiles({db,auth,apply:true,pageSize:2})).unchanged, 1);
   assert.equal((await db.doc('users/unknown').get()).get('phone'), 'keep for review');
+});
+
+test('migration removes only the two retired derived counters alongside profile email', async () => {
+  await db.doc('users/alice').update({profileVersion:2, followersCount:8, followingCount:3});
+  await db.doc('users/unknown').set({email:'private@example.invalid', followersCount:12, legacyScore:99});
+
+  const dry = await migrateProfiles({db,auth});
+  assert.equal(dry.ready, 1);
+  assert.equal(dry.unknownFields, 1);
+  assert.equal(dry.unchanged, 0);
+
+  const applied = await migrateProfiles({db,auth,apply:true});
+  assert.equal(applied.migrated, 1);
+  const migrated = (await db.doc('users/alice').get()).data();
+  assert.equal(migrated.email, undefined);
+  assert.equal(migrated.followersCount, undefined);
+  assert.equal(migrated.followingCount, undefined);
+  assert.equal(migrated.profileVersion, 2);
+
+  const unknown = (await db.doc('users/unknown').get()).data();
+  assert.equal(unknown.followersCount, 12);
+  assert.equal(unknown.legacyScore, 99);
+  assert.equal(unknown.email, 'private@example.invalid');
+});
+
+test('migration stale-update guard preserves a concurrent profile change and all legacy fields', async () => {
+  await db.doc('users/alice').update({followersCount:8, followingCount:3});
+  let served = false;
+  const racingDb = {
+    collection(name) {
+      return {
+        orderBy() { return this; },
+        limit() { return this; },
+        startAfter() { return this; },
+        async get() {
+          if (served) return {empty:true, docs:[]};
+          served = true;
+          const page = await db.collection(name).get();
+          return {empty:page.empty, docs:page.docs.map(doc => ({
+            id:doc.id,
+            data:() => doc.data(),
+            updateTime:doc.updateTime,
+            ref:{update:async (patch, precondition) => {
+              await doc.ref.update({fullName:'concurrent profile edit'});
+              return doc.ref.update(patch, precondition);
+            }},
+          }))};
+        },
+      };
+    },
+  };
+
+  const counts = await migrateProfiles({db:racingDb,auth,apply:true});
+  assert.equal(counts.migrated, 0);
+  assert.equal(counts.changedDuringRun, 1);
+  const profile = (await db.doc('users/alice').get()).data();
+  assert.equal(profile.fullName, 'concurrent profile edit');
+  assert.equal(profile.email, 'forged@example.invalid');
+  assert.equal(profile.followersCount, 8);
+  assert.equal(profile.followingCount, 3);
 });

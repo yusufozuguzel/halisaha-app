@@ -50,7 +50,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: neonGreen.withOpacity(0.4),
+                color: neonGreen.withValues(alpha: 0.4),
                 blurRadius: 20,
                 spreadRadius: 2,
                 offset: const Offset(0, 4),
@@ -103,7 +103,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
                               ? Icons.sports_soccer_outlined
                               : Icons.history,
                           size: 64,
-                          color: neonGreen.withOpacity(0.5),
+                          color: neonGreen.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -112,7 +112,9 @@ class MyMatchesView extends GetView<MyMatchesController> {
                               : 'Henüz tamamlanmış bir maçın bulunmuyor.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: AppColors.text(context).withOpacity(0.7),
+                            color: AppColors.text(
+                              context,
+                            ).withValues(alpha: 0.7),
                             fontSize: 16,
                           ),
                         ),
@@ -267,7 +269,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? darkGreenBlack : cardBg.withOpacity(0.6),
+        color: isDark ? darkGreenBlack : cardBg.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border(context)),
       ),
@@ -312,10 +314,10 @@ class MyMatchesView extends GetView<MyMatchesController> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: neonGreen.withOpacity(0.1),
+                            color: neonGreen.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: neonGreen.withOpacity(0.5),
+                              color: neonGreen.withValues(alpha: 0.5),
                             ),
                           ),
                           child: Text(
@@ -387,7 +389,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
                                 decoration: BoxDecoration(
                                   color: darkGreenBlack,
                                   border: Border.all(
-                                    color: neonGreen.withOpacity(0.4),
+                                    color: neonGreen.withValues(alpha: 0.4),
                                   ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -427,7 +429,9 @@ class MyMatchesView extends GetView<MyMatchesController> {
                                   decoration: BoxDecoration(
                                     color: darkGreenBlack,
                                     border: Border.all(
-                                      color: Colors.blueAccent.withOpacity(0.4),
+                                      color: Colors.blueAccent.withValues(
+                                        alpha: 0.4,
+                                      ),
                                     ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -449,7 +453,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
                                   decoration: BoxDecoration(
                                     color: darkGreenBlack,
                                     border: Border.all(
-                                      color: Colors.red.withOpacity(0.4),
+                                      color: Colors.red.withValues(alpha: 0.4),
                                     ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -472,7 +476,9 @@ class MyMatchesView extends GetView<MyMatchesController> {
                                   decoration: BoxDecoration(
                                     color: darkGreenBlack,
                                     border: Border.all(
-                                      color: Colors.orange.withOpacity(0.4),
+                                      color: Colors.orange.withValues(
+                                        alpha: 0.4,
+                                      ),
                                     ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -518,7 +524,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
       },
       child: CustomPaint(
         painter: _DashedBorderPainter(
-          color: textGrey.withOpacity(0.4),
+          color: textGrey.withValues(alpha: 0.4),
           borderRadius: 16,
         ),
         child: Container(
@@ -531,7 +537,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: neonGreen.withOpacity(0.12),
+                  color: neonGreen.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.add, color: neonGreen, size: 28),
@@ -638,7 +644,7 @@ class MyMatchesView extends GetView<MyMatchesController> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      splashColor: neonGreen.withOpacity(0.15),
+      splashColor: neonGreen.withValues(alpha: 0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Column(

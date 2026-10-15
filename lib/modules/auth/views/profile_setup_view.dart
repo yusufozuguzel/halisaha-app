@@ -50,7 +50,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
               Text(
                 "Profilini doldurarak takımlara katılma şansını artır.",
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 14,
                 ),
               ),
@@ -146,7 +146,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
                     elevation: 0,
                     disabledBackgroundColor: const Color(
                       0xFF2EED7B,
-                    ).withOpacity(0.5),
+                    ).withValues(alpha: 0.5),
                   ),
                   child: controller.isLoading.value
                       ? const SizedBox(
@@ -172,7 +172,11 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
                 children: [
                   TextButton.icon(
                     onPressed: _showLogoutDialog,
-                    icon: const Icon(Icons.logout, color: Colors.white70, size: 18),
+                    icon: const Icon(
+                      Icons.logout,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
                     label: const Text(
                       'Çıkış Yap',
                       style: TextStyle(color: Colors.white70, fontSize: 13),
@@ -181,7 +185,11 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
                   const SizedBox(width: 16),
                   TextButton.icon(
                     onPressed: _showDeleteAccountSheet,
-                    icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 18),
+                    icon: const Icon(
+                      Icons.delete_forever,
+                      color: Colors.redAccent,
+                      size: 18,
+                    ),
                     label: const Text(
                       'Hesabımı Sil',
                       style: TextStyle(color: Colors.redAccent, fontSize: 13),
@@ -205,10 +213,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
         fontSize: 17,
       ),
       middleText: 'Uygulamadan çıkmak istediğinize emin misiniz?',
-      middleTextStyle: TextStyle(
-        color: Colors.white70,
-        fontSize: 14,
-      ),
+      middleTextStyle: TextStyle(color: Colors.white70, fontSize: 14),
       backgroundColor: const Color(0xFF16221A),
       radius: 16,
       barrierDismissible: true,
@@ -217,7 +222,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
           ),
           child: const Text(
@@ -246,7 +251,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.redAccent.withOpacity(0.15),
+            color: Colors.redAccent.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
           child: const Text(
@@ -294,8 +299,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
 
                 return Obx(() {
                   // Offset for icons list if custom avatar is present
-                  final int iconIndex =
-                      controller.avatarUrl.value.isNotEmpty
+                  final int iconIndex = controller.avatarUrl.value.isNotEmpty
                       ? index - 1
                       : index;
 
@@ -317,7 +321,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
                           border: Border.all(
                             color: isSelected
                                 ? const Color(0xFF2EED7B)
-                                : Colors.white.withOpacity(0.06),
+                                : Colors.white.withValues(alpha: 0.06),
                             width: isSelected ? 2 : 1,
                           ),
                         ),
@@ -325,7 +329,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
                           controller.defaultIcons[iconIndex],
                           color: isSelected
                               ? const Color(0xFF2EED7B)
-                              : Colors.white.withOpacity(0.4),
+                              : Colors.white.withValues(alpha: 0.4),
                           size: 32,
                         ),
                       ),
@@ -354,7 +358,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
           ),
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            backgroundColor: const Color(0xFF2EED7B).withOpacity(0.05),
+            backgroundColor: const Color(0xFF2EED7B).withValues(alpha: 0.05),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -395,13 +399,13 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF2EED7B).withOpacity(0.1)
+                ? const Color(0xFF2EED7B).withValues(alpha: 0.1)
                 : const Color(0xFF16221A),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected
                   ? const Color(0xFF2EED7B)
-                  : Colors.white.withOpacity(0.06),
+                  : Colors.white.withValues(alpha: 0.06),
             ),
           ),
           child: Text(
@@ -409,7 +413,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
             style: TextStyle(
               color: isSelected
                   ? const Color(0xFF2EED7B)
-                  : Colors.white.withOpacity(0.7),
+                  : Colors.white.withValues(alpha: 0.7),
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               fontSize: 13,
             ),
@@ -423,9 +427,9 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Obx(
         () => DropdownButtonHideUnderline(
@@ -434,7 +438,7 @@ class ProfileSetupView extends GetView<ProfileSetupController> {
             dropdownColor: const Color(0xFF16221A),
             icon: Icon(
               Icons.keyboard_arrow_down,
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
             ),
             isExpanded: true,
             style: const TextStyle(color: Colors.white, fontSize: 15),
@@ -471,17 +475,20 @@ class _CustomTextField extends StatelessWidget {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-        prefixIcon: Icon(prefixIcon, color: Colors.white.withOpacity(0.4)),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+        prefixIcon: Icon(
+          prefixIcon,
+          color: Colors.white.withValues(alpha: 0.4),
+        ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.03),
+        fillColor: Colors.white.withValues(alpha: 0.03),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.06)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.06)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

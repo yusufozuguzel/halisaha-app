@@ -113,11 +113,9 @@ match /matches/{matchId} {
           ['currentPlayers','positions','pendingPositions','invitedPlayers','slotChange','inviteSlot'])
       || validFormationOnlyUpdate()
       || validMatchMetadata(request.resource.data, resource.data))
+    && validRoster(request.resource.data)
     && (request.auth.uid == matchOwner(resource.data)
       ? ownerMatchUpdate()
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(
-          ['currentPlayers','positions','pendingPositions','invitedPlayers','slotChange','inviteSlot'])
-          || validRoster(request.resource.data))
-      : validRoster(request.resource.data) && participantMatchUpdate());
+      : participantMatchUpdate());
   allow delete: if safetyWritesAllowed() && canDeleteMatch();
 }

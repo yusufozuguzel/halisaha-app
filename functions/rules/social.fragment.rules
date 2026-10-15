@@ -11,10 +11,9 @@ function socialPairAllowed(a, b) {
   return a != b
     && exists(/databases/$(database)/documents/users/$(a))
     && exists(/databases/$(database)/documents/users/$(b))
-    && !exists(/databases/$(database)/documents/accountDeletionJobs/$(a))
     && !exists(/databases/$(database)/documents/accountDeletionJobs/$(b))
-    && !(b in getAfter(/databases/$(database)/documents/users/$(a)).data.get('blockedUsers', []))
-    && !(a in getAfter(/databases/$(database)/documents/users/$(b)).data.get('blockedUsers', []));
+    && !exists(/databases/$(database)/documents/users/$(a)/blocks/$(b))
+    && !exists(/databases/$(database)/documents/users/$(b)/blocks/$(a));
 }
 function acceptedPair(receiver, sender) {
   let pending = /databases/$(database)/documents/users/$(receiver)/followRequests/$(sender);
@@ -64,10 +63,11 @@ match /users/{userId}/following/{otherId} {
   allow read: if canReadSocialLists(userId);
   allow write: if false;
 }
-function followNotice(receiver) {
+function followNotice(receiver, noticeId) {
   let d = request.resource.data;
   let path = /databases/$(database)/documents/users/$(receiver)/followRequests/$(request.auth.uid);
-  return d.keys().hasOnly(['title', 'message', 'type', 'senderUid', 'senderName', 'isRead', 'status', 'createdAt'])
+  return noticeId == 'follow_' + request.auth.uid
+    && d.keys().hasOnly(['title', 'message', 'type', 'senderUid', 'senderName', 'isRead', 'status', 'createdAt'])
     && d.type == 'follow_request' && d.senderUid == request.auth.uid
     && d.senderName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('fullName', get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('name', 'Bir oyuncu'))
     && d.title == 'Yeni Takip İsteği 👥'
@@ -76,21 +76,24 @@ function followNotice(receiver) {
     && !exists(path) && getAfter(path).data.from == request.auth.uid
     && getAfter(path).data.status == 'pending';
 }
-function matchNotice() {
+function matchNotice(noticeId) {
   let d = request.resource.data;
-  let m = get(/databases/$(database)/documents/matches/$(d.matchId)).data;
-  return d.keys().hasOnly(['title', 'message', 'type', 'matchId', 'matchTitle', 'matchDate', 'fromUid', 'isRead', 'createdAt'])
+  return 'matchId' in d && d.matchId is string
+    && noticeId == 'match_' + d.matchId + '_' + request.auth.uid
+    && d.keys().hasOnly(['title', 'message', 'type', 'matchId', 'matchTitle', 'matchDate', 'fromUid', 'isRead', 'createdAt'])
     && d.type == 'match_invite' && d.fromUid == request.auth.uid
-    && m.createdBy == request.auth.uid && m.date > request.time
-    && d.matchTitle == m.title && d.matchDate == m.date
-    && d.title == 'Maç Daveti ⚽' && d.message == 'Seni "' + m.title + '" maçına davet etti.'
+    && get(/databases/$(database)/documents/matches/$(d.matchId)).data.createdBy == request.auth.uid
+    && get(/databases/$(database)/documents/matches/$(d.matchId)).data.date > request.time
+    && d.matchTitle == get(/databases/$(database)/documents/matches/$(d.matchId)).data.title
+    && d.matchDate == get(/databases/$(database)/documents/matches/$(d.matchId)).data.date
+    && d.title == 'Maç Daveti ⚽' && d.message == 'Seni "' + get(/databases/$(database)/documents/matches/$(d.matchId)).data.title + '" maçına davet etti.'
     && d.isRead == false && d.createdAt == request.time;
 }
 match /users/{userId}/notifications/{noticeId} {
   allow read: if signedIn() && request.auth.uid == userId;
   allow create: if safetyWritesAllowed()
     && (socialPairAllowed(request.auth.uid, userId) && verifiedEmailForAbuse()
-        && (followNotice(userId) || matchNotice())
+        && (followNotice(userId, noticeId) || matchNotice(noticeId))
       || request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['title','message','isRead','createdAt'])
         && safePublicText(request.resource.data.title, 200)
@@ -107,16 +110,18 @@ match /users/{userId}/notifications/{noticeId} {
             && !existsAfter(/databases/$(database)/documents/users/$(userId)/followRequests/$(resource.data.senderUid))));
   allow delete: if safetyWritesAllowed() && request.auth.uid == userId;
 }
-function formationInvite() {
+function formationInvite(noticeId) {
   let d = request.resource.data;
-  let m = getAfter(/databases/$(database)/documents/matches/$(d.matchId)).data;
-  return d.keys().hasOnly(['type', 'senderId', 'receiverId', 'matchId', 'positionId', 'status', 'isRead', 'createdAt'])
+  return 'matchId' in d && d.matchId is string
+    && 'positionId' in d && d.positionId is string
+    && noticeId == 'formation_' + d.matchId + '_' + d.positionId
+    && d.keys().hasOnly(['type', 'senderId', 'receiverId', 'matchId', 'positionId', 'status', 'isRead', 'createdAt'])
     && d.type == 'match_invite' && d.senderId == request.auth.uid
     && d.status == 'pending' && d.isRead == false && d.createdAt == request.time
     && socialPairAllowed(d.senderId, d.receiverId)
-    && m.createdBy == request.auth.uid
-    && m.pendingPositions[d.positionId] == d.receiverId
-    && d.receiverId in m.invitedPlayers;
+    && getAfter(/databases/$(database)/documents/matches/$(d.matchId)).data.createdBy == request.auth.uid
+    && getAfter(/databases/$(database)/documents/matches/$(d.matchId)).data.pendingPositions[d.positionId] == d.receiverId
+    && d.receiverId in getAfter(/databases/$(database)/documents/matches/$(d.matchId)).data.invitedPlayers;
 }
 function rejectionNotice() {
   let d = request.resource.data;
@@ -134,7 +139,7 @@ match /notifications/{noticeId} {
   allow read: if signedIn() && (resource.data.receiverId == request.auth.uid
     || resource.data.senderId == request.auth.uid);
   allow create: if safetyWritesAllowed()
-    && (verifiedEmailForAbuse() && formationInvite() || rejectionNotice());
+    && (verifiedEmailForAbuse() && formationInvite(noticeId) || rejectionNotice());
   allow update: if safetyWritesAllowed() && resource.data.receiverId == request.auth.uid
     && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
         && request.resource.data.isRead is bool

@@ -100,7 +100,9 @@ class SocialInteractions {
     if (me == null || other == null) {
       throw const SocialInteractionException('Kullanıcı bulunamadı.');
     }
-    if (_blocked(me, target) || _blocked(other, uid)) {
+    final blockedMe = (await tx.read('users/$uid/blocks/$target')) != null || _blocked(me, target);
+    final blockedOther = (await tx.read('users/$target/blocks/$uid')) != null || _blocked(other, uid);
+    if (blockedMe || blockedOther) {
       throw const SocialInteractionException(
         'Bu kullanıcıyla işlem yapılamıyor.',
       );
@@ -121,7 +123,7 @@ class SocialInteractions {
 
   Future<void> requestFollow(String target) async {
     final uid = _actor(target);
-    final notification = _store.newId();
+    final notification = 'follow_$uid';
     final limited = await _writeGate(uid);
     await _store.run((tx) async {
       final pair = await _pair(tx, uid, target);
@@ -205,8 +207,8 @@ class SocialInteractions {
       if (await tx.read('users/$uid') == null) {
         throw const SocialInteractionException('Profil bulunamadı.');
       }
-      tx.update('users/$uid', {
-        'blockedUsers': FieldValue.arrayUnion([target]),
+      tx.set('users/$uid/blocks/$target', {
+        'createdAt': FieldValue.serverTimestamp(),
       });
       for (final group in ['friends', 'followRequests']) {
         tx.delete('users/$uid/$group/$target');
@@ -221,8 +223,7 @@ class SocialInteractions {
       throw const SocialInteractionException('Geçersiz maç.');
     }
     await _writeGate(uid);
-    // Encoded tuple is collision-free and stays within Firestore ID limits.
-    final id = base64Url.encode(utf8.encode(jsonEncode([matchId, uid])));
+    final path = 'users/$target/notifications/match_${matchId}_$uid';
     await _store.run((tx) async {
       await _pair(tx, uid, target);
       final match = await tx.read('matches/$matchId');
@@ -237,7 +238,6 @@ class SocialInteractions {
           'Maçın tarihi geçmiş veya geçersiz.',
         );
       }
-      final path = 'users/$target/notifications/match_invite_$id';
       if (await tx.read(path) != null) return;
       final title = match['title'] ?? 'Maç';
       tx.set(path, {

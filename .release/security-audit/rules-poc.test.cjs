@@ -37,59 +37,64 @@ beforeEach(async()=>{
     'matches/game':match(),'_runtimePolicy/safety':{enabled:true}});
 });
 
-test('F1: owner publishes unscanned external avatar URL and another user reads it',async()=>{
+test('F1 fix: owner cannot publish unscanned external avatar URL directly to profile',async()=>{
   const url='https://audit-image.invalid/unscanned.jpg';
-  await assertSucceeds(updateDoc(doc(client('alice'),'users/alice'),{avatarUrl:url}));
+  await assertFails(updateDoc(doc(client('alice'),'users/alice'),{avatarUrl:url}));
+});
+
+test('F2 fix: block relationships are stored in private subcollection, invisible to others',async()=>{
+  await assertSucceeds(setDoc(doc(client('alice'),'users/alice/blocks/bob'),{createdAt:serverTimestamp()}));
+  await assertSucceeds(getDoc(doc(client('alice'),'users/alice/blocks/bob')));
+  await assertFails(getDoc(doc(client('bob'),'users/alice/blocks/bob')));
+  await assertFails(getDocs(collection(client('mallory'),'users/alice/blocks')));
   const seen=await assertSucceeds(getDoc(doc(client('bob'),'users/alice')));
-  assert.equal(seen.data().avatarUrl,url);
+  assert.deepEqual(seen.data().blockedUsers,[]);
 });
 
-test('F2: blocked user and unrelated user can retrieve private block relationships',async()=>{
-  await assertSucceeds(updateDoc(doc(client('alice'),'users/alice'),{blockedUsers:['bob']}));
-  const blocked=await assertSucceeds(getDoc(doc(client('bob'),'users/alice')));
-  assert.deepEqual(blocked.data().blockedUsers,['bob']);
-  const all=await assertSucceeds(getDocs(query(collection(client('mallory'),'users'),where('profileVersion','==',2),limit(50))));
-  assert.deepEqual(all.docs.find(d=>d.id==='alice').data().blockedUsers,['bob']);
-});
-
-test('F3a: one future match permits repeated profile invitations with arbitrary IDs, policy enabled',async()=>{
+test('F3a fix: match invitation requires deterministic notice ID; arbitrary IDs denied',async()=>{
   const db=client('alice'); const m=(await getDoc(doc(db,'matches/game'))).data();
-  for(let i=0;i<5;i++) await assertSucceeds(setDoc(doc(db,`users/bob/notifications/replay-${i}`),{
+  await assertFails(setDoc(doc(db,'users/bob/notifications/replay-0'),{
+    type:'match_invite',fromUid:'alice',title:'Maç Daveti ⚽',message:'Seni "Audit fixture" maçına davet etti.',
+    matchId:'game',matchTitle:m.title,matchDate:m.date,isRead:false,createdAt:serverTimestamp()}));
+  await assertSucceeds(setDoc(doc(db,'users/bob/notifications/match_game_alice'),{
     type:'match_invite',fromUid:'alice',title:'Maç Daveti ⚽',message:'Seni "Audit fixture" maçına davet etti.',
     matchId:'game',matchTitle:m.title,matchDate:m.date,isRead:false,createdAt:serverTimestamp()}));
   const inbox=await getDocs(collection(client('bob'),'users/bob/notifications'));
-  assert.equal(inbox.size,5);
+  assert.equal(inbox.size,1);
 });
 
-test('F3b: one follow-request cooldown permit authorizes five notices in same batch',async()=>{
+test('F3b fix: follow notice requires deterministic ID follow_sender; fanout in batch denied',async()=>{
   const db=client('alice'); const b=writeBatch(db);
   b.set(doc(db,'_writeLimits/alice/actions/followRequest'),{targetId:'bob',updatedAt:serverTimestamp()});
   b.set(doc(db,'users/bob/followRequests/alice'),{from:'alice',status:'pending',createdAt:serverTimestamp()});
-  for(let i=0;i<5;i++) b.set(doc(db,`users/bob/notifications/fanout-${i}`),{
+  b.set(doc(db,'users/bob/notifications/fanout-0'),{
     type:'follow_request',senderUid:'alice',senderName:'alice',title:'Yeni Takip İsteği 👥',
     message:'alice seninle arkadaş olmak istiyor.',status:'pending',isRead:false,createdAt:serverTimestamp()});
-  await assertSucceeds(b.commit());
-  assert.equal((await getDocs(collection(client('bob'),'users/bob/notifications'))).size,5);
+  await assertFails(b.commit());
+  const b2=writeBatch(db);
+  b2.set(doc(db,'_writeLimits/alice/actions/followRequest'),{targetId:'bob',updatedAt:serverTimestamp()});
+  b2.set(doc(db,'users/bob/followRequests/alice'),{from:'alice',status:'pending',createdAt:serverTimestamp()});
+  b2.set(doc(db,'users/bob/notifications/follow_alice'),{
+    type:'follow_request',senderUid:'alice',senderName:'alice',title:'Yeni Takip İsteği 👥',
+    message:'alice seninle arkadaş olmak istiyor.',status:'pending',isRead:false,createdAt:serverTimestamp()});
+  await assertSucceeds(b2.commit());
+  assert.equal((await getDocs(collection(client('bob'),'users/bob/notifications'))).size,1);
 });
 
-test('F3c: an existing pending slot authorizes repeated formation notices without a roster mutation',async()=>{
+test('F3c fix: formation notice requires deterministic ID formation_matchId_positionId; spam denied',async()=>{
   await seed({'matches/game':match({pendingPositions:{'1':'bob'},invitedPlayers:['bob']})});
-  for(let i=0;i<3;i++) await assertSucceeds(setDoc(doc(client('alice'),`notifications/formation-${i}`),{
+  await assertFails(setDoc(doc(client('alice'),'notifications/formation-0'),{
     type:'match_invite',senderId:'alice',receiverId:'bob',matchId:'game',positionId:'1',
     status:'pending',isRead:false,createdAt:serverTimestamp()}));
-  for(let i=0;i<3;i++) assert.equal((await getDoc(doc(client('bob'),`notifications/formation-${i}`))).exists(),true);
+  await assertSucceeds(setDoc(doc(client('alice'),'notifications/formation_game_1'),{
+    type:'match_invite',senderId:'alice',receiverId:'bob',matchId:'game',positionId:'1',
+    status:'pending',isRead:false,createdAt:serverTimestamp()}));
 });
 
-test('F4: capacity-only update breaks roster and prevents innocent participant leaving',async()=>{
+test('F4 fix: capacity-only reduction cannot break roster or strand players',async()=>{
   const members=['alice','bob',...Array.from({length:10},(_,i)=>`fixture${i}`)];
   await seed({'matches/game':match({currentPlayers:members,positions:{}})});
-  const leave={currentPlayers:members.filter(x=>x!=='bob'),positions:{},pendingPositions:{},invitedPlayers:[],
-    slotChange:{from:'',to:'',pending:''}};
-  await assertSucceeds(updateDoc(doc(client('alice'),'matches/game'),{maxPlayers:10}));
-  assert.equal((await getDoc(doc(client('bob'),'matches/game'))).data().currentPlayers.length,12);
-  await assertFails(updateDoc(doc(client('bob'),'matches/game'),leave));
-  await assertSucceeds(updateDoc(doc(client('alice'),'matches/game'),{maxPlayers:14}));
-  await assertSucceeds(updateDoc(doc(client('bob'),'matches/game'),leave));
+  await assertFails(updateDoc(doc(client('alice'),'matches/game'),{maxPlayers:10}));
 });
 
 test('controls: unauth profile, foreign profile, roles, ownership and friendship forgery are denied',async()=>{
@@ -108,20 +113,20 @@ test('controls: one-sided friendship cannot reveal social lists; actual block ba
   await seed({'users/bob/friends/alice':friend('alice')});
   await assertSucceeds(getDocs(collection(client('bob'),'users/alice/friends')));
   const db=client('alice'),b=writeBatch(db);
-  b.update(doc(db,'users/alice'),{blockedUsers:['bob']});
+  b.set(doc(db,'users/alice/blocks/bob'),{createdAt:serverTimestamp()});
   b.delete(doc(db,'users/alice/friends/bob')); b.delete(doc(db,'users/bob/friends/alice'));
   await assertSucceeds(b.commit());
   await assertFails(getDocs(collection(client('bob'),'users/alice/friends')));
 });
 
 test('controls: blocked follow and unverified invite denied even with valid-looking payload',async()=>{
-  await seed({'users/bob':{...profile('bob'),blockedUsers:['alice']}});
+  await seed({'users/bob':profile('bob'),'users/bob/blocks/alice':{createdAt:Timestamp.fromMillis(1000)}});
   const db=client('alice'),b=writeBatch(db);
   b.set(doc(db,'_writeLimits/alice/actions/followRequest'),{targetId:'bob',updatedAt:serverTimestamp()});
   b.set(doc(db,'users/bob/followRequests/alice'),{from:'alice',status:'pending',createdAt:serverTimestamp()});
   await assertFails(b.commit());
   await seed({'users/bob':profile('bob'),'matches/game':match({pendingPositions:{'1':'bob'},invitedPlayers:['bob']})});
-  await assertFails(setDoc(doc(client('alice',false),'notifications/unverified'),{
+  await assertFails(setDoc(doc(client('alice',false),'notifications/formation_game_1'),{
     type:'match_invite',senderId:'alice',receiverId:'bob',matchId:'game',positionId:'1',
     status:'pending',isRead:false,createdAt:serverTimestamp()}));
 });

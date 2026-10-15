@@ -131,6 +131,10 @@ function createProfilePhotoUploader({ db, auth, bucket, visionClient, enabled = 
     }
     const bucketName = bucket.name;
     const avatarUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(objectPath)}?alt=media&token=${token}`;
+    const userRef = db.doc(`users/${uid}`);
+    if (typeof userRef?.set === 'function') {
+      await userRef.set({ avatarUrl }, { merge: true });
+    }
     return { avatarUrl };
   };
 }

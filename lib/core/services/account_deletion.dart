@@ -19,14 +19,23 @@ class DeletionUnavailable implements Exception {
 /// Must be supplied by a reviewed, retry-safe server workflow that cleans
 /// Firestore/Storage and relations before removing Auth. No client admin writes.
 abstract interface class AccountDeletionBackend {
-  Future<void> prepareDeletion();
-  Future<void> deleteCurrentAccount();
+  Future<void> prepareDeletion({String? expectedUid});
+  Future<void> deleteCurrentAccount({String? expectedUid});
 }
 
 class AccountDeletion {
-  AccountDeletion({this.backend});
+  AccountDeletion({this.backend, String? Function()? currentUid})
+      : _currentUid = currentUid ??
+            (() {
+              try {
+                return FirebaseAuth.instance.currentUser?.uid;
+              } catch (_) {
+                return null;
+              }
+            });
 
   final AccountDeletionBackend? backend;
+  final String? Function() _currentUid;
 
   Future<bool> run({
     required Future<bool> Function() reauthenticate,
@@ -36,12 +45,22 @@ class AccountDeletion {
     // Fail before credentials, revocation, or any mutation when unavailable.
     final service = backend;
     if (service == null) throw const DeletionUnavailable();
+    final initialUid = _currentUid();
     if (!await reauthenticate()) return false;
+    if (initialUid != null && _currentUid() != initialUid) {
+      throw const DeletionUnavailable();
+    }
     // Confirm deployment, server write guards and recent auth before revoking
     // Apple consent. The server derives the UID from the verified ID token.
-    await service.prepareDeletion();
+    await service.prepareDeletion(expectedUid: initialUid);
+    if (initialUid != null && _currentUid() != initialUid) {
+      throw const DeletionUnavailable();
+    }
     if (hasApple) await revokeAppleConsent();
-    await service.deleteCurrentAccount();
+    if (initialUid != null && _currentUid() != initialUid) {
+      throw const DeletionUnavailable();
+    }
+    await service.deleteCurrentAccount(expectedUid: initialUid);
     return true;
   }
 }

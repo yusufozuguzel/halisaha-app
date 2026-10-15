@@ -26,13 +26,7 @@ function boundedText(value, maximum) {
     && value.matches('^[^\\x00-\\x1F\\x7F]*$');
 }
 function validBlockChange() {
-  let before = resource.data.get('blockedUsers', []);
-  let after = request.resource.data.get('blockedUsers', []);
-  let added = after.removeAll(before is list ? before : []);
-  return after.toSet().size() == after.size()
-    && (added.size() == 0 || added.size() == 1
-      && accountActive(added[0]) && added[0] != request.auth.uid
-      && exists(/databases/$(database)/documents/users/$(added[0])));
+  return request.resource.data.get('blockedUsers', []).size() == 0;
 }
 match /users/{uid} {
   allow get: if request.auth != null && (request.auth.uid == uid
@@ -42,16 +36,29 @@ match /users/{uid} {
   allow create: if safetyWritesAllowed() && request.auth.uid == uid
     && validProfile(request.resource.data, uid)
     && !('username' in request.resource.data)
+    && request.resource.data.get('avatarUrl', '') == ''
     && request.resource.data.get('blockedUsers', []).size() == 0
     && request.resource.data.get('createdAt', request.time) == request.time;
   allow update: if safetyWritesAllowed() && request.auth.uid == uid
     && validProfile(request.resource.data, uid)
+    && (request.resource.data.get('avatarUrl', '') == resource.data.get('avatarUrl', '')
+      || request.resource.data.get('avatarUrl', '') == '')
     && request.resource.data.get('username', '') == resource.data.get('username', '')
     && validBlockChange()
     && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
   // Account deletion is a server workflow; deleting only the profile or
   // recreating it must not reset server state or orphan the account.
   allow delete: if false;
+  match /blocks/{blockedUid} {
+    allow read: if request.auth != null && request.auth.uid == uid;
+    allow create: if safetyWritesAllowed() && request.auth != null && request.auth.uid == uid
+      && blockedUid != uid
+      && accountActive(blockedUid)
+      && exists(/databases/$(database)/documents/users/$(blockedUid))
+      && request.resource.data.keys().hasOnly(['createdAt'])
+      && request.resource.data.createdAt == request.time;
+    allow delete: if safetyWritesAllowed() && request.auth != null && request.auth.uid == uid;
+  }
   match /private/{document=**} { allow read, write: if false; }
 }
 match /_loginLimits/{document=**} { allow read, write: if false; }

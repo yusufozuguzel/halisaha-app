@@ -147,6 +147,27 @@ function createSafetyService({ db, auth, bucket, deletionEnabled = false, report
       state = { ...state, stage: nextStage, cursor: null };
     }
 
+    const userDoc = await db.doc(`users/${uid}`).get();
+    const hasProfile = userDoc.exists;
+    if (!hasProfile) {
+      let hasMatches = false;
+      let hasReports = false;
+      if (typeof db.collection('matches').where === 'function') {
+        const ownedSnap = await db.collection('matches').where('createdBy', '==', uid).limit(1).get();
+        hasMatches = !ownedSnap.empty;
+      }
+      if (typeof db.collection('contentReports').where === 'function') {
+        const reportSnap = await db.collection('contentReports').where('reporterId', '==', uid).limit(1).get();
+        hasReports = !reportSnap.empty;
+      }
+      if (!hasMatches && !hasReports) {
+        if (['matches', 'users', ...groups, 'reports'].includes(state.stage)) {
+          await job.update({ stage: 'storage', cursor: null });
+          state = { ...state, stage: 'storage', cursor: null };
+        }
+      }
+    }
+
     if (state.stage === 'matches') await pages(db.collection('matches'), async doc => {
       const isOwned = await db.runTransaction(async tx => {
         const latest = await tx.get(doc.ref);

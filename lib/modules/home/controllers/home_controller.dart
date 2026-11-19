@@ -78,8 +78,12 @@ class HomeController extends GetxController {
               .map((doc) => <String, dynamic>{...doc.data(), 'id': doc.id})
               .toList()
             ..shuffle();
+      final picked = venues.take(5).toList();
       final proxy = PlacesProxy();
-      final selected = await Future.wait(venues.take(5).map(proxy.decorate));
+      if (isClosed) return;
+      dailyVenues.assignAll(picked.map(proxy.safeCatalogVenue));
+      isVenuesLoading.value = false;
+      final selected = await proxy.decorateVisible(picked, limit: 5);
       if (!isClosed) dailyVenues.assignAll(selected);
     } catch (_) {
       if (!isClosed) dailyVenues.clear();

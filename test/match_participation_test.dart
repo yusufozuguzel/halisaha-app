@@ -117,6 +117,7 @@ void main() {
           .singleWhere((k) => k.startsWith('notifications/'))
           .split('/')
           .last;
+      expect(id, 'formation_game_1');
       await expectLater(
         alice.respond('game', id, '1', accept: true),
         throwsA(rejected),
@@ -166,6 +167,7 @@ void main() {
           .singleWhere((k) => k.startsWith('notifications/'))
           .split('/')
           .last;
+      expect(id, 'formation_game_1');
       store.docs['users/alice']!['blockedUsers'] = ['bob'];
       await expectLater(
         bob.respond('game', id, '1', accept: true),
@@ -195,6 +197,21 @@ void main() {
       );
       await alice.editDetails('game', {'title': 'Updated'});
       expect(store.docs['matches/game']!['title'], 'Updated');
+    },
+  );
+
+  test(
+    'blocks subcollection prevents match join without reading foreign blocks',
+    () async {
+      store.docs['users/bob/blocks/alice'] = {
+        'createdAt': Timestamp.fromMillisecondsSinceEpoch(1000),
+      };
+      store.onRead = (path) {
+        if (path.startsWith('users/alice/blocks/')) {
+          throw StateError('PERMISSION_DENIED: $path');
+        }
+      };
+      await expectLater(bob.join('game'), throwsA(rejected));
     },
   );
 }

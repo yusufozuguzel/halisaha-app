@@ -16,11 +16,12 @@ class MemorySocialStore implements SocialStore {
   };
   int counter = 0;
   bool failCommit = false;
+  void Function(String path)? onRead;
   @override
   String newId() => 'notice-${counter++}';
   @override
   Future<void> run(Future<void> Function(SocialTransaction) action) async {
-    final tx = MemorySocialTransaction(docs);
+    final tx = MemorySocialTransaction(docs, onRead: onRead);
     await action(tx);
     if (failCommit) throw StateError('simulated commit failure');
     for (final write in tx.writes) {
@@ -30,12 +31,14 @@ class MemorySocialStore implements SocialStore {
 }
 
 class MemorySocialTransaction implements SocialTransaction {
-  MemorySocialTransaction(this.docs);
+  MemorySocialTransaction(this.docs, {this.onRead});
   final Map<String, Map<String, dynamic>> docs;
+  final void Function(String path)? onRead;
   final writes = <void Function()>[];
   @override
   Future<Map<String, dynamic>?> read(String path) async {
     if (writes.isNotEmpty) throw StateError('read after write');
+    onRead?.call(path);
     return docs[path];
   }
 
@@ -245,6 +248,43 @@ void main() {
         store.docs.keys.where((p) => p.contains('/notifications/')),
         isEmpty,
       );
+    },
+  );
+
+  test(
+    'social transactions never read another user private blocks or notifications',
+    () async {
+      final reads = <String>[];
+      store.onRead = (path) {
+        reads.add(path);
+        if (path.startsWith('users/bob/blocks/') ||
+            path.startsWith('users/bob/notifications/')) {
+          throw StateError('PERMISSION_DENIED: $path');
+        }
+      };
+      await alice.requestFollow('bob');
+      await alice.invite('bob', 'game');
+      store.docs['users/alice/followRequests/bob'] = {
+        'from': 'bob',
+        'status': 'pending',
+      };
+      await alice.acceptFollow('bob');
+      expect(reads.any((p) => p.startsWith('users/bob/blocks/')), false);
+      expect(reads.any((p) => p.startsWith('users/bob/notifications/')), false);
+    },
+  );
+
+  test(
+    'blocking an already-blocked user stays idempotent and preserves original block record',
+    () async {
+      final existing = {
+        'createdAt': Timestamp.fromMillisecondsSinceEpoch(1000),
+      };
+      store.docs['users/alice/blocks/bob'] = existing;
+      store.docs['users/bob/followRequests/alice'] = {'from': 'alice'};
+      await alice.block('bob');
+      expect(store.docs['users/alice/blocks/bob'], same(existing));
+      expect(store.docs.containsKey('users/bob/followRequests/alice'), false);
     },
   );
 }

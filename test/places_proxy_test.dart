@@ -68,6 +68,45 @@ void main() {
     },
   );
 
+  test(
+    'catalog documents with Google Place IDs fetch details and photo via proxy',
+    () async {
+      final ops = <String>[];
+      final proxy = PlacesProxy(
+        currentUid: () => 'alice',
+        call: (function, data) async {
+          if (function == 'safetyStatus') return {'placesProxyEnabled': true};
+          ops.add(data['operation'] as String);
+          if (data['operation'] == 'details') {
+            return {
+              'status': 'OK',
+              'result': {
+                'photos': [
+                  {
+                    'photo_reference': 'ref-1',
+                    'html_attributions': ['Photographer'],
+                  },
+                ],
+              },
+              'html_attributions': <String>[],
+            };
+          }
+          return photo;
+        },
+      );
+      final output = await proxy.decorate({
+        'id': 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+        'name': 'Ornek Hali Saha',
+        'lat': 41.0,
+        'lng': 29.0,
+      });
+      expect(ops, ['details', 'photo']);
+      expect(output['source'], 'google');
+      expect(output['photoBytes'], isA<Uint8List>());
+      expect(output['photoAttributions'], ['Photographer']);
+    },
+  );
+
   test('invalid photo request does not disable a later search', () async {
     var searches = 0;
     final proxy = PlacesProxy(

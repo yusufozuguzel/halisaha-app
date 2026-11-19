@@ -718,7 +718,7 @@ class _MatchInviteCard extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       onDismissed: (_) {
-        controller.deleteNotification(doc.id);
+        controller.rejectInvite(doc.id, matchId, positionId);
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),

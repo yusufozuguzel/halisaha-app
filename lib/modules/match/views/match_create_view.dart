@@ -450,7 +450,9 @@ class MatchCreateView extends GetView<MatchCreateController> {
           _locationField(context),
           Obx(
             () => PlacesAttributionWidget(
-              venue: controller.selectedVenueAttribution,
+              venue: Map<String, dynamic>.from(
+                controller.selectedVenueAttribution,
+              ),
             ),
           ),
 

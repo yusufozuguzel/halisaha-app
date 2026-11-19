@@ -181,6 +181,10 @@ class PlacesProxy {
     return output;
   }
 
+  static bool _looksLikeGooglePlaceId(String? value) =>
+      value != null &&
+      RegExp(r'^(ChIJ|GhIJ|Eh|Ei)[A-Za-z0-9_-]{12,}$').hasMatch(value);
+
   Future<Map<String, dynamic>> decorate(
     Map<String, dynamic> venue, {
     dynamic responseAttributions,
@@ -200,10 +204,15 @@ class PlacesProxy {
         photos.isEmpty ||
         photos.first is! Map ||
         !(photos.first as Map).containsKey('html_attributions')) {
+      final rawId = source['id']?.toString();
       final id =
           (source['place_id'] ??
                   source['placeId'] ??
-                  (source['source'] == 'google' ? source['id'] : null))
+                  (source['source'] == 'google' ||
+                          isGooglePlacesImage(oldUrl) ||
+                          _looksLikeGooglePlaceId(rawId)
+                      ? rawId
+                      : null))
               ?.toString();
       if (id != null && id.isNotEmpty) {
         try {
@@ -214,7 +223,7 @@ class PlacesProxy {
             photos = source['photos'];
           }
         } on PlacesUnavailable {
-          return output;
+          if (_enabled != true) return output;
         }
       }
     }
@@ -225,7 +234,8 @@ class PlacesProxy {
         google:
             source['source'] == 'google' ||
             source['place_id'] != null ||
-            isGooglePlacesImage(oldUrl),
+            isGooglePlacesImage(oldUrl) ||
+            _looksLikeGooglePlaceId(source['id']?.toString()),
       ),
     );
     try {

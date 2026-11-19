@@ -63,8 +63,15 @@ class MatchParticipation {
     if (a == b) return;
     final first = await tx.read('users/$a');
     final second = await tx.read('users/$b');
+    final myUid = _uid();
+    final otherUid = myUid == a ? b : (myUid == b ? a : null);
+    final blockedByMe =
+        myUid != null &&
+        otherUid != null &&
+        (await tx.read('users/$myUid/blocks/$otherUid')) != null;
     if (first == null ||
         second == null ||
+        blockedByMe ||
         (first['blockedUsers'] as List? ?? []).contains(b) ||
         (second['blockedUsers'] as List? ?? []).contains(a)) {
       _fail('Bu kullanıcıyla maç işlemi yapılamıyor.');
@@ -285,7 +292,7 @@ class MatchParticipation {
 
     for (final slot in {...base.keys, ...desired.keys}) {
       if (base[slot] == desired[slot]) continue;
-      final notificationId = _store.newId();
+      final notificationId = 'formation_${id}_$slot';
       await _store.run((tx) async {
         final m = await _read(tx, id);
         if (owner(m) != uid) _fail('Dizilişi yalnızca kurucu kaydedebilir.');

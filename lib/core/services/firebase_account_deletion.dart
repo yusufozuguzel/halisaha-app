@@ -10,7 +10,9 @@ class FirebaseAccountDeletion implements AccountDeletionBackend {
 
   @override
   Future<void> prepareDeletion({String? expectedUid}) async {
-    if (expectedUid != null && _currentUid != null && _currentUid!() != expectedUid) {
+    if (expectedUid != null &&
+        _currentUid != null &&
+        _currentUid() != expectedUid) {
       throw const DeletionUnavailable();
     }
     final result = await _api.call('prepareAccountDeletion');
@@ -19,7 +21,9 @@ class FirebaseAccountDeletion implements AccountDeletionBackend {
 
   @override
   Future<void> deleteCurrentAccount({String? expectedUid}) async {
-    if (expectedUid != null && _currentUid != null && _currentUid!() != expectedUid) {
+    if (expectedUid != null &&
+        _currentUid != null &&
+        _currentUid() != expectedUid) {
       throw const DeletionUnavailable();
     }
     final result = await _api.call('requestAccountDeletion');

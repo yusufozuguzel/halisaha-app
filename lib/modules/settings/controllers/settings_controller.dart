@@ -166,7 +166,6 @@ class SettingsController extends GetxController {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     try {
-      final startingUid = user.uid;
       final reauthentication = AccountReauthentication(user);
       final accepted = await AccountDeletion(
             backend: FirebaseAccountDeletion(

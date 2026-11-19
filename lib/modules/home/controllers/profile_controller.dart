@@ -275,9 +275,12 @@ class ProfileController extends GetxController {
     if (myUid == null || myUid.isEmpty || targetUid.isEmpty) return;
     try {
       isLoading.value = true;
-      await _db.collection('users').doc(myUid).update({
-        'blockedUsers': FieldValue.arrayRemove([targetUid]),
-      });
+      await _db
+          .collection('users')
+          .doc(myUid)
+          .collection('blocks')
+          .doc(targetUid)
+          .delete();
       if (isClosed || _myUid != myUid) return;
       BlockController.shared.blockedUserIds.remove(targetUid);
       isBlocked.value = false;

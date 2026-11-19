@@ -34,7 +34,9 @@ class NotificationsController extends GetxController {
       _allInvites.where(visibleNotification).toList();
 
   // Yeni Özellikler: Geri alma, okunmamış sayacı
-  int get unreadCount => _unread.where(visibleNotification).length;
+  int get unreadCount =>
+      _unread.where(visibleNotification).length +
+      _allInvites.where(visibleNotification).length;
   final RxList<String> hiddenNotificationIds = <String>[].obs;
 
   StreamSubscription<User?>? _authSubscription;
@@ -372,7 +374,7 @@ class NotificationsController extends GetxController {
           .doc(myUid)
           .collection('notifications')
           .doc(notificationDocId),
-      {'status': 'rejected'},
+      {'status': 'rejected', 'isRead': true},
     );
 
     await batch.commit();

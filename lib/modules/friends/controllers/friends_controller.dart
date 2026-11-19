@@ -180,7 +180,21 @@ class FriendsController extends GetxController {
     _subs.add(sub.cancel);
   }
 
-  // ── Firestore search (name prefix match) ──────────────────
+  static String _trLower(String value) =>
+      value.replaceAll('İ', 'i').replaceAll('I', 'ı').toLowerCase();
+
+  static String _trUpperFirst(String value) {
+    if (value.isEmpty) return value;
+    final first = value[0];
+    final upper = first == 'i'
+        ? 'İ'
+        : first == 'ı'
+        ? 'I'
+        : first.toUpperCase();
+    return '$upper${_trLower(value.substring(1))}';
+  }
+
+  // ── Firestore search (case-insensitive + username match) ──
   Future<void> _runSearch() async {
     final revision = ++_searchRevision;
     final query = searchQuery.value.trim();
@@ -192,17 +206,55 @@ class FriendsController extends GetxController {
 
     isSearching.value = true;
     try {
-      // Firestore'da büyük-küçük harf duyarsız prefix araması:
-      // fullName >= query  AND  fullName <= query + '\uf8ff'
-      final snap = await _db
-          .collection('users')
-          .where('fullName', isGreaterThanOrEqualTo: query)
-          .where('profileVersion', isEqualTo: 2)
-          .where('fullName', isLessThanOrEqualTo: '$query\uf8ff')
-          .limit(20)
-          .get();
-
       final myUid = _myUid;
+      final needle = _trLower(query.startsWith('@') ? query.substring(1) : query);
+      final variants = <String>{
+        query,
+        _trLower(query),
+        _trUpperFirst(query),
+        query.toUpperCase(),
+      }.where((v) => v.isNotEmpty).toList();
+
+      final byUid = <String, UserModel>{};
+
+      for (final prefix in variants) {
+        try {
+          final snap = await _db
+              .collection('users')
+              .where('profileVersion', isEqualTo: 2)
+              .where('fullName', isGreaterThanOrEqualTo: prefix)
+              .where('fullName', isLessThanOrEqualTo: '$prefix\uf8ff')
+              .limit(20)
+              .get();
+          for (final d in snap.docs) {
+            if (d.id == myUid) continue;
+            byUid[d.id] = UserModel.fromFirestore(d.id, d.data());
+          }
+        } catch (_) {}
+      }
+
+      if (byUid.length < 20) {
+        try {
+          final fallback = await _db
+              .collection('users')
+              .where('profileVersion', isEqualTo: 2)
+              .limit(50)
+              .get();
+          for (final d in fallback.docs) {
+            if (d.id == myUid || byUid.containsKey(d.id)) continue;
+            final data = d.data();
+            final fullName = _trLower((data['fullName'] ?? '').toString());
+            final name = _trLower((data['name'] ?? '').toString());
+            final username = _trLower((data['username'] ?? '').toString());
+            if (fullName.contains(needle) ||
+                name.contains(needle) ||
+                username.contains(needle)) {
+              byUid[d.id] = UserModel.fromFirestore(d.id, data);
+            }
+          }
+        } catch (_) {}
+      }
+
       String? exactUid;
       try {
         final candidate = query.startsWith('@') ? query.substring(1) : query;
@@ -215,15 +267,14 @@ class FriendsController extends GetxController {
       final exact = exactUid != null && exactUid != myUid
           ? await _db.collection('users').doc(exactUid).get()
           : null;
-      final results = snap.docs
-          .where((d) => d.id != myUid) // kendini gösterme
-          .map((d) => UserModel.fromFirestore(d.id, d.data()))
-          .toList();
+
+      final results = byUid.values.toList();
 
       if (isClosed ||
           revision != _searchRevision ||
-          searchQuery.value.trim() != query)
+          searchQuery.value.trim() != query) {
         return;
+      }
       if (exact?.exists == true) {
         results.removeWhere((user) => user.uid == exactUid);
         results.insert(0, UserModel.fromFirestore(exactUid!, exact!.data()!));

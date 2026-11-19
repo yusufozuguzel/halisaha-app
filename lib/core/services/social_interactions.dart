@@ -1,5 +1,4 @@
 import 'write_policy.dart';
-import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -100,8 +99,12 @@ class SocialInteractions {
     if (me == null || other == null) {
       throw const SocialInteractionException('Kullanıcı bulunamadı.');
     }
-    final blockedMe = (await tx.read('users/$uid/blocks/$target')) != null || _blocked(me, target);
-    final blockedOther = (await tx.read('users/$target/blocks/$uid')) != null || _blocked(other, uid);
+    final blockedMe =
+        (await tx.read('users/$uid/blocks/$target')) != null ||
+        _blocked(me, target);
+    // Target's private blocks subcollection cannot be read by the caller;
+    // server-side Firestore rules (socialPairAllowed) enforce the reverse check.
+    final blockedOther = _blocked(other, uid);
     if (blockedMe || blockedOther) {
       throw const SocialInteractionException(
         'Bu kullanıcıyla işlem yapılamıyor.',
@@ -207,9 +210,12 @@ class SocialInteractions {
       if (await tx.read('users/$uid') == null) {
         throw const SocialInteractionException('Profil bulunamadı.');
       }
-      tx.set('users/$uid/blocks/$target', {
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      final existingBlock = await tx.read('users/$uid/blocks/$target');
+      if (existingBlock == null) {
+        tx.set('users/$uid/blocks/$target', {
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
       for (final group in ['friends', 'followRequests']) {
         tx.delete('users/$uid/$group/$target');
         tx.delete('users/$target/$group/$uid');
@@ -238,7 +244,6 @@ class SocialInteractions {
           'Maçın tarihi geçmiş veya geçersiz.',
         );
       }
-      if (await tx.read(path) != null) return;
       final title = match['title'] ?? 'Maç';
       tx.set(path, {
         'title': 'Maç Daveti ⚽',

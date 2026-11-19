@@ -86,6 +86,10 @@ class DiscoverController extends GetxController {
         final address = data['city'] ?? data['address'] ?? 'Bilinmiyor';
         final loc = _parseLocation(address.toString());
         return {
+          if (data['place_id'] != null) 'place_id': data['place_id'],
+          if (data['placeId'] != null) 'placeId': data['placeId'],
+          if (data['photos'] != null) 'photos': data['photos'],
+          if (data['source'] != null) 'source': data['source'],
           'id': doc.id,
           'name': data['name'] ?? 'Bilinmiyor',
           'lat': lat,
@@ -118,6 +122,19 @@ class DiscoverController extends GetxController {
           ..addAll(allVenues.map(_places.safeCatalogVenue));
         nearbyVenues.assignAll(baseVenues);
         isVenuesLoading.value = false;
+        final decorated = await _places.decorateVisible(allVenues);
+        if (isClosed) return;
+        baseVenues
+          ..clear()
+          ..addAll(decorated);
+        final cities = baseVenues
+            .map((v) => v['city']?.toString().trim() ?? '')
+            .where((c) => c.isNotEmpty && c != 'Bilinmiyor')
+            .toSet()
+            .toList()
+          ..sort();
+        availableCities.value = cities;
+        applyFilter();
         return;
       }
 

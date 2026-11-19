@@ -17,11 +17,26 @@ const { createPlacesProxy } = require('./places-proxy.cjs');
 const { createUsernameService } = require('./usernames.cjs');
 
 initializeApp();
-const deletionEnabled = process.env.DELETION_RULES_VERIFIED === 'true';
-const reportsEnabled = process.env.MODERATION_READY === 'true';
-const photoModerationEnabled = process.env.PHOTO_MODERATION_READY === 'true' && reportsEnabled;
-const placesProxyEnabled = process.env.PLACES_PROXY_READY === 'true';
-const usernamesEnabled = process.env.USERNAMES_READY === 'true';
+function readEnvFlag(name) {
+  if (process.env[name] !== undefined) return process.env[name] === 'true';
+  try {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const raw = fs.readFileSync(path.resolve(__dirname, '../.env'), 'utf8');
+    for (const line of raw.split(/\r?\n/)) {
+      const match = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
+      if (match && match[1] === name) {
+        return match[2].trim().replace(/^['"]|['"]$/g, '') === 'true';
+      }
+    }
+  } catch (_) {}
+  return false;
+}
+const deletionEnabled = readEnvFlag('DELETION_RULES_VERIFIED');
+const reportsEnabled = readEnvFlag('MODERATION_READY');
+const photoModerationEnabled = readEnvFlag('PHOTO_MODERATION_READY') && reportsEnabled;
+const placesProxyEnabled = readEnvFlag('PLACES_PROXY_READY');
+const usernamesEnabled = readEnvFlag('USERNAMES_READY');
 const googleMapsApiKeySecret = placesProxyEnabled ? defineSecret('GOOGLE_MAPS_API_KEY') : null;
 const service = createSafetyService({
   db: getFirestore(), auth: getAuth(), bucket: getStorage().bucket(),

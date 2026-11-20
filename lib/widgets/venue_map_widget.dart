@@ -207,24 +207,29 @@ class _VenueMapWidgetState extends State<VenueMapWidget> {
           ),
 
         // RESET/FOCUS BUTTON TO RETURN TO VENUES
-        Positioned(
-          bottom: 24,
-          right: 16,
-          child: FloatingActionButton.extended(
-            heroTag: "focusVenueBtn",
-            onPressed: () => _focusOnVenues(),
-            backgroundColor: _green,
-            icon: const Icon(Icons.my_location, color: Colors.black, size: 20),
-            label: const Text(
-              'Sahayı Bul',
-              style: TextStyle(
+        if (_selectedVenue == null)
+          Positioned(
+            bottom: 24,
+            right: 16,
+            child: FloatingActionButton.extended(
+              heroTag: "focusVenueBtn",
+              onPressed: () => _focusOnVenues(),
+              backgroundColor: _green,
+              icon: const Icon(
+                Icons.my_location,
                 color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+                size: 20,
+              ),
+              label: const Text(
+                'Sahayı Bul',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

@@ -10,10 +10,12 @@ import GoogleMaps
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     var mapsReady = false
-    if let key = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String,
-       !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-       !key.contains("$(") {
-      mapsReady = GMSServices.provideAPIKey(key)
+    if let rawKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String {
+      let trimSet = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "\"'"))
+      let trimmedKey = rawKey.trimmingCharacters(in: trimSet)
+      if !trimmedKey.isEmpty && !trimmedKey.contains("$(") {
+        mapsReady = GMSServices.provideAPIKey(trimmedKey)
+      }
     }
     GeneratedPluginRegistrant.register(with: self)
     if let registrar = registrar(forPlugin: "DeparMapsConfiguration") {

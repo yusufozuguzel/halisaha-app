@@ -6,6 +6,8 @@
 		<string>DEPAR profil fotoğrafınızı çekmek için kamerayı kullanır.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>DEPAR profil fotoğrafınızı seçebilmeniz için fotoğraf kitaplığınıza erişir.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>DEPAR yakınınızdaki halı sahaları bulmak ve mesafelerini göstermek için konumunuzu kullanır.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>DEPAR yakınınızdaki halı sahaları bulmak ve mesafelerini göstermek için konumunuzu kullanır.</string>
 		<key>GMSApiKey</key>

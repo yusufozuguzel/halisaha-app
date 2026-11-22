@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "2273283642-3rm5b9s31vulobugem8v2hlbabg1kc93.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.depar.app",
+            "certificate_hash": "adcaf9ea5d6eee976aa12ed629cce98efd4d5290"
+          }
+        },
+        {
           "client_id": "2273283642-6jm196jmlodr6up53vamroigrtl0bphd.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -27,6 +35,14 @@
           "android_info": {
             "package_name": "com.depar.app",
             "certificate_hash": "b525a3ddc94b51f717292ba971ee368c7bf33d02"
+          }
+        },
+        {
+          "client_id": "2273283642-hitfuo9uh776t1q8up1pcfrau5t1cv8j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.depar.app",
+            "certificate_hash": "12266d55a4258d2e8c1388a31052a3653dbd92c0"
           }
         },
         {
